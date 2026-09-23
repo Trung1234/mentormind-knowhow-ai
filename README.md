@@ -23,3 +23,4 @@ Graph + Vector Store để AI Agent hỏi-đáp và truy nguyên nhân lỗi.
 Chi tiết kiến trúc: [`docs/architecture.md`](docs/architecture.md)
 
 ## Kiến trúc tóm tắt
+<img width="1280" height="698" alt="image" src="https://github.com/user-attachments/assets/be178b8a-7d39-45b3-9b9a-fe442c0bec6d" />
