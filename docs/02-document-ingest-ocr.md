@@ -22,6 +22,7 @@ class ChunkKind(StrEnum):
 
 class DocumentChunk(BaseModel):
     chunk_id: str            # f"{doc_id}#p{page}-{index}"
+    source_type: Literal["document"] = "document"   # khớp Citation.source_type (spec 05), dùng làm field filter Milvus
     doc_id: str              # "DOC-" + sha256(file bytes)[:12]
     source_path: str
     title: str | None
@@ -63,3 +64,4 @@ class DocumentChunk(BaseModel):
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
+- v1.1 (23/9): thêm field `source_type` tường minh vào `DocumentChunk` (trước chỉ nằm trong metadata Milvus).

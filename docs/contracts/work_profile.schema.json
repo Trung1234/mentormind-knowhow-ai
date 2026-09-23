@@ -43,6 +43,7 @@
         "video_id": { "type": ["string", "null"] },
         "t_start": { "type": ["number", "null"], "minimum": 0 },
         "t_end": { "type": ["number", "null"], "minimum": 0 },
+        "segment_ids": { "type": "array", "items": { "type": "string" }, "default": [], "description": "Segment (spec 03) làm căn cứ. Có thể >1 vì lượt C (spec 04) gộp bước giữa các đoạn kề nhau." },
         "keyframes": { "type": "array", "items": { "type": "string" }, "default": [] },
         "transcript_excerpt": { "type": ["string", "null"] },
         "document_refs": { "type": "array", "items": { "type": "string" }, "default": [] }

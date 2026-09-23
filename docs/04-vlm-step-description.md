@@ -38,7 +38,7 @@ Một đoạn có thể có 0..n bước.
 
 **Hậu xử lý bắt buộc**
 - Ép `reason = None`, `reason_source = None`, `generated_by = "vlm"`, `status = "draft"`.
-- Gán `evidence` = video_id, t_start/t_end tuyệt đối, keyframes của đoạn, `transcript_excerpt` từ `align_transcript` (spec 03) nếu có.
+- Gán `evidence` = video_id, t_start/t_end tuyệt đối, `segment_ids` (mọi đoạn mà bước gộp từ đó), keyframes của đoạn, `transcript_excerpt` từ `align_transcript` (spec 03) nếu có.
 - Gán `model_info` = provider, model, fps.
 - Validate bằng `validate_against_contract`. JSON lỗi → gọi lại 1 lần với prompt sửa (`prompts/repair_json.md`); vẫn lỗi → ghi segment vào `failed_segments.json`, không crash.
 
@@ -101,3 +101,4 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
+- v1.1 (23/9): hậu xử lý gán `evidence.segment_ids` (contract WorkProfile thêm field).

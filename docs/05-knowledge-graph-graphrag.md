@@ -43,6 +43,7 @@ File `src/knowhow/kg/schema.cypher` chứa toàn bộ `CREATE CONSTRAINT ... IF 
 ## 3. Loader — `knowhow.kg.loader`
 - **FR-01** `load_profiles(profiles)` chỉ nhận `status == "approved"`; profile khác → bỏ qua và đếm vào `skipped`.
 - **FR-02** Dùng `MERGE` theo khóa; chạy lại không nhân đôi node/cạnh. Khi `version` mới hơn → cập nhật thuộc tính.
+- **FR-02b** Cạnh `EVIDENCED_BY` tạo từ `evidence.segment_ids` của profile (match theo `segment_id`), không suy ra bằng overlap thời gian.
 - **FR-03** `NEXT` được tính lại cho cả process sau mỗi lần nạp, theo `step_order`.
 - **FR-04** `unload_profile(profile_id)` xóa `Step` và cạnh liên quan (dùng khi profile bị reject sau khi đã approved).
 - **FR-05** `load_sigma(adapter)` nạp `Lot`, `PROCESSED_AT`, `HAS_DEFECT`, `Symptom`, `CAUSED_BY`, `PREVENTED_BY` từ Sigma adapter (spec 07).
@@ -80,7 +81,7 @@ Thuật toán:
 | `where_symptom_occurred` | symptom text | "Lỗi móp góc từng xảy ra ở lô/công đoạn nào?" |
 | `root_causes_of_symptom` | symptom text | "Nguyên nhân thường gặp của lỗi thiếu linh kiện?" |
 | `prevention_steps` | symptom text | "Bước nào giúp tránh lỗi này?" |
-| `lots_with_defect` | defect_code, date range | "Lô nào bị lỗi D-07 tuần trước?" |
+| `lots_with_defect` | defect_code, date range | "Lô nào bị lỗi D-03 tuần trước?" |
 
 Symptom text → `symptom_id` bằng full-text index trên `Symptom.name` (tạo trong schema.cypher).
 
@@ -104,3 +105,4 @@ Symptom text → `symptom_id` bằng full-text index trên `Symptom.name` (tạo
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
+- v1.1 (23/9): sửa ví dụ `D-07` → `D-03` (catalog spec 07 chỉ có D-01..D-06); FR-02b tạo `EVIDENCED_BY` từ `evidence.segment_ids`.

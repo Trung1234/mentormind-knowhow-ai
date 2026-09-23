@@ -29,6 +29,7 @@ class Segment(BaseModel):
     motion_score: float | None     # 0..1, None nếu không tính
     keyframes: list[str]           # đường dẫn JPG
     clip_path: str                 # mp4 đã cắt
+    data_classification: DataClassification   # kế thừa từ VideoAsset, để DataGuard (spec 04) kiểm tra không cần tra ngược
 
 class TranscriptSegment(BaseModel):
     video_id: str
@@ -36,6 +37,8 @@ class TranscriptSegment(BaseModel):
     t_end: float
     text: str
     language: str
+    source: Literal["inline", "cued_recall"] = "inline"   # lời bình khi quay / ghi âm video-cued recall
+    data_classification: DataClassification
 ```
 
 ## 4. Functional Requirements
@@ -49,6 +52,7 @@ class TranscriptSegment(BaseModel):
 - **FR-05** Mỗi đoạn xuất 3 keyframe (đầu, giữa, cuối) JPG, cạnh dài 768px.
 - **FR-06** Mỗi đoạn xuất `clip_path` mp4 (ffmpeg `-c copy` nếu được, không thì re-encode H.264).
 - **FR-07** `knowhow video transcribe <file>` (Should): nếu `has_audio`, chạy Whisper local (faster-whisper, model `small`, `language="vi"` mặc định, cấu hình được) → `TranscriptSegment` list tại `transcript.json`. Không dùng ASR cloud.
+- **FR-07b** `knowhow video transcribe --recall-audio <audio_file> --video-id <VID-...> [--offset <s>]` (Should): nhận file ghi âm video-cued recall (architecture mục 4) cho video câm. Timestamp transcript = timestamp audio + `offset` (mặc định 0, tức chuyên gia bắt đầu ghi âm cùng lúc phát video). Kết quả `source="cued_recall"`, `data_classification` lấy từ `VideoAsset`, ghi nối vào `transcript.json` của video đó.
 - **FR-08** `align_transcript(segments, transcripts) -> dict[segment_id, list[TranscriptSegment]]` gán mỗi câu transcript vào đoạn có overlap thời gian lớn nhất.
 
 ## 5. Acceptance Criteria
@@ -58,6 +62,8 @@ class TranscriptSegment(BaseModel):
 - **AC-04** `--method hand_activity` khi thiếu MediaPipe → tự rơi về `scene`, log cảnh báo, không crash.
 - **AC-05** Video không có audio → `transcribe` trả list rỗng, không lỗi.
 - **AC-06** `align_transcript` với dữ liệu giả lập: câu nằm vắt qua ranh giới được gán cho đoạn chứa phần lớn thời lượng của câu.
+- **AC-07** Mọi `Segment` và `TranscriptSegment` mang đúng `data_classification` của `VideoAsset` gốc.
+- **AC-08** `--recall-audio` với `--offset 12.5` trên audio giả lập → mọi `t_start` được cộng 12.5, `source="cued_recall"`; `--video-id` không tồn tại → báo lỗi, không ghi file.
 
 ## 6. Tasks
 - [ ] T03-1 Models + `probe`.
@@ -65,6 +71,8 @@ class TranscriptSegment(BaseModel):
 - [ ] T03-3 Keyframe + clip export.
 - [ ] T03-4 `hand_activity` với MediaPipe + fallback (AC-04).
 - [ ] T03-5 `transcribe` faster-whisper + `align_transcript` (AC-05, AC-06).
+- [ ] T03-6 Lan truyền `data_classification` (AC-07) + `--recall-audio` (AC-08).
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
+- v1.1 (23/9): `Segment`/`TranscriptSegment` mang `data_classification`; thêm FR-07b nạp audio video-cued recall cho video câm (AC-07, AC-08, T03-6).

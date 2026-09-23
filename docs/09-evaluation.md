@@ -14,6 +14,8 @@ Mỗi dòng:
  "expected_citations": ["WP-PACK01-003"],
  "author": "Đạt", "created_at": "2026-09-30"}
 ```
+`expected_citations` là danh sách `Citation.ref_id` (spec 05) thuộc bất kỳ `source_type` nào: `WP-...` (profile), `DOC-...#...` (chunk tài liệu), `VID-...-Sxxx` (segment), `lot_id`/`defect_code` (sigma). Câu `relational` nên có citation sigma hoặc document.
+
 Phân bố tối thiểu 30 câu: how 10, why 6, exception 5, relational 5, out_of_scope 4 (câu mà trợ lý **phải từ chối**).
 
 Nhãn bước chuẩn cho fps sweep: `data/golden_set/steps/<video_stem>.json` (xem spec 04 mục 6).
@@ -42,9 +44,9 @@ Thêm hai chỉ số tự tính:
 
 ## 4. Functional Requirements
 - **FR-01** `knowhow eval ragas --golden data/golden_set/qa.jsonl --out data/work/eval/` chạy Work Assistant trên từng câu, tính nhóm B, xuất `ragas_results.csv` (1 dòng/câu) và `summary.json`.
-- **FR-02** Judge LLM cho Ragas lấy từ `get_llm_provider` (config riêng `KNOWHOW_EVAL_LLM_*` được phép khác model của agent).
+- **FR-02** Judge LLM cho Ragas lấy từ `get_llm_provider` (config riêng `KNOWHOW_EVAL_LLM_*` được phép khác model của agent). Khuyến nghị: test/CI dùng FakeLLM (AC-02); benchmark cho báo cáo 12/10 dùng judge mạnh (VD GPT-4o-mini hoặc Qwen2.5-72B qua API) vì model ~8B chấm Ragas không ổn định. Được phép vì golden set 12/10 chỉ gồm dữ liệu `public`/`synthetic`; DataGuard vẫn chặn nếu có `factory_confidential`.
 - **FR-03** `knowhow eval review-stats` tính nhóm A từ profile store.
-- **FR-04** `knowhow eval report` gộp A + B (+ sweep CSV nếu có) thành `data/work/eval/usefulness_report.md`: bảng chỉ số, so ngưỡng (đạt/không đạt), 5 câu trả lời tệ nhất kèm lý do, phần "Hạn chế" và "Thiết kế thí nghiệm pilot" (nhóm C).
+- **FR-04** `knowhow eval report` gộp A + B (+ sweep CSV nếu có) thành `data/work/eval/usefulness_report.md`: bảng chỉ số, so ngưỡng (đạt/không đạt), 5 câu trả lời tệ nhất kèm lý do, bảng "Profile cần xem lại" (các `profile_id` trong citation thực tế và `expected_citations` của những câu dưới ngưỡng, kèm `process_id` và số câu liên quan — đầu vào cho vòng lặp sửa profile ở spec 08), phần "Hạn chế" và "Thiết kế thí nghiệm pilot" (nhóm C).
 - **FR-05** Mọi lần chạy ghi `run_id`, thời điểm, model, commit hash vào `summary.json` để so sánh giữa các lần.
 
 ## 5. Acceptance Criteria
@@ -53,12 +55,14 @@ Thêm hai chỉ số tự tính:
 - **AC-03** `refusal_accuracy` tính đúng trên fixture cố định (kết quả kỳ vọng ghi trong test).
 - **AC-04** `review-stats` trên fixture 10 review event ra đúng tỷ lệ và phân bố error_tags.
 - **AC-05** `report` sinh markdown có bảng chỉ số với cột "Đạt ngưỡng" = ✅/❌ đúng theo ngưỡng mục 3.
+- **AC-06** Fixture có 2 câu dưới ngưỡng cùng trích `WP-PACK01-003` → bảng "Profile cần xem lại" có dòng `WP-PACK01-003` với số câu = 2.
 
 ## 6. Tasks
 - [ ] T09-1 Schema golden set + validator (AC-01) — Đạt viết nội dung, Phúc viết validator.
 - [ ] T09-2 Runner Ragas + chỉ số tự tính (AC-02, AC-03).
 - [ ] T09-3 `review-stats` (AC-04).
-- [ ] T09-4 `report` (AC-05).
+- [ ] T09-4 `report` (AC-05, AC-06).
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
+- v1.1 (23/9): làm rõ `expected_citations` nhận mọi `ref_id`; khuyến nghị judge LLM; FR-04 thêm bảng "Profile cần xem lại" (AC-06).
