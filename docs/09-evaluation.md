@@ -25,7 +25,8 @@ Nhãn bước chuẩn cho fps sweep: `data/golden_set/steps/<video_stem>.json` (
 **A. Trích xuất VLM** (từ `review_events`, spec 08)
 - Tỷ lệ profile approve không cần sửa / approve sau khi sửa / reject.
 - Phân bố `error_tags` (bỏ sót, bịa, sai thứ tự...).
-- Kết quả fps sweep (spec 04): recall, precision, order_accuracy theo fps.
+- Kết quả fps sweep (spec 04): recall, precision, order_accuracy, key_point_recall theo fps.
+- `reason_coverage`: % profile `approved` có `reason` khác null, tách theo `data_classification` (`public` / `synthetic`). Ngưỡng MVP: ≥ 60% trên video `synthetic` (video public không có lời chuyên gia nên chỉ báo cáo, không so ngưỡng). Đây là chỉ số chứng minh sản phẩm lưu được "vì sao", không chỉ là SOP.
 
 **B. Chất lượng trả lời** (Ragas trên golden set, bỏ nhóm `out_of_scope`)
 | Chỉ số | Ngưỡng MVP |
@@ -56,13 +57,15 @@ Thêm hai chỉ số tự tính:
 - **AC-04** `review-stats` trên fixture 10 review event ra đúng tỷ lệ và phân bố error_tags.
 - **AC-05** `report` sinh markdown có bảng chỉ số với cột "Đạt ngưỡng" = ✅/❌ đúng theo ngưỡng mục 3.
 - **AC-06** Fixture có 2 câu dưới ngưỡng cùng trích `WP-PACK01-003` → bảng "Profile cần xem lại" có dòng `WP-PACK01-003` với số câu = 2.
+- **AC-07** `review-stats` trên fixture 5 profile approved `synthetic` (3 có `reason`) + 2 `public` (0 có `reason`) → `reason_coverage.synthetic = 0.6` (✅), `reason_coverage.public = 0.0` (không so ngưỡng).
 
 ## 6. Tasks
 - [ ] T09-1 Schema golden set + validator (AC-01) — Đạt viết nội dung, Phúc viết validator.
 - [ ] T09-2 Runner Ragas + chỉ số tự tính (AC-02, AC-03).
-- [ ] T09-3 `review-stats` (AC-04).
+- [ ] T09-3 `review-stats` + `reason_coverage` (AC-04, AC-07).
 - [ ] T09-4 `report` (AC-05, AC-06).
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
 - v1.1 (23/9): làm rõ `expected_citations` nhận mọi `ref_id`; khuyến nghị judge LLM; FR-04 thêm bảng "Profile cần xem lại" (AC-06).
+- v1.2 (24/9): nhóm A thêm `reason_coverage` (ngưỡng ≥ 60% trên synthetic) và `key_point_recall` từ sweep (AC-07).

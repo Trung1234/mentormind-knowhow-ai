@@ -83,7 +83,9 @@ Thuật toán:
 | `prevention_steps` | symptom text | "Bước nào giúp tránh lỗi này?" |
 | `lots_with_defect` | defect_code, date range | "Lô nào bị lỗi D-03 tuần trước?" |
 
-Symptom text → `symptom_id` bằng full-text index trên `Symptom.name` (tạo trong schema.cypher).
+Symptom text → `symptom_id`: chuẩn hóa cả câu hỏi lẫn `Symptom.name` (lowercase, bỏ dấu tiếng Việt bằng `unicodedata` NFD, đổi `đ`→`d`), rồi so khớp mờ bằng Python (`rapidfuzz.fuzz.token_set_ratio ≥ 70`, lấy điểm cao nhất) trên danh sách Symptom lấy từ graph (catalog nhỏ, D-01..D-06). Không khớp → fallback full-text index trên `Symptom.name` (tạo trong schema.cypher). Vẫn không có → template trả rỗng, retriever chỉ dùng vector + expansion.
+
+Router: output validate bằng Pydantic (`template: Literal[...] | None`, tham số theo từng template). Output sai schema hoặc template trả 0 dòng → bỏ qua bước relational, không raise.
 
 ## 5. Acceptance Criteria
 - **AC-01** Nạp 5 profile (3 approved, 1 draft, 1 rejected) → graph có đúng 3 `Step`, `skipped = 2`.
@@ -93,16 +95,21 @@ Symptom text → `symptom_id` bằng full-text index trên `Symptom.name` (tạo
 - **AC-05** Câu "Lỗi thiếu linh kiện từng xảy ra ở lô nào?" trên dữ liệu seed → router chọn `where_symptom_occurred`, kết quả chứa đúng các `lot_id` trong fixture.
 - **AC-06** Mọi `passage` trong `RetrievedContext` có ít nhất một `Citation` tương ứng.
 - **AC-07** Router nhận câu không liên quan quan hệ → không chọn template nào (chỉ vector + expansion).
-- Test AC-01..04 chạy trên Neo4j thật (`@pytest.mark.integration`); AC-05..07 có bản unit với fake graph client.
+- **AC-08** Mỗi template trong 6 template có ít nhất 1 integration test trên dữ liệu seed (Sigma mock + profile fixture), kết quả khớp giá trị kỳ vọng ghi trong test.
+- **AC-09** Symptom text gõ không dấu ("thieu linh kien") → map đúng `D-01`.
+- **AC-10** Router (FakeLLM) trả JSON sai schema hoặc tên template không tồn tại → `retrieve` vẫn trả kết quả vector + expansion, không raise.
+- Test AC-01..04 và AC-08 chạy trên Neo4j thật (`@pytest.mark.integration`); AC-05..07, AC-09, AC-10 có bản unit với fake graph client.
 
 ## 6. Tasks
 - [ ] T05-1 `schema.cypher` + `kg init`.
 - [ ] T05-2 Loader profiles (AC-01..04) + đẩy chunk profile vào Milvus (FR-06).
 - [ ] T05-3 Loader Sigma (FR-05) — cần spec 07 xong interface.
 - [ ] T05-4 Vector search + graph expansion.
-- [ ] T05-5 Router + 6 template Cypher (AC-05, AC-07).
+- [ ] T05-5 Router + 6 template Cypher + khớp symptom không dấu (AC-05, AC-07, AC-09, AC-10).
+- [ ] T05-7 Integration test cho đủ 6 template trên seed (AC-08).
 - [ ] T05-6 Gộp/xếp hạng/ngân sách token + citation (AC-06).
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
 - v1.1 (23/9): sửa ví dụ `D-07` → `D-03` (catalog spec 07 chỉ có D-01..D-06); FR-02b tạo `EVIDENCED_BY` từ `evidence.segment_ids`.
+- v1.2 (24/9): symptom matching bỏ dấu + fuzzy trên catalog, full-text làm fallback; router validate Pydantic, lỗi → bỏ qua relational; test đủ 6 template (AC-08..10, T05-7).

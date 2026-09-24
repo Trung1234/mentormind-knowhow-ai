@@ -50,6 +50,8 @@ mentormind-knowhow-ai/
 - **FR-03** `config.py` định nghĩa `Settings` đọc từ env với prefix `KNOWHOW_`; mọi module lấy config qua `get_settings()` (cache).
 - **FR-04** `Makefile` có target: `up`, `down`, `check` (ruff check + ruff format --check + mypy + pytest), `test`, `demo`, `fmt`.
 - **FR-05** `docker-compose.yml`: `neo4j:5` (APOC bật, port 7474/7687, volume), `milvus-standalone` v2.4 + `etcd` + `minio` theo compose chính thức của Milvus. Healthcheck cho neo4j và milvus.
+- **FR-05b** Giới hạn tài nguyên để chạy được trên máy dev: Neo4j đặt `NEO4J_server_memory_heap_max__size=1G`, `NEO4J_server_memory_pagecache_size=512M`; mọi service trong compose có `mem_limit` (neo4j 2g, milvus 4g, etcd 512m, minio 512m).
+- **FR-05c** Dev/CI được phép dùng Milvus Lite bằng cách đặt `KNOWHOW_MILVUS_URI=./data/work/milvus.db` (chỉ đổi config — Constitution Điều 5). Nếu Milvus Lite không hỗ trợ hybrid dense+sparse mà spec 05 cần, Milvus Lite chỉ dùng cho unit test, demo vẫn chạy `milvus-standalone`.
 - **FR-06** `.gitignore` chặn: `data/raw/`, `data/factory/`, `data/work/`, `.env`, `*.mp4|*.mov|*.wav|*.mp3` **trừ** `data/samples/**`.
 - **FR-07** GitHub Actions `ci.yml`: trên push/PR chạy `uv sync --all-extras` + `make check`. Test không cần docker (dùng fake).
 - **FR-08** `schemas/work_profile.py` là Pydantic v2 model tương đương 1-1 với `specs/contracts/work_profile.schema.json`, kèm hàm `validate_against_contract(obj) -> None` dùng `jsonschema` để kiểm tra chéo.
@@ -67,6 +69,7 @@ KNOWHOW_VLM_BASE_URL=https://dashscope-intl.aliyuncs.com/compatible-mode/v1
 KNOWHOW_VLM_MODEL=qwen3-vl-plus
 KNOWHOW_VLM_API_KEY=
 KNOWHOW_VLM_FPS=4
+KNOWHOW_VLM_MAX_FRAMES=48
 KNOWHOW_LLM_PROVIDER=qwen_api
 KNOWHOW_LLM_MODEL=qwen-plus
 KNOWHOW_EMBED_MODEL=BAAI/bge-m3
@@ -83,14 +86,18 @@ KNOWHOW_SIGMA_CSV_DIR=data/mock_sigma
 - **AC-04** Một WorkProfile mẫu hợp lệ pass cả Pydantic lẫn `validate_against_contract`; một profile VLM `draft` có `reason` khác null bị cả hai từ chối.
 - **AC-05** `DataGuard.check("factory_confidential", cloud_provider)` raise; với `local_provider` không raise.
 - **AC-06** `git add data/raw/x.mp4` bị `.gitignore` bỏ qua; `data/samples/demo.mp4` thì không.
+- **AC-07** `docker compose config` cho thấy mọi service có `mem_limit`; tổng ≤ 7.5 GB.
+- **AC-08** `Settings` với `KNOWHOW_MILVUS_URI` là đường dẫn file `.db` → vector store client khởi tạo được mà không cần docker.
 
 ## 6. Tasks
 - [ ] T01-1 Tạo `pyproject.toml`, `Makefile`, `.gitignore`, `.env.example`, `CLAUDE.md`, `README.md`.
 - [ ] T01-2 `config.py`, `cli.py` với sub-command rỗng cho từng module.
 - [ ] T01-3 `schemas/` + `validate_against_contract` + test AC-04.
 - [ ] T01-4 `guard/data_guard.py` + test AC-05.
-- [ ] T01-5 `docker-compose.yml` + healthcheck (Vinh).
+- [ ] T01-5 `docker-compose.yml` + healthcheck + giới hạn bộ nhớ (Vinh) (AC-02, AC-07).
+- [ ] T01-7 Hỗ trợ Milvus Lite qua config; kiểm chứng hybrid search trên Milvus Lite và ghi kết quả vào Changelog (AC-08).
 - [ ] T01-6 CI workflow.
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
+- v1.1 (24/9): FR-05b giới hạn bộ nhớ Neo4j/Milvus; FR-05c Milvus Lite cho dev/CI; thêm `KNOWHOW_VLM_MAX_FRAMES` (AC-07, AC-08, T01-7).

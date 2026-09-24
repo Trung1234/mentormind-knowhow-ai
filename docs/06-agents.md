@@ -59,7 +59,7 @@ class RcaReport(BaseModel):
 ```
 Luồng:
 1. Có `lot_id` → `SigmaAdapter.get_lot(lot_id)` + `get_defects(lot_id)` (spec 07) → xác định symptom, process, ca, người vận hành.
-2. Graph (spec 05 templates): `root_causes_of_symptom`, `where_symptom_occurred`, `prevention_steps`.
+2. Graph (spec 05 templates): `root_causes_of_symptom`, `where_symptom_occurred`, `prevention_steps` — **gọi trực tiếp theo tên template, không qua router LLM**. Tham số: có `lot_id` → dùng `defect_code` từ Sigma làm `symptom_id` (tất định); chỉ có `symptom_text` → map sang `symptom_id` bằng hàm khớp symptom của spec 05.
 3. `HybridRetriever` với câu hỏi dựng từ symptom để lấy thêm bước/ngoại lệ liên quan.
 4. LLM sinh `RcaReport` dạng JSON theo schema. Giả thuyết không có evidence → hạ `likelihood="low"`. WhyStep không truy được về citation → `verified=False`.
 5. Lot không tồn tại → lỗi `LotNotFound` (API trả 404).
@@ -79,12 +79,14 @@ Luồng:
 - **AC-05** RCA với lot mock có defect `D-03` → `hypotheses` không rỗng, mỗi hypothesis `high`/`medium` có ≥ 1 evidence, `disclaimer` không rỗng.
 - **AC-06** RCA với `lot_id` không tồn tại → `LotNotFound`.
 - **AC-07** `five_why` có 3..5 phần tử; phần tử không có căn cứ → `verified=False`.
+- **AC-08** RCA với `lot_id` → router của spec 05 không được gọi (FakeLLM ghi lại prompt, không có prompt router); 3 template được gọi với `symptom_id` = `defect_code` của lot.
 
 ## 7. Tasks
 - [ ] T06-1 `LLMProvider` + `FakeLLM` + lọc confidential (AC-04).
 - [ ] T06-2 Work Assistant + prompt + hậu kiểm (AC-01..03).
-- [ ] T06-3 RCA Agent + prompt (AC-05..07).
+- [ ] T06-3 RCA Agent + prompt + gọi template tất định (AC-05..08).
 - [ ] T06-4 Trace logging + CLI.
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
+- v1.1 (24/9): RCA gọi template Cypher trực tiếp theo tên, không qua router; `lot_id` → `symptom_id` tất định từ Sigma (AC-08).
