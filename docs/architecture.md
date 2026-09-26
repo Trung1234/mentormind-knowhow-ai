@@ -63,7 +63,7 @@ Ba nguồn đầu vào, ưu tiên theo chi phí thu thập:
   2. *Mô tả từng đoạn* — cắt riêng 5–15 giây, ép JSON theo schema mục 5.
   3. *Tổng hợp* — gộp JSON, dựng task graph, phát hiện mâu thuẫn giữa nhiều video cùng công đoạn.
 
-  Cấu hình khuyến nghị: model **Qwen3-VL-8B-Instruct** (cạnh tranh với bản 72B ở tác vụ video), chạy BF16 trên GPU 24GB (RTX 4090/3090/A10G/L4); lấy mẫu **4–8 fps** (không dùng mặc định 1 fps — mất động tác tay nhanh); độ phân giải khung hình *low* để ưu tiên độ dày thời gian hơn độ nét.
+  Cấu hình khuyến nghị: model **Qwen3-VL-8B-Instruct** (cạnh tranh với bản Qwen2.5-VL-72B ở tác vụ video), chạy BF16 trên GPU 24GB (RTX 4090/3090/A10G/L4); lấy mẫu **4–8 fps** (không dùng mặc định 1 fps — mất động tác tay nhanh); độ phân giải khung hình *low* để ưu tiên độ dày thời gian hơn độ nét.
 
 ### Lớp 3 — Knowledge Base
 - **Vector store** (Milvus, qua mmore index): tìm theo mô tả tự do.
