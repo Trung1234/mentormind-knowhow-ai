@@ -8,7 +8,7 @@ Cắt video thao tác thành các đoạn ngắn có ranh giới hợp lý để
 ## 2. Vì sao phải tự cắt đoạn trước khi đưa VLM
 VLM lấy mẫu thưa (mặc định ~1 fps) sẽ bỏ sót động tác tay nhanh. Cắt trước thành đoạn 5–15s cho phép đẩy fps cao trên từng đoạn mà không tốn token.
 
-## 3. Data model — `knowhow.schemas.video`
+## 3. Data model — `core.schemas.video`
 ```python
 class VideoAsset(BaseModel):
     video_id: str              # "VID-" + sha256[:12]
@@ -76,3 +76,4 @@ class TranscriptSegment(BaseModel):
 ## Changelog
 - v1.0 (23/9): khởi tạo.
 - v1.1 (23/9): `Segment`/`TranscriptSegment` mang `data_classification`; thêm FR-07b nạp audio video-cued recall cho video câm (AC-07, AC-08, T03-6).
+- v1.2 (27/9): đường dẫn module theo layout mới (bỏ `knowhow.`/`src/knowhow/`, xem spec 01 v1.3).

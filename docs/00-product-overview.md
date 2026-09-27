@@ -21,7 +21,7 @@ Audio bình luận ──────┼─► Segment + keyframe ─► VLM 3 l
 Bản vẽ / SOP (PDF) ───┘                                              │
                                                      Chuyên gia duyệt trên UI
                                                                       │ approved
-                         Sigma (mock CSV) ──────► Knowledge Graph (Neo4j) + Vector (Milvus)
+                         Sigma (mock CSV) ──────► Knowledge Graph (Neo4j) + Vector (Postgres/pgvector)
                                                                       │
                                               Work Assistant / RCA Agent ─► Ragas eval
 ```
@@ -60,3 +60,4 @@ Bản vẽ / SOP (PDF) ───┘                                             
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
+- v1.1 (27/9): vector store đổi từ Milvus sang PostgreSQL + pgvector.

@@ -38,19 +38,19 @@ Lưu tri thức đã duyệt dưới dạng đồ thị (quan hệ công đoạn
 (Symptom)-[:CAUSED_BY {confidence, source}]->(RootCause)
 (RootCause)-[:PREVENTED_BY]->(Step)
 ```
-File `src/knowhow/kg/schema.cypher` chứa toàn bộ `CREATE CONSTRAINT ... IF NOT EXISTS` cho các khóa trên.
+File `knowledge_base/kg/schema.cypher` chứa toàn bộ `CREATE CONSTRAINT ... IF NOT EXISTS` cho các khóa trên.
 
-## 3. Loader — `knowhow.kg.loader`
+## 3. Loader — `knowledge_base.kg.loader`
 - **FR-01** `load_profiles(profiles)` chỉ nhận `status == "approved"`; profile khác → bỏ qua và đếm vào `skipped`.
 - **FR-02** Dùng `MERGE` theo khóa; chạy lại không nhân đôi node/cạnh. Khi `version` mới hơn → cập nhật thuộc tính.
 - **FR-02b** Cạnh `EVIDENCED_BY` tạo từ `evidence.segment_ids` của profile (match theo `segment_id`), không suy ra bằng overlap thời gian.
 - **FR-03** `NEXT` được tính lại cho cả process sau mỗi lần nạp, theo `step_order`.
 - **FR-04** `unload_profile(profile_id)` xóa `Step` và cạnh liên quan (dùng khi profile bị reject sau khi đã approved).
 - **FR-05** `load_sigma(adapter)` nạp `Lot`, `PROCESSED_AT`, `HAS_DEFECT`, `Symptom`, `CAUSED_BY`, `PREVENTED_BY` từ Sigma adapter (spec 07).
-- **FR-06** Profile approved cũng được đẩy vào Milvus như một chunk (`source_type="work_profile"`, text = step + hand_action + key_point + reason + exceptions) để tìm được bằng vector.
+- **FR-06** Profile approved cũng được upsert vào vector store (pgvector, qua `VectorStore`) như một chunk (`source_type="work_profile"`, text = step + hand_action + key_point + reason + exceptions) để tìm được bằng vector. `unload_profile` xóa luôn chunk này.
 - CLI: `knowhow kg init` (chạy schema.cypher), `knowhow kg load-profiles`, `knowhow kg load-sigma`, `knowhow kg stats`.
 
-## 4. Retriever — `knowhow.retrieval.hybrid`
+## 4. Retriever — `knowledge_base.retrieval.hybrid`
 ```python
 class Citation(BaseModel):
     source_type: Literal["work_profile", "document", "video_segment", "sigma"]
@@ -69,7 +69,7 @@ class HybridRetriever:
     def retrieve(self, query: str, process_id: str | None = None, k: int = 8) -> RetrievedContext: ...
 ```
 Thuật toán:
-1. **Vector**: tìm top-k trong Milvus (hybrid dense+sparse), filter `process_id` nếu có.
+1. **Vector**: tìm top-k trong pgvector — hybrid gồm dense (cosine trên cột `embedding`, index HNSW) + lexical (`ts_rank` trên `tsvector` cấu hình `simple` + `unaccent`, vì Postgres không có từ điển tiếng Việt), gộp bằng Reciprocal Rank Fusion (k=60); filter `process_id` nếu có.
 2. **Graph expansion**: với hit `work_profile` → lấy `Step` + bước trước/sau (`NEXT`), `Exception`, `Part`, `Expert`, `VideoSegment`; với hit `document` → các `Step` có `REFERENCES` tới document đó.
 3. **Relational intent**: một router (LLM, output JSON enum) chọn 0..1 template Cypher trong bảng dưới. **Không sinh Cypher tự do** (an toàn + ổn định).
 4. Gộp, khử trùng, xếp hạng (vector score + bonus 0.1 cho node chạm bởi graph), cắt theo ngân sách 3.000 token.
@@ -102,7 +102,7 @@ Router: output validate bằng Pydantic (`template: Literal[...] | None`, tham s
 
 ## 6. Tasks
 - [ ] T05-1 `schema.cypher` + `kg init`.
-- [ ] T05-2 Loader profiles (AC-01..04) + đẩy chunk profile vào Milvus (FR-06).
+- [ ] T05-2 Loader profiles (AC-01..04) + đẩy chunk profile vào pgvector (FR-06).
 - [ ] T05-3 Loader Sigma (FR-05) — cần spec 07 xong interface.
 - [ ] T05-4 Vector search + graph expansion.
 - [ ] T05-5 Router + 6 template Cypher + khớp symptom không dấu (AC-05, AC-07, AC-09, AC-10).
@@ -113,3 +113,5 @@ Router: output validate bằng Pydantic (`template: Literal[...] | None`, tham s
 - v1.0 (23/9): khởi tạo.
 - v1.1 (23/9): sửa ví dụ `D-07` → `D-03` (catalog spec 07 chỉ có D-01..D-06); FR-02b tạo `EVIDENCED_BY` từ `evidence.segment_ids`.
 - v1.2 (24/9): symptom matching bỏ dấu + fuzzy trên catalog, full-text làm fallback; router validate Pydantic, lỗi → bỏ qua relational; test đủ 6 template (AC-08..10, T05-7).
+- v1.3 (27/9): vector store đổi Milvus → pgvector; hybrid = dense + full-text `simple`/`unaccent`, gộp RRF (FR-06, thuật toán bước 1, T05-2).
+- v1.4 (27/9): đường dẫn module theo layout mới (bỏ `knowhow.`/`src/knowhow/`, xem spec 01 v1.3).

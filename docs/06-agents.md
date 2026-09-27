@@ -10,7 +10,7 @@ Hai agent hẹp, mỗi agent một việc, luôn có căn cứ (Constitution Đi
 ## 2. LLM provider
 Dùng lại pattern của spec 04: `LLMProvider` protocol (`generate_text`, `generate_json`, `is_cloud`), factory `get_llm_provider(settings)`, `FakeLLM` cho test. Khi provider `is_cloud`, retriever **loại bỏ** mọi passage `factory_confidential` khỏi context và ghi log số passage bị loại.
 
-## 3. Work Assistant — `knowhow.agents.work_assistant`
+## 3. Work Assistant — `agents.work_assistant`
 ```python
 class AskRequest(BaseModel):
     question: str
@@ -30,7 +30,7 @@ Luồng:
 4. **Hậu kiểm**: mọi marker [n] phải trỏ tới citation tồn tại; câu trả lời không có marker nào → sinh lại 1 lần; vẫn không có → `refused=True`.
 5. `confidence` = trung bình score của các citation được dùng.
 
-## 4. RCA Agent — `knowhow.agents.rca`
+## 4. RCA Agent — `agents.rca`
 ```python
 class RcaRequest(BaseModel):
     lot_id: str | None = None
@@ -90,3 +90,4 @@ Luồng:
 ## Changelog
 - v1.0 (23/9): khởi tạo.
 - v1.1 (24/9): RCA gọi template Cypher trực tiếp theo tên, không qua router; `lot_id` → `symptom_id` tất định từ Sigma (AC-08).
+- v1.2 (27/9): đường dẫn module theo layout mới (bỏ `knowhow.`/`src/knowhow/`, xem spec 01 v1.3).

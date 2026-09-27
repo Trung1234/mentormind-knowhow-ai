@@ -3,10 +3,10 @@
 Repo này phát triển theo **Spec-Driven Development**. Spec là nguồn sự thật; code là sản phẩm phái sinh của spec.
 
 ## Trước khi viết bất kỳ dòng code nào
-1. Đọc `specs/constitution.md` (luật bất biến của dự án).
-2. Đọc `specs/00-product-overview.md` (phạm vi MVP nộp ngày 12/10/2026).
-3. Đọc đúng file spec của task được giao (ví dụ task `S1-3` → `specs/04-vlm-step-description.md`).
-4. Đọc các contract liên quan trong `specs/contracts/`.
+1. Đọc `docs/constitution.md` (luật bất biến của dự án).
+2. Đọc `docs/00-product-overview.md` (phạm vi MVP nộp ngày 12/10/2026).
+3. Đọc đúng file spec của task được giao (ví dụ task `S1-3` → `docs/04-vlm-step-description.md`).
+4. Đọc các contract liên quan trong `docs/contracts/`.
 
 ## Quy trình cho mỗi task
 1. Tìm task ID trong mục **Tasks** của spec. Chỉ làm task đó.
@@ -17,19 +17,19 @@ Repo này phát triển theo **Spec-Driven Development**. Spec là nguồn sự 
 
 ## Khi spec thiếu hoặc mâu thuẫn
 - Không tự đoán rồi code. Dừng lại, liệt kê câu hỏi, đề xuất sửa spec dưới dạng diff.
-- Contract trong `specs/contracts/` thắng mọi mô tả văn xuôi nếu hai bên mâu thuẫn.
+- Contract trong `docs/contracts/` thắng mọi mô tả văn xuôi nếu hai bên mâu thuẫn.
 
 ## Lệnh thường dùng
 ```bash
 uv sync                 # cài dependency
-make up                 # docker compose: Neo4j + Milvus
+make up                 # docker compose: Neo4j + PostgreSQL/pgvector
 make check              # ruff + mypy + pytest
 make demo               # chạy luồng end-to-end trên dữ liệu mẫu
 uv run knowhow --help   # CLI chính
 ```
 
 ## Quy ước
-- Python 3.11, package `knowhow` trong `src/knowhow/`, quản lý bằng `uv`.
+- Python 3.11, quản lý bằng `uv`, flat layout theo `docs/architecture.md` §6: `core/` (config, cli, schemas, guard), `capture/`, `processing/`, `knowledge_base/`, `agents/`, `evaluation/`, `backend/app/` (API). CLI vẫn tên `knowhow`.
 - Code, tên biến, docstring: tiếng Anh. Text hiển thị cho người dùng cuối: tiếng Việt.
-- Mọi I/O dữ liệu đi qua Pydantic model trong `knowhow.schemas`.
+- Mọi I/O dữ liệu đi qua Pydantic model trong `core.schemas`.
 - Không bao giờ commit dữ liệu trong `data/raw/` hoặc `data/factory/`.

@@ -5,7 +5,7 @@
 ## 1. Mục tiêu
 Từ các `Segment` (spec 03) sinh ra danh sách `WorkProfile` ở trạng thái `draft`, hợp lệ theo contract, không chứa `reason` bịa. Đổi provider (API cloud ↔ self-host) chỉ bằng config.
 
-## 2. Provider abstraction — `knowhow.vlm.providers`
+## 2. Provider abstraction — `processing.vlm.providers`
 ```python
 class VLMProvider(Protocol):
     name: str
@@ -25,7 +25,7 @@ class FakeVLM:           # test: trả JSON cố định từ tests/fixtures/vlm
 - `get_vlm_provider(settings) -> VLMProvider` là factory duy nhất; code nghiệp vụ không import class cụ thể.
 - Mọi lời gọi đi qua `DataGuard.check(classification, provider)` (spec 01, FR-09) **trước** khi đọc file.
 
-## 3. Pipeline 3 lượt — `knowhow.vlm.pipeline.describe_video(video_id) -> list[WorkProfile]`
+## 3. Pipeline 3 lượt — `processing.vlm.pipeline.describe_video(video_id) -> list[WorkProfile]`
 
 **Lượt A — mô tả từng đoạn.** Với mỗi `Segment`, gọi VLM với prompt `prompts/pass_a_describe.md`, output theo schema:
 ```json
@@ -45,7 +45,7 @@ Một đoạn có thể có 0..n bước.
 - Gán `model_info` = provider, model, fps.
 - Validate bằng `validate_against_contract`. JSON lỗi → gọi lại 1 lần với prompt sửa (`prompts/repair_json.md`); vẫn lỗi → ghi segment vào `failed_segments.json`, không crash.
 
-## 4. Prompt lượt A (nội dung chuẩn, lưu tại `src/knowhow/vlm/prompts/pass_a_describe.md`)
+## 4. Prompt lượt A (nội dung chuẩn, lưu tại `processing/vlm/prompts/pass_a_describe.md`)
 ```
 Bạn là kỹ sư IE đang ghi lại thao tác của một công nhân lành nghề trong công đoạn {process_id}
 (xếp linh kiện vào hộp). Các ảnh sau là khung hình liên tiếp của một đoạn video dài {duration}s,
@@ -111,3 +111,4 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - v1.0 (23/9): khởi tạo.
 - v1.1 (23/9): hậu xử lý gán `evidence.segment_ids` (contract WorkProfile thêm field).
 - v1.2 (24/9): FR-02b lấy mẫu thích ứng theo `motion_score` + bỏ khung trùng + `KNOWHOW_VLM_MAX_FRAMES`; `sweep` thêm `key_point_recall`; hậu kiểm `reason` phải khớp transcript (AC-09, AC-10).
+- v1.3 (27/9): đường dẫn module theo layout mới (bỏ `knowhow.`/`src/knowhow/`, xem spec 01 v1.3).

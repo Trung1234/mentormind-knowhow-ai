@@ -2,7 +2,7 @@
 
 **Owner:** Vinh · **Tasks Excel:** S1-8, S2-4, S3-3 · luồng end-to-end S2-3 (Trung)
 
-## 1. Profile store — `knowhow.store.profile_store`
+## 1. Profile store — `knowledge_base.store.profile_store`
 SQLite tại `KNOWHOW_PROFILE_DB`.
 ```sql
 CREATE TABLE profiles (
@@ -18,10 +18,10 @@ CREATE TABLE jobs (
 - Mọi lần ghi validate bằng `validate_against_contract`.
 - Sửa nội dung profile → `version += 1`, `status = "in_review"`.
 
-## 2. REST API (FastAPI) — `knowhow.api.main:app`
+## 2. REST API (FastAPI) — `backend.app.main:app`
 | Method & path | Body / query | Trả về | Ghi chú |
 |---|---|---|---|
-| `GET /health` | — | `{status, neo4j, milvus}` | |
+| `GET /health` | — | `{status, neo4j, postgres}` | |
 | `POST /ingest/documents` | multipart files, `classification` | `{job_id}` | chạy spec 02 run + index |
 | `POST /videos` | multipart file, `process_id`, `classification` | `VideoAsset` | lưu `data/work/video/` |
 | `POST /videos/{video_id}/process` | `{method?, fps?}` | `{job_id}` | segment → transcribe → describe → propose-reasons |
@@ -89,3 +89,5 @@ Cấu hình: `layout="wide"`, cỡ chữ ≥ 16px, nút bấm lớn; UI chỉ g�
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
+- v1.1 (27/9): `/health` báo `postgres` thay cho `milvus`.
+- v1.2 (27/9): đường dẫn module theo layout mới (bỏ `knowhow.`/`src/knowhow/`, xem spec 01 v1.3).

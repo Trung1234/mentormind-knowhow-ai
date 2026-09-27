@@ -5,7 +5,7 @@
 ## 1. Mục tiêu
 Tách logic nghiệp vụ khỏi hệ thống Sigma thật (chưa rõ API). MVP chạy trên CSV mock; khi có Sigma thật chỉ cần viết thêm một adapter.
 
-## 2. Interface — `knowhow.sigma.adapter`
+## 2. Interface — `knowledge_base.sigma.adapter`
 ```python
 class LotRecord(BaseModel):
     lot_id: str
@@ -86,3 +86,4 @@ Script `scripts/gen_mock_sigma.py` sinh dữ liệu với seed cố định (42)
 ## Changelog
 - v1.0 (23/9): khởi tạo.
 - v1.1 (23/9): bảng catalog đủ 5 cột (thêm `known_root_cause_id`, `prevention_profile_id`); FR-05/AC-06 toàn vẹn lot–ca–thời điểm.
+- v1.2 (27/9): đường dẫn module theo layout mới (bỏ `knowhow.`/`src/knowhow/`, xem spec 01 v1.3).

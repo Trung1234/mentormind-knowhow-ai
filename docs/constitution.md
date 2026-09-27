@@ -22,7 +22,7 @@ Mọi câu trả lời của agent phải kèm citation (profile_id / document c
 LLM, VLM, OCR, vector store đều đứng sau interface. Đổi từ API cloud sang self-host chỉ là đổi config, không sửa logic nghiệp vụ.
 
 ## Điều 6 — Chất lượng code
-- Python 3.11, type hints đầy đủ, `mypy --strict` cho `src/knowhow/schemas` và `src/knowhow/guard`.
+- Python 3.11, type hints đầy đủ, `mypy --strict` cho `core/schemas` và `core/guard`.
 - Test bằng pytest; mỗi Acceptance Criteria có ít nhất 1 test. Test không gọi mạng thật (dùng fake provider).
 - Mỗi module chạy độc lập được qua CLI `knowhow <module> <command>`.
 - Cấu hình qua biến môi trường (`pydantic-settings`), không hardcode secret.
