@@ -1,0 +1,122 @@
+export type ProfileStatus = "draft" | "in_review" | "approved" | "rejected";
+export type ReasonSource = "expert_verbal" | "expert_interview";
+export type ErrorTag =
+  | "missed_step"
+  | "hallucinated_step"
+  | "wrong_order"
+  | "wrong_object"
+  | "wrong_action"
+  | "other";
+
+export interface Evidence {
+  video_id?: string | null;
+  t_start?: number | null;
+  t_end?: number | null;
+  segment_ids?: string[];
+  keyframes?: string[];
+  transcript_excerpt?: string | null;
+  document_refs?: string[];
+}
+
+export interface ReviewInfo {
+  reviewer: string;
+  reviewed_at: string;
+  comment?: string | null;
+  error_tags?: ErrorTag[];
+}
+
+export interface ExceptionItem {
+  case: string;
+  handling: string;
+}
+
+export interface WorkProfile {
+  schema_version: "1.0";
+  profile_id: string;
+  process_id: string;
+  step_order: number;
+  step: string;
+  hand_action?: string | null;
+  objects: string[];
+  key_point?: string | null;
+  reason?: string | null;
+  reason_source?: ReasonSource | null;
+  exceptions: ExceptionItem[];
+  pass_criteria?: string | null;
+  equipment_id?: string | null;
+  part_numbers: string[];
+  evidence: Evidence;
+  confidence: number;
+  generated_by: "vlm" | "ocr" | "human";
+  data_classification: "public" | "synthetic" | "factory_confidential";
+  status: ProfileStatus;
+  review?: ReviewInfo | null;
+  created_at: string;
+  version: number;
+}
+
+export interface ReviewRequest {
+  action: "approve" | "reject";
+  reviewer: string;
+  comment?: string;
+  error_tags?: ErrorTag[];
+}
+
+export interface ProfilePatchRequest {
+  step?: string;
+  hand_action?: string;
+  objects?: string[];
+  key_point?: string;
+  reason?: string;
+  reason_source?: ReasonSource | null;
+  pass_criteria?: string;
+}
+
+export interface Citation {
+  source_type: "video" | "document";
+  ref_id: string;
+  title?: string;
+  t_start?: number;
+  t_end?: number;
+  excerpt?: string;
+  keyframe_url?: string;
+}
+
+export interface AssistantAnswer {
+  answer: string;
+  refused: boolean;
+  suggested_expert?: string;
+  citations: Citation[];
+}
+
+export interface Hypothesis {
+  hypothesis: string;
+  likelihood: "high" | "medium" | "low";
+  evidence_refs: string[];
+}
+
+export interface WhyStep {
+  order: number;
+  question: string;
+  answer: string;
+  verified: boolean;
+}
+
+export interface RcaReport {
+  lot_id?: string;
+  symptom: string;
+  hypotheses: Hypothesis[];
+  five_whys: WhyStep[];
+  related_lots: string[];
+  preventive_actions: string[];
+  disclaimer: string;
+}
+
+export interface LotRecord {
+  lot_id: string;
+  process_id: string;
+  part_number: string;
+  produced_at: string;
+  defect_type?: string;
+  status: string;
+}
