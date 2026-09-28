@@ -1,0 +1,3 @@
+[submodule "3rdparty/vlm_server"]
+	path = 3rdparty/vlm_server
+	url = git@github.com:osirisQdt2810/vlm-engine.git

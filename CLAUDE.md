@@ -26,7 +26,10 @@ make up                 # docker compose: Neo4j + PostgreSQL/pgvector
 make check              # ruff + mypy + pytest
 make demo               # chạy luồng end-to-end trên dữ liệu mẫu
 uv run knowhow --help   # CLI chính
+make vlm-server         # Qwen3-VL-8B tự host trên 1 GPU (submodule 3rdparty/vlm_server = vlm-engine)
+uv run knowhow vlm ping # kiểm tra VLM đang cấu hình (provider: uv run knowhow vlm providers)
 ```
+API key nằm trong `.secrets/secrets.env` (gitignored), hướng dẫn tại `.secrets/README.md`.
 
 ## Quy ước
 - Python 3.11, quản lý bằng `uv`. Toàn bộ mã nguồn nằm trong package gốc `mentormind/` (`docs/architecture.md` §6): `mentormind/core/` (config, cli, schemas, guard), `capture/`, `processing/`, `knowledge_base/`, `agents/`, `evaluation/`, `backend/app/` (API), `frontend/`. Import luôn tuyệt đối từ gốc: `from mentormind.core.schemas import ...`. CLI vẫn tên `knowhow`.
