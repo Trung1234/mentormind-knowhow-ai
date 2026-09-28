@@ -56,9 +56,17 @@ class Settings(BaseSettings):
     # which stops Qwen3-VL from looping step lists — see 3rdparty/vlm_server/README.md).
     vlm_extra_body: dict[str, Any] = {}
 
-    # --- LLM (spec 06) ----------------------------------------------------------------------
+    # --- LLM (spec 06; also spec 04 pass C / propose-reasons) ---------------------------------
     llm_provider: str = "qwen_api"
-    llm_model: str = "qwen-plus"
+    # Empty = the provider's default (qwen_api: qwen-plus, local_openai: the Qwen3-VL server).
+    llm_base_url: str | None = None
+    llm_model: str | None = None
+    llm_api_key: SecretStr | None = None
+    llm_timeout_s: float = 90.0
+    llm_max_retries: int = 3
+    llm_json_mode: JsonMode = "auto"
+    llm_max_tokens: int = 1024
+    llm_extra_body: dict[str, Any] = {}
 
     # --- Outbound guard for cloud calls (spec 01 FR-09b, spec 04 FR-02c) ---------------------
     # Mask PII in text sent to cloud providers. False = refuse instead (LeakGuard always runs).

@@ -29,10 +29,11 @@ mentormind-knowhow-ai/
 │   │   │   ├── data_guard.py   # chặn factory_confidential → cloud
 │   │   │   ├── pii/            # recognizers, vault, masker, leak_guard (FR-09b)
 │   │   │   └── outbound/       # policy, session (chuỗi mask → leak → audit), audit
+│   │   ├── llm/                # LLM kind (spec 06 §2): base, registry, factory, context, backends/
 │   │   └── providers/          # dùng chung cho VLM (spec 04) và LLM (spec 06)
 │   │       ├── base.py, models.py, registry.py, errors.py
 │   │       ├── transport/      # HttpClient, retry (spec 04 FR-07)
-│   │       ├── openai_compat/  # bảng endpoint vendor, locality (local vs cloud)
+│   │       ├── openai_compat/  # bảng endpoint vendor, locality, resolve, chat client
 │   │       └── parsing/        # trích JSON từ câu trả lời model
 │   ├── capture/                # Việt Hoàng
 │   │   ├── ingest/             # spec 02
