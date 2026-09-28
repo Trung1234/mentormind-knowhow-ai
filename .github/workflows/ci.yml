@@ -1,0 +1,70 @@
+name: CI - Test & Build
+
+on:
+  push:
+    branches:
+      - main
+      - 'vinh/**'
+      - 'phuc-nguyen/**'
+      - 'dendeqwe1209-**'
+      - '**'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  backend-test:
+    name: Backend Lint & Pytest
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r mentormind/backend/requirements.txt
+          pip install pytest jsonschema httpx ruff
+
+      - name: Run Ruff Linter
+        run: |
+          ruff check mentormind/ tests/
+
+      - name: Run Pytest
+        run: |
+          PYTHONPATH=. pytest tests/ -v
+
+  frontend-build:
+    name: Frontend Typecheck & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: mentormind/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: mentormind/frontend
+        run: |
+          npm ci
+
+      - name: Typecheck and Build Frontend
+        working-directory: mentormind/frontend
+        run: |
+          npm run build

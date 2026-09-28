@@ -1,11 +1,12 @@
-from typing import List, Optional
+
 from fastapi import APIRouter, Query
+
 from mentormind.core.schemas import LotRecord
 
 router = APIRouter(prefix="/sigma", tags=["sigma"])
 
 # Mock lots from sample data for Demo & Testing
-SAMPLE_LOTS: List[LotRecord] = [
+SAMPLE_LOTS: list[LotRecord] = [
     LotRecord(
         lot_id="LOT-2026-001",
         process_id="PACK01",
@@ -33,10 +34,10 @@ SAMPLE_LOTS: List[LotRecord] = [
 ]
 
 
-@router.get("/lots", response_model=List[LotRecord])
+@router.get("/lots", response_model=list[LotRecord])
 def get_lots(
-    process_id: Optional[str] = Query(default=None, description="Mã công đoạn"),
-) -> List[LotRecord]:
+    process_id: str | None = Query(default=None, description="Mã công đoạn"),
+) -> list[LotRecord]:
     if process_id:
         return [lot for lot in SAMPLE_LOTS if lot.process_id == process_id]
     return SAMPLE_LOTS

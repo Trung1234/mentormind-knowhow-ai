@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+
 from mentormind.core.schemas import AskRequest, AssistantAnswer, Citation
 
 router = APIRouter(prefix="/assistant", tags=["assistant"])

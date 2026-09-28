@@ -1,8 +1,7 @@
-import os
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
+
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, UploadFile
 from pydantic import BaseModel
 
 from mentormind.backend.app.config import get_settings
@@ -22,11 +21,11 @@ class VideoAsset(BaseModel):
 
 
 class ProcessVideoRequest(BaseModel):
-    method: Optional[str] = "heuristic"
-    fps: Optional[float] = 4.0
+    method: str | None = "heuristic"
+    fps: float | None = 4.0
 
 
-def run_document_ingest_task(job_id: str, file_paths: List[str], classification: str, store: ProfileStore) -> None:
+def run_document_ingest_task(job_id: str, file_paths: list[str], classification: str, store: ProfileStore) -> None:
     store.update_job(job_id, JobStatus.RUNNING)
     try:
         # In demo / offline mode, perform mock or call ingest runner if available
@@ -56,10 +55,10 @@ def run_video_process_task(job_id: str, video_id: str, fps: float, store: Profil
 @router.post("/ingest/documents")
 async def ingest_documents(
     background_tasks: BackgroundTasks,
-    files: List[UploadFile] = File(...),
+    files: list[UploadFile] = File(...),
     classification: DataClassification = Form(DataClassification.SYNTHETIC),
     store: ProfileStore = Depends(get_profile_store),
-) -> Dict[str, str]:
+) -> dict[str, str]:
     job_id = f"job-doc-{uuid.uuid4().hex[:8]}"
     store.create_job(job_id, "document_ingest")
 
@@ -121,7 +120,7 @@ def process_video(
     req: ProcessVideoRequest,
     background_tasks: BackgroundTasks,
     store: ProfileStore = Depends(get_profile_store),
-) -> Dict[str, str]:
+) -> dict[str, str]:
     job_id = f"job-vid-{uuid.uuid4().hex[:8]}"
     store.create_job(job_id, "video_process")
 

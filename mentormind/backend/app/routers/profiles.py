@@ -1,4 +1,5 @@
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from mentormind.backend.app.deps import get_profile_store
@@ -36,12 +37,12 @@ def hook_on_profile_unloaded(profile: WorkProfile) -> None:
         pass
 
 
-@router.get("", response_model=List[WorkProfile])
+@router.get("", response_model=list[WorkProfile])
 def list_profiles(
-    process_id: Optional[str] = Query(default=None, description="Mã công đoạn"),
-    status: Optional[str] = Query(default=None, description="Trạng thái (draft, in_review, approved, rejected)"),
+    process_id: str | None = Query(default=None, description="Mã công đoạn"),
+    status: str | None = Query(default=None, description="Trạng thái (draft, in_review, approved, rejected)"),
     store: ProfileStore = Depends(get_profile_store),
-) -> List[WorkProfile]:
+) -> list[WorkProfile]:
     return store.list_profiles(process_id=process_id, status=status)
 
 
@@ -49,7 +50,7 @@ def list_profiles(
 def get_profile(
     profile_id: str,
     store: ProfileStore = Depends(get_profile_store),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     res = store.get_profile_with_reviews(profile_id)
     if not res:
         raise HTTPException(

@@ -1,4 +1,3 @@
-from typing import Optional
 from fastapi import APIRouter, HTTPException, status
 
 from mentormind.backend.app.routers.sigma import SAMPLE_LOTS

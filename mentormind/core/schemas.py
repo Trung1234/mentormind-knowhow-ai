@@ -8,9 +8,9 @@ Conforms strictly to:
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, List, Literal, Optional
+from typing import Any, Literal
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
@@ -59,34 +59,34 @@ class ExceptionItem(BaseModel):
 
 class ExpertInfo(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    expert_id: Optional[str] = None
-    display_name: Optional[str] = None
+    expert_id: str | None = None
+    display_name: str | None = None
 
 
 class Evidence(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    video_id: Optional[str] = None
-    t_start: Optional[float] = Field(default=None, ge=0)
-    t_end: Optional[float] = Field(default=None, ge=0)
-    segment_ids: List[str] = Field(default_factory=list)
-    keyframes: List[str] = Field(default_factory=list)
-    transcript_excerpt: Optional[str] = None
-    document_refs: List[str] = Field(default_factory=list)
+    video_id: str | None = None
+    t_start: float | None = Field(default=None, ge=0)
+    t_end: float | None = Field(default=None, ge=0)
+    segment_ids: list[str] = Field(default_factory=list)
+    keyframes: list[str] = Field(default_factory=list)
+    transcript_excerpt: str | None = None
+    document_refs: list[str] = Field(default_factory=list)
 
 
 class ModelInfo(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    provider: Optional[str] = None
-    model: Optional[str] = None
-    fps: Optional[float] = None
+    provider: str | None = None
+    model: str | None = None
+    fps: float | None = None
 
 
 class ReviewInfo(BaseModel):
     model_config = ConfigDict(extra="forbid")
     reviewer: str
     reviewed_at: str
-    comment: Optional[str] = None
-    error_tags: List[ErrorTag] = Field(default_factory=list)
+    comment: str | None = None
+    error_tags: list[ErrorTag] = Field(default_factory=list)
 
 
 PROFILE_ID_REGEX = re.compile(r"^WP-[A-Z0-9]{3,}-[0-9]{3}$")
@@ -100,23 +100,23 @@ class WorkProfile(BaseModel):
     process_id: str
     step_order: int = Field(ge=1)
     step: str = Field(min_length=3)
-    hand_action: Optional[str] = None
-    objects: List[str] = Field(default_factory=list)
-    key_point: Optional[str] = None
-    reason: Optional[str] = None
-    reason_source: Optional[ReasonSource] = None
-    exceptions: List[ExceptionItem] = Field(default_factory=list)
-    pass_criteria: Optional[str] = None
-    equipment_id: Optional[str] = None
-    part_numbers: List[str] = Field(default_factory=list)
-    expert: Optional[ExpertInfo] = None
+    hand_action: str | None = None
+    objects: list[str] = Field(default_factory=list)
+    key_point: str | None = None
+    reason: str | None = None
+    reason_source: ReasonSource | None = None
+    exceptions: list[ExceptionItem] = Field(default_factory=list)
+    pass_criteria: str | None = None
+    equipment_id: str | None = None
+    part_numbers: list[str] = Field(default_factory=list)
+    expert: ExpertInfo | None = None
     evidence: Evidence
     confidence: float = Field(ge=0.0, le=1.0)
     generated_by: GeneratedBy
-    model_info: Optional[ModelInfo] = None
+    model_info: ModelInfo | None = None
     data_classification: DataClassification
     status: ProfileStatus
-    review: Optional[ReviewInfo] = None
+    review: ReviewInfo | None = None
     created_at: str
     version: int = Field(default=1, ge=1)
 
@@ -130,21 +130,28 @@ class WorkProfile(BaseModel):
     @model_validator(mode="after")
     def validate_constitution_and_contract_rules(self) -> WorkProfile:
         # Rule 1: Constitution Điều 3: Draft sinh bởi VLM tuyệt đối không được có reason
-        if self.generated_by == GeneratedBy.VLM and self.status == ProfileStatus.DRAFT:
-            if self.reason is not None or self.reason_source is not None:
-                raise ValueError(
-                    "Constitution Điều 3: Bản nháp do VLM sinh không được có reason hoặc reason_source."
-                )
+        if (
+            self.generated_by == GeneratedBy.VLM
+            and self.status == ProfileStatus.DRAFT
+            and (self.reason is not None or self.reason_source is not None)
+        ):
+            raise ValueError(
+                "Constitution Điều 3: Bản nháp do VLM sinh không được có reason hoặc reason_source."
+            )
 
         # Rule 2: Có reason thì bắt buộc phải có reason_source
-        if self.reason:
-            if not self.reason_source:
-                raise ValueError("Bắt buộc phải chọn reason_source ('expert_verbal' hoặc 'expert_interview') khi có reason.")
+        if self.reason and not self.reason_source:
+            raise ValueError(
+                "Bắt buộc phải chọn reason_source ('expert_verbal' hoặc 'expert_interview') khi có reason."
+            )
 
         # Rule 3: Khi status là approved thì bắt buộc phải có review kèm reviewer và reviewed_at
-        if self.status == ProfileStatus.APPROVED:
-            if not self.review or not self.review.reviewer or not self.review.reviewed_at:
-                raise ValueError("Trạng thái 'approved' bắt buộc phải có thông tin review (reviewer và reviewed_at).")
+        if self.status == ProfileStatus.APPROVED and (
+            not self.review or not self.review.reviewer or not self.review.reviewed_at
+        ):
+            raise ValueError(
+                "Trạng thái 'approved' bắt buộc phải có thông tin review (reviewer và reviewed_at)."
+            )
 
         return self
 
@@ -161,8 +168,8 @@ class ReviewAction(str, Enum):
 class ReviewRequest(BaseModel):
     action: ReviewAction
     reviewer: str = Field(min_length=1)
-    comment: Optional[str] = None
-    error_tags: List[ErrorTag] = Field(default_factory=list)
+    comment: str | None = None
+    error_tags: list[ErrorTag] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def check_reject_reason(self) -> ReviewRequest:
@@ -172,17 +179,17 @@ class ReviewRequest(BaseModel):
 
 
 class ProfilePatchRequest(BaseModel):
-    step: Optional[str] = Field(default=None, min_length=3)
-    hand_action: Optional[str] = None
-    objects: Optional[List[str]] = None
-    key_point: Optional[str] = None
-    reason: Optional[str] = None
-    reason_source: Optional[ReasonSource] = None
-    exceptions: Optional[List[ExceptionItem]] = None
-    pass_criteria: Optional[str] = None
-    equipment_id: Optional[str] = None
-    part_numbers: Optional[List[str]] = None
-    expert: Optional[ExpertInfo] = None
+    step: str | None = Field(default=None, min_length=3)
+    hand_action: str | None = None
+    objects: list[str] | None = None
+    key_point: str | None = None
+    reason: str | None = None
+    reason_source: ReasonSource | None = None
+    exceptions: list[ExceptionItem] | None = None
+    pass_criteria: str | None = None
+    equipment_id: str | None = None
+    part_numbers: list[str] | None = None
+    expert: ExpertInfo | None = None
 
 
 class JobStatus(str, Enum):
@@ -196,10 +203,10 @@ class JobResponse(BaseModel):
     job_id: str
     kind: str
     status: JobStatus
-    result: Optional[Any] = None
-    error: Optional[str] = None
-    created_at: Optional[str] = None
-    finished_at: Optional[str] = None
+    result: Any | None = None
+    error: str | None = None
+    created_at: str | None = None
+    finished_at: str | None = None
 
 
 class AskRequest(BaseModel):
@@ -211,29 +218,29 @@ class AskRequest(BaseModel):
 class Citation(BaseModel):
     source_type: Literal["video", "document"]
     ref_id: str
-    title: Optional[str] = None
-    t_start: Optional[float] = None
-    t_end: Optional[float] = None
-    excerpt: Optional[str] = None
-    keyframe_url: Optional[str] = None
+    title: str | None = None
+    t_start: float | None = None
+    t_end: float | None = None
+    excerpt: str | None = None
+    keyframe_url: str | None = None
 
 
 class AssistantAnswer(BaseModel):
     answer: str
     refused: bool = False
-    suggested_expert: Optional[str] = None
-    citations: List[Citation] = Field(default_factory=list)
+    suggested_expert: str | None = None
+    citations: list[Citation] = Field(default_factory=list)
 
 
 class RcaRequest(BaseModel):
-    lot_id: Optional[str] = None
-    symptom: Optional[str] = None
+    lot_id: str | None = None
+    symptom: str | None = None
 
 
 class Hypothesis(BaseModel):
     hypothesis: str
     likelihood: Literal["high", "medium", "low"]
-    evidence_refs: List[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
 
 
 class WhyStep(BaseModel):
@@ -244,12 +251,12 @@ class WhyStep(BaseModel):
 
 
 class RcaReport(BaseModel):
-    lot_id: Optional[str] = None
+    lot_id: str | None = None
     symptom: str
-    hypotheses: List[Hypothesis] = Field(default_factory=list)
-    five_whys: List[WhyStep] = Field(default_factory=list)
-    related_lots: List[str] = Field(default_factory=list)
-    preventive_actions: List[str] = Field(default_factory=list)
+    hypotheses: list[Hypothesis] = Field(default_factory=list)
+    five_whys: list[WhyStep] = Field(default_factory=list)
+    related_lots: list[str] = Field(default_factory=list)
+    preventive_actions: list[str] = Field(default_factory=list)
     disclaimer: str = "Kết quả phân tích dựa trên AI và dữ liệu mẫu, cần chuyên gia xác nhận trước khi áp dụng."
 
 
@@ -258,5 +265,5 @@ class LotRecord(BaseModel):
     process_id: str
     part_number: str
     produced_at: str
-    defect_type: Optional[str] = None
+    defect_type: str | None = None
     status: str

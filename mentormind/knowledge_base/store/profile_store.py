@@ -14,7 +14,7 @@ import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import jsonschema
 
@@ -25,7 +25,6 @@ from mentormind.core.schemas import (
     ProfilePatchRequest,
     ProfileStatus,
     ReviewAction,
-    ReviewInfo,
     ReviewRequest,
     WorkProfile,
 )
@@ -33,7 +32,7 @@ from mentormind.core.schemas import (
 SCHEMA_FILE = Path(__file__).resolve().parents[3] / "docs" / "contracts" / "work_profile.schema.json"
 
 
-def get_contract_schema() -> Optional[dict]:
+def get_contract_schema() -> dict | None:
     if SCHEMA_FILE.exists():
         try:
             with open(SCHEMA_FILE, "r", encoding="utf-8") as f:
@@ -141,7 +140,7 @@ class ProfileStore:
             conn.commit()
         return profile
 
-    def get_profile(self, profile_id: str) -> Optional[WorkProfile]:
+    def get_profile(self, profile_id: str) -> WorkProfile | None:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT data_json FROM profiles WHERE profile_id = ?", (profile_id,))
@@ -151,7 +150,7 @@ class ProfileStore:
             data = json.loads(row["data_json"])
             return WorkProfile.model_validate(data)
 
-    def get_profile_with_reviews(self, profile_id: str) -> Optional[Dict[str, Any]]:
+    def get_profile_with_reviews(self, profile_id: str) -> dict[str, Any] | None:
         profile = self.get_profile(profile_id)
         if not profile:
             return None
@@ -188,10 +187,10 @@ class ProfileStore:
         }
 
     def list_profiles(
-        self, process_id: Optional[str] = None, status: Optional[str] = None
-    ) -> List[WorkProfile]:
+        self, process_id: str | None = None, status: str | None = None
+    ) -> list[WorkProfile]:
         query = "SELECT data_json FROM profiles WHERE 1=1"
-        params: List[Any] = []
+        params: list[Any] = []
 
         if process_id:
             query += " AND process_id = ?"
@@ -304,9 +303,9 @@ class ProfileStore:
         self,
         job_id: str,
         status: JobStatus,
-        result: Optional[Any] = None,
-        error: Optional[str] = None,
-    ) -> Optional[JobResponse]:
+        result: Any | None = None,
+        error: str | None = None,
+    ) -> JobResponse | None:
         finished_at = (
             datetime.now(timezone.utc).isoformat()
             if status in (JobStatus.DONE, JobStatus.FAILED)
@@ -334,7 +333,7 @@ class ProfileStore:
 
         return self.get_job(job_id)
 
-    def get_job(self, job_id: str) -> Optional[JobResponse]:
+    def get_job(self, job_id: str) -> JobResponse | None:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(

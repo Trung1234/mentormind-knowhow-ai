@@ -8,13 +8,10 @@ Acceptance Criteria tested:
 """
 
 import pytest
+
 from mentormind.core.schemas import (
-    DataClassification,
-    Evidence,
-    GeneratedBy,
     ProfilePatchRequest,
     ProfileStatus,
-    ReasonSource,
     ReviewAction,
     ReviewRequest,
     WorkProfile,

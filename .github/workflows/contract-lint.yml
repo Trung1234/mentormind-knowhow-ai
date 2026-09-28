@@ -1,0 +1,38 @@
+name: Contract Validation
+
+on:
+  push:
+    paths:
+      - 'docs/contracts/**'
+  pull_request:
+    paths:
+      - 'docs/contracts/**'
+
+jobs:
+  validate-contracts:
+    name: Validate JSON Schemas
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install jsonschema
+        run: pip install jsonschema
+
+      - name: Validate contracts
+        run: |
+          python -c "
+          import json, glob
+          import jsonschema
+          for path in glob.glob('docs/contracts/*.json'):
+              with open(path) as f:
+                  data = json.load(f)
+              jsonschema.Draft202012Validator.check_schema(data)
+              print(f'Valid schema: {path}')
+          "
