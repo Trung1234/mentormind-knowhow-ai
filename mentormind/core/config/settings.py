@@ -83,6 +83,12 @@ class Settings(BaseSettings):
     # Site-specific codes to mask, entity -> regex, e.g. {"EQUIPMENT": "SIGMA-EQ-\\d+"}.
     guard_extra_patterns: dict[str, str] = {}
 
+    # --- Agents (spec 06) ----------------------------------------------------------------
+    # Work Assistant refuses when the best retrieved passage scores below this.
+    assist_min_score: float = 0.35
+    # One JSON line per agent call (spec 06 FR-04). Empty = no trace.
+    trace_dir: Path | None = REPO_ROOT / "data" / "work" / "traces"
+
     # --- Stores & adapters (spec 07, 08) ----------------------------------------------------
     profile_db: Path = Path("data/work/profiles.sqlite")
     # Where `vlm describe` keeps drafts: auto = spec 08 store if present, else JSON file.
