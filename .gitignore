@@ -53,6 +53,9 @@ data/work/
 !data/video/*.mov
 !data/video/*.webm
 
+# Private per-developer Claude Code rules and settings (see CLAUDE.md for the shared ones).
+.claude/
+
 # OS / IDE
 .DS_Store
 .vscode/
