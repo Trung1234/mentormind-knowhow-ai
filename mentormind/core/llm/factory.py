@@ -26,10 +26,14 @@ def llm_config_from_settings(settings: Settings) -> ProviderConfig:
     if api_key is None and key_env:
         found = lookup_secret(key_env, secrets_file=settings.secrets_file)
         api_key = SecretStr(found) if found else None
+    base_url = settings.llm_base_url or None
+    url_env = provider_cls.base_url_env(settings.llm_provider) if provider_cls else None
+    if base_url is None and url_env:
+        base_url = lookup_secret(url_env, secrets_file=settings.secrets_file)
     return ProviderConfig(
         provider=settings.llm_provider,
         model=settings.llm_model or None,
-        base_url=settings.llm_base_url or None,
+        base_url=base_url,
         api_key=api_key,
         timeout_s=settings.llm_timeout_s,
         max_retries=settings.llm_max_retries,

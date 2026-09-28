@@ -29,6 +29,8 @@ class Endpoint(BaseModel):
     is_cloud: bool
     #: Secret variable holding the key; None = the endpoint needs no key.
     api_key_env: str | None
+    #: Secret variable that may override ``base_url`` (per-account hosts, e.g. DashScope).
+    base_url_env: str | None = None
     #: What ``json_mode="auto"`` resolves to: the strongest ``response_format`` it honours.
     json_mode: JsonMode
     #: Where a human gets a key / reads pricing (shown by ``knowhow vlm providers``).
@@ -44,10 +46,14 @@ OPENAI_COMPAT_ENDPOINTS: dict[str, Endpoint] = {
         console_url="3rdparty/vlm_server/README.md",
     ),
     # Alibaba Model Studio (DashScope), Singapore. Retires qwen3-vl-8b-instruct on 2026-10-10.
+    # New Singapore keys (sk-ws...) come with a workspace host shown next to the key. Put
+    #   https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
+    # in DASHSCOPE_BASE_URL (.secrets/secrets.env); this legacy URL is only the fallback.
     "qwen_api": Endpoint(
         base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
         is_cloud=True,
         api_key_env="DASHSCOPE_API_KEY",
+        base_url_env="DASHSCOPE_BASE_URL",
         json_mode="json_object",
         console_url="https://modelstudio.console.alibabacloud.com/",
     ),

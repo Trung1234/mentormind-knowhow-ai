@@ -17,7 +17,11 @@ from mentormind.core.providers.openai_compat import (
     OPENAI_COMPAT_ENDPOINTS,
 )
 from mentormind.core.providers.openai_compat.chat import ChatClient
-from mentormind.core.providers.openai_compat.resolve import api_key_env_for, resolve_endpoint
+from mentormind.core.providers.openai_compat.resolve import (
+    api_key_env_for,
+    base_url_env_for,
+    resolve_endpoint,
+)
 from mentormind.core.providers.transport import HttpClient
 from mentormind.processing.vlm.providers.base import VLMProvider
 from mentormind.processing.vlm.providers.catalog import default_vlm_model
@@ -36,6 +40,10 @@ class OpenAICompatVLM(VLMProvider):
     @classmethod
     def api_key_env(cls, name: str) -> str | None:
         return api_key_env_for(name)
+
+    @classmethod
+    def base_url_env(cls, name: str) -> str | None:
+        return base_url_env_for(name)
 
     @classmethod
     def from_config(cls, config: ProviderConfig, http: HttpClient | None = None) -> Self:

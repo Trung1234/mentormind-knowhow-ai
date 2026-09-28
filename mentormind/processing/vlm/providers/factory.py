@@ -26,10 +26,14 @@ def vlm_config_from_settings(settings: Settings) -> ProviderConfig:
     if api_key is None and key_env:
         found = lookup_secret(key_env, secrets_file=settings.secrets_file)
         api_key = SecretStr(found) if found else None
+    base_url = settings.vlm_base_url or None
+    url_env = provider_cls.base_url_env(settings.vlm_provider) if provider_cls else None
+    if base_url is None and url_env:
+        base_url = lookup_secret(url_env, secrets_file=settings.secrets_file)
     return ProviderConfig(
         provider=settings.vlm_provider,
         model=settings.vlm_model or None,
-        base_url=settings.vlm_base_url or None,
+        base_url=base_url,
         api_key=api_key,
         timeout_s=settings.vlm_timeout_s,
         max_retries=settings.vlm_max_retries,

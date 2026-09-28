@@ -127,6 +127,7 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
   `--tensor-parallel-size 1`). Mặc định nghe `127.0.0.1:8100` (8000 là backend spec 08), máy khác vào
   qua SSH tunnel. Token tùy chọn `VLM_SERVER_API_KEY` truyền qua biến môi trường, không qua argv. Code
   chính chỉ gọi HTTP qua provider `local_openai`, không import server.
+- **FR-09b** URL theo tài khoản: endpoint có thể khai biến secret cho base URL; `qwen_api` đọc `DASHSCOPE_BASE_URL` (key Singapore mới `sk-ws...` đi kèm host `{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com`), không có thì dùng `dashscope-intl.aliyuncs.com`.
 - **FR-09** Secret nằm trong `.secrets/secrets.env` (bị `.gitignore` chặn; chỉ `README.md` hướng dẫn và
   `secrets.env.example` được commit). Cloud provider thiếu key → lỗi nêu đúng tên biến và `.secrets/README.md`.
 
@@ -168,3 +169,4 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - v1.3 (27/9): đường dẫn module theo layout mới (bỏ `knowhow.`/`src/knowhow/`, xem spec 01 v1.3).
 - v1.4 (28/9, Phúc): provider theo registry (`core.providers` + `@register_vlm`), thêm `openrouter`, `siliconflow`, `openai_compatible`; `generate` là template method chạy DataGuard trước khi đọc file; FR-01b `KNOWHOW_VLM_EXTRA_BODY`; FR-08 server tự host `3rdparty/vlm_server` trên 1 GPU; FR-09 secret trong `.secrets/`; AC-11..AC-15; T04-1, T04-2, T04-8, T04-9 xong. Đo trên A5000: 48 khung ≈ 5.5k token, 2.9–3.8 s. Lưu ý: Alibaba ngừng `qwen3-vl-8b-instruct` ngày 10/10/2026.
 - v1.5 (28/9, Phúc): prompt lượt A thêm bước mô tả `scene` trước `steps` + mốc thời gian từng ảnh (§4, kèm số liệu thí nghiệm); FR-02c outbound guard cho cloud (che PII, LeakGuard, làm mờ mặt, audit) + AC-16, AC-17, T04-10; sweep nhận truth dạng object, fallback `fixed_window` khi chưa có spec 03, thêm cột phụ `recall_essential`/`recall_time_only`; T04-3, T04-6 xong; package `processing/vlm/` chia theo chức năng.
+- v1.6 (28/9, Phúc): FR-09b `DASHSCOPE_BASE_URL` cho host workspace Singapore (tài liệu Alibaba 28/9).

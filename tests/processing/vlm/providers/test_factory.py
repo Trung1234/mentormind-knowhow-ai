@@ -91,3 +91,16 @@ def test_ac_12_blank_knowhow_key_falls_back_to_vendor_key(
     blank = with_provider(settings, vlm_provider="openrouter", vlm_api_key=SecretStr(""))
     get_vlm_provider(blank, http=http).generate([], "p", classification="public")
     assert http.posts[0][2]["Authorization"] == "Bearer sk-or-file"
+
+
+def test_dashscope_workspace_host_comes_from_the_secrets_file(
+    settings: Settings, http: RecordingHttp
+) -> None:
+    host = "https://ws-123.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
+    settings.secrets_file.write_text(
+        f"DASHSCOPE_API_KEY=sk-ws-1\nDASHSCOPE_BASE_URL={host}\n", encoding="utf-8"
+    )
+    vlm = get_vlm_provider(settings.model_copy(update={"vlm_provider": "qwen_api"}), http=http)
+    vlm.generate([], "p", classification="public")
+    assert http.posts[0][0] == f"{host}/chat/completions"
+    assert vlm.is_cloud

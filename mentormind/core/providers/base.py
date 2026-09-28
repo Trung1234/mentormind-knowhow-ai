@@ -35,3 +35,8 @@ class ProviderBase(ABC):
     def api_key_env(cls, name: str) -> str | None:
         """Secret variable holding the API key when built as ``name`` (None: keyless)."""
         return None
+
+    @classmethod
+    def base_url_env(cls, name: str) -> str | None:
+        """Secret variable that may hold this vendor's per-account base URL (None: none)."""
+        return None

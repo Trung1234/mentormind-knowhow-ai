@@ -38,6 +38,12 @@ def api_key_env_for(name: str) -> str | None:
     return endpoint.api_key_env if endpoint else None
 
 
+def base_url_env_for(name: str) -> str | None:
+    """Secret variable that may override the vendor's base URL (None: fixed URL)."""
+    endpoint = OPENAI_COMPAT_ENDPOINTS.get(name)
+    return endpoint.base_url_env if endpoint else None
+
+
 def resolve_endpoint(
     config: ProviderConfig, *, default_model: str | None, env_prefix: str
 ) -> ResolvedEndpoint:

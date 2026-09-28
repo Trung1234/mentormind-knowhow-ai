@@ -70,13 +70,23 @@ Giá và danh sách model của vendor thay đổi thường xuyên, hãy kiểm
 3. Vào **API Keys → Create new API key**, copy key dạng `sk-...`.
 4. Ghi `SILICONFLOW_API_KEY=sk-...`, rồi kiểm tra: `KNOWHOW_VLM_PROVIDER=siliconflow uv run knowhow vlm ping`.
 
-### 4.3 Alibaba Model Studio / DashScope (`DASHSCOPE_API_KEY`) — chỉ còn dùng được đến 10/10
-1. Tạo tài khoản https://www.alibabacloud.com. Từ 15/9 phải hoàn tất thông tin tài khoản và thẻ
-   hoặc PayPal (tạm giữ $1) trước khi kích hoạt.
-2. Mở https://modelstudio.console.alibabacloud.com, chọn region **Singapore**, kích hoạt Model Studio.
-   Bật **Free Quota Only** để không bị trừ tiền ngoài quota miễn phí.
-3. Vào **API Keys → Create API Key**, ghi vào `DASHSCOPE_API_KEY=sk-...`.
-4. Kiểm tra: `KNOWHOW_VLM_PROVIDER=qwen_api uv run knowhow vlm ping`.
+### 4.3 Alibaba Model Studio / DashScope, Singapore (`DASHSCOPE_API_KEY` + `DASHSCOPE_BASE_URL`)
+Chỉ còn dùng được `qwen3-vl-8b-instruct` đến 00:00 ngày 10/10/2026 (UTC+8). Hướng dẫn từng bước kèm ảnh
+màn hình và cách tránh bị trừ tiền nằm trong `guidance/alibaba-singapore.md`. Tóm tắt:
+1. Tạo tài khoản https://www.alibabacloud.com. **Từ 15/9 phải hoàn tất thông tin tài khoản trước khi kích hoạt.**
+2. Mở https://modelstudio.console.alibabacloud.com, chọn region **Singapore** ở góc trên bên phải,
+   đồng ý điều khoản. Model Studio được kích hoạt và **tự cấp 1M token miễn phí cho mỗi model, trong 90 ngày**.
+3. Vào **Free Quota**, tìm `qwen3-vl-8b-instruct` rồi bật **Free Quota Only**. Hết quota thì API trả lỗi
+   `AllocationQuota.FreeTierOnly` thay vì trừ tiền.
+4. Vào **API Key → Create API Key** (workspace mặc định, quyền All). Copy ngay **key** (dạng `sk-ws...`) và
+   **API Host**, vì đóng hộp thoại là không xem lại được nữa.
+5. Ghi vào `.secrets/secrets.env`:
+   ```
+   DASHSCOPE_API_KEY=sk-ws-...
+   DASHSCOPE_BASE_URL=https://<API Host>/compatible-mode/v1
+   ```
+   `<API Host>` có dạng `{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com`. Key chỉ dùng được đúng ở region của nó.
+6. Kiểm tra: `KNOWHOW_VLM_PROVIDER=qwen_api uv run knowhow vlm ping`.
 
 ### 4.4 Server tự host (`VLM_SERVER_API_KEY`) — tùy chọn
 Server `3rdparty/vlm_server` chỉ nghe trên `127.0.0.1`, nên thường không cần token. Nếu mở cho người
