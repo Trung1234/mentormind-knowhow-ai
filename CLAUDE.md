@@ -22,7 +22,8 @@ Repo này phát triển theo **Spec-Driven Development**. Spec là nguồn sự 
 ## Lệnh thường dùng
 ```bash
 uv sync                 # cài dependency
-make up                 # docker compose: Neo4j + PostgreSQL/pgvector
+make up                 # docker compose: mentormind + vlm-server + PostgreSQL/pgvector + Neo4j (profile lite)
+make dev-up / dev-shell # chỉ 2 container dev; VLM_SERVER_AUTOSTART=true để bật luôn Qwen3-VL
 make check              # ruff + mypy + pytest
 make demo               # chạy luồng end-to-end trên dữ liệu mẫu
 uv run knowhow --help   # CLI chính
