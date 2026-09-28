@@ -1,0 +1,23 @@
+# AMD GPU (ROCm), e.g. one GCD of an MI250:
+#   VLM_GPU=0 docker compose -f docker-compose.yml -f docker-compose.rocm.yml up -d --build
+services:
+  vlm-server:
+    build:
+      context: 3rdparty/vlm_server
+      dockerfile: docker/Dockerfile.rocm
+      args:
+        BASE: ${ROCM_VLLM_IMAGE:-rocm/vllm:rocm7.14.1_cdna_ubuntu24.04_py3.14_pytorch_2.11_vllm_0.23.0}
+    image: vlm-engine:rocm
+    environment:
+      VLM_SERVER_PLATFORM: rocm
+      # All /dev/dri nodes are passed through; exactly this GCD is made visible to vLLM.
+      VLM_SERVER_GPU: "${VLM_GPU:-0}"
+    deploy: !reset {}
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+    security_opt:
+      - seccomp=unconfined
+    shm_size: 16g

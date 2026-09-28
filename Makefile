@@ -1,12 +1,25 @@
-.PHONY: up down check test demo fmt vlm-server-sync vlm-server vlm-server-smoke
+.PHONY: up down dev-up dev-shell check test demo fmt vlm-server-sync vlm-server vlm-server-smoke
 
+# spec 01 FR-05 / task D3. COMPOSE_FILES adds overrides, e.g. on the rootless GPU box:
+#   make up COMPOSE_FILES="-f docker-compose.yml -f docker-compose.cdi.yml -f docker-compose.devbox.yml"
+COMPOSE_FILES ?= -f docker-compose.yml
+COMPOSE = docker compose $(COMPOSE_FILES)
+
+# Whole dev stack: mentormind + vlm-server + PostgreSQL/pgvector + Neo4j (profile lite).
 up:
-	docker compose up -d
+	$(COMPOSE) --profile lite up -d --build
 
 down:
-	docker compose down
+	$(COMPOSE) --profile lite down
 
-# spec 01 FR-04; constitution Điều 6 (mypy --strict for core/schemas and core/guard).
+# Only the two dev containers; VLM_SERVER_AUTOSTART=true also starts the VLM server.
+dev-up:
+	$(COMPOSE) up -d --build mentormind vlm-server
+
+dev-shell:
+	$(COMPOSE) exec mentormind bash
+
+# spec 01 FR-04; constitution art. 6 (mypy --strict for core/schemas and core/guard).
 check:
 	uv run ruff check .
 	uv run ruff format --check .
