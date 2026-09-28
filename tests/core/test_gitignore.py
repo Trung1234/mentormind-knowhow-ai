@@ -31,6 +31,17 @@ def test_ac_06_samples_are_not_ignored() -> None:
     assert not is_ignored("data/samples/demo.mp4")
 
 
+def test_public_demo_video_is_tracked_through_git_lfs() -> None:
+    """data/video/ holds the public LASI demo video; LFS keeps the repo small (spec 04 §6)."""
+    assert not is_ignored("data/video/demo.mkv")
+    attributes = (REPO_ROOT / ".gitattributes").read_text()
+    for suffix in ("mkv", "mp4", "mov", "webm"):
+        assert f"data/video/*.{suffix}" in attributes, suffix
+    assert "filter=lfs" in attributes
+    # Factory footage stays out of git whatever its extension.
+    assert is_ignored("data/factory/line3.mkv")
+
+
 def test_secret_files_are_ignored_but_guide_is_tracked() -> None:
     # Keys live in .env; .secrets/ keeps only the guide for obtaining them.
     assert is_ignored(".secrets/secrets.env")

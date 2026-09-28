@@ -46,6 +46,13 @@ data/work/
 !data/samples/**/*.wav
 !data/samples/**/*.mp3
 
+# Video demo public của đội đi qua Git LFS (xem .gitattributes). Chỉ để video public/synthetic
+# ở đây; video nhà máy vẫn bị chặn bởi data/raw/ và data/factory/ ở trên.
+!data/video/*.mkv
+!data/video/*.mp4
+!data/video/*.mov
+!data/video/*.webm
+
 # OS / IDE
 .DS_Store
 .vscode/
