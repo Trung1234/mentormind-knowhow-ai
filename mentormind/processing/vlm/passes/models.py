@@ -50,6 +50,12 @@ class TimedStep(BaseModel):
     confidence: float = Field(ge=0, le=1)
     fps: float = Field(gt=0)
     keyframes: list[str] = Field(default_factory=list)
+    #: Every segment the step spans once pass C merged it across a boundary; empty = ``segment_id``.
+    segment_ids: list[str] = Field(default_factory=list)
+
+    def sources(self) -> list[str]:
+        """Segments this step was observed in, in time order."""
+        return self.segment_ids or [self.segment_id]
 
 
 class FailedSegment(BaseModel):

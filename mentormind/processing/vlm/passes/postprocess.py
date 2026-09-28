@@ -12,6 +12,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from mentormind.core.guard import SupportsCloudFlag
+from mentormind.core.llm.context import strictest
 from mentormind.core.schemas.video import Segment
 from mentormind.core.schemas.work_profile import (
     SCHEMA_VERSION,
@@ -38,6 +39,7 @@ def to_work_profiles(
     ordered = sorted(result.steps, key=lambda s: (s.t_start, s.t_end))
     for order, step in enumerate(ordered, start=1):
         segment = by_id[step.segment_id]
+        sources = [by_id[sid] for sid in step.sources()]
         profile = WorkProfile(
             schema_version=SCHEMA_VERSION,
             profile_id=f"WP-{code}-{order:03d}",
@@ -54,15 +56,16 @@ def to_work_profiles(
                 "video_id": segment.video_id,
                 "t_start": step.t_start,
                 "t_end": step.t_end,
-                "segment_ids": [segment.segment_id],
-                "keyframes": list(segment.keyframes),
+                "segment_ids": [s.segment_id for s in sources],
+                "keyframes": [kf for s in sources for kf in s.keyframes],
                 "transcript_excerpt": None,
                 "document_refs": [],
             },
             confidence=step.confidence,
             generated_by="vlm",
             model_info={"provider": provider.name, "model": model, "fps": step.fps},
-            data_classification=segment.data_classification,
+            # A step merged across segments is as sensitive as the strictest of them.
+            data_classification=strictest(s.data_classification for s in sources),
             status="draft",
             created_at=created,
         )

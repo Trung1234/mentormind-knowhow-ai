@@ -6,7 +6,7 @@
 Từ các `Segment` (spec 03) sinh ra danh sách `WorkProfile` ở trạng thái `draft`, hợp lệ theo contract, không chứa `reason` bịa. Đổi provider (API cloud ↔ self-host) chỉ bằng config.
 
 ## 2. Provider abstraction — `processing.vlm.providers` (registry, theo pattern omnia)
-Bố cục package `processing/vlm/`: `providers/` (`base`, `models`, `registry`, `factory`, `catalog`, `backends/{openai_compat,fake}`), `frames/` (`sampler`, `dedup`), `guard/face_blur`, `passes/` (`describe` = lượt A, `postprocess`, `models`, `prompting`), `sweep/` (`truth`, `matching`, `metrics`, `runner`, `report`, `windows`), `cli/` (`diagnostics`, `sweep`), `prompts/*.md`.
+Bố cục package `processing/vlm/`: `pipeline` (`describe_video`), `providers/` (`base`, `models`, `registry`, `factory`, `catalog`, `backends/{openai_compat,fake}`), `frames/` (`sampler`, `dedup`), `guard/face_blur`, `passes/` (`describe` = lượt A, `consistency` = lượt B, `merge` = lượt C, `reasons` = propose-reasons, `matching`, `postprocess`, `models`, `prompting`), `sweep/` (`truth`, `matching`, `metrics`, `runner`, `report`, `windows`), `cli/` (`diagnostics`, `describe`, `sweep`), `prompts/*.md`.
 
 Phần dùng chung mọi loại provider nằm ở `core.providers` (spec 06 dùng lại cho LLM): `ProviderBase`,
 `ProviderConfig`, `ProviderRegistry` (tên → class), `HttpClient` + retry (FR-07), bảng endpoint
@@ -56,7 +56,7 @@ Một đoạn có thể có 0..n bước.
 
 **Lượt B — tự nhất quán.** Chạy lượt A thêm 1 lần (tổng k=2, `temperature=0.2`). Chỉ giữ bước xuất hiện ở cả hai lần (so khớp: `rapidfuzz.token_set_ratio(step) ≥ 70` và overlap thời gian > 0). `confidence` cuối = trung bình hai lần × tỷ lệ khớp.
 
-**Lượt C — tổng hợp.** Gọi LLM text (không cần ảnh) với prompt `prompts/pass_c_merge.md`: gộp bước trùng giữa các đoạn kề nhau, sắp `step_order` theo thời gian, chuẩn hóa tên bước (động từ ở đầu). Không được thêm bước mới không có trong input.
+**Lượt C — tổng hợp.** Gọi LLM text (không cần ảnh) với prompt `prompts/pass_c_merge.md`: gộp bước trùng giữa các đoạn kề nhau, sắp `step_order` theo thời gian, chuẩn hóa tên bước (động từ ở đầu). Không được thêm bước mới không có trong input. Mỗi bước đầu vào có mã `s1..sn`; LLM trả `{"steps": [{"step", "source_ids"}]}`. So khớp ngược: bước không có `source_ids` hợp lệ bị bỏ (bịa); bước có tên không khớp nguồn nào (`token_set_ratio < 70`) hoặc gộp đoạn không kề nhau bị từ chối, giữ nguyên các bước nguồn; bước đầu vào LLM bỏ sót được giữ nguyên. Nhãn của prompt = nhãn khắt khe nhất của các đoạn (DataGuard chặn LLM cloud với dữ liệu nhà máy).
 
 **Hậu xử lý bắt buộc**
 - Ép `reason = None`, `reason_source = None`, `generated_by = "vlm"`, `status = "draft"`.
@@ -118,8 +118,8 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - **FR-02c** Mọi lời gọi tới provider **cloud** đi qua outbound guard (spec 01 FR-09b, port từ bankassist-mcp): che PII trong prompt/system (`[TYPE_n]`, hoàn nguyên trong câu trả lời), LeakGuard quét lại và **từ chối** nếu còn sót (kể cả khi `KNOWHOW_GUARD_MASK_TEXT=false`), **làm mờ khuôn mặt** trong khung hình (YuNet, model tải một lần, SHA-256 ghim; không tải/không nạp được → từ chối gửi), ghi audit `data/work/audit/outbound-YYYYMMDD.jsonl` (chỉ số đếm, không giá trị). Provider tự host nhận dữ liệu nguyên bản.
 - **FR-03** Pipeline 3 lượt như mục 3.
 - **FR-04** Hậu xử lý + validate như mục 3.
-- **FR-05** CLI: `knowhow vlm describe <video_id>`, `knowhow vlm propose-reasons <video_id>`, `knowhow vlm sweep ...`; chẩn đoán: `knowhow vlm providers` (registry + key) và `knowhow vlm ping [--provider] [--video --classification]` (clip tổng hợp phụ thuộc thứ tự khung, hoặc video thật; `--classification` mặc định `factory_confidential` để fail-closed).
-- **FR-06** Kết quả lưu vào profile store (spec 08) với `status=draft`; lưu raw response mỗi lượt tại `data/work/vlm/<video_id>/` để debug.
+- **FR-05** CLI: `knowhow vlm describe <video_id> | --segments <file> | --video <file>` (`<video_id>` đọc `data/work/video/<video_id>/segments.json` của spec 03; `--video` cắt `fixed_window` 10 s khi chưa có spec 03, như `sweep`; `--no-consistency` bỏ lượt B, `--no-merge` bỏ lượt C; kiểm DataGuard cho cả VLM lẫn LLM **trước** lời gọi đầu tiên), `knowhow vlm propose-reasons <video_id>`, `knowhow vlm sweep ...`; chẩn đoán: `knowhow vlm providers` (registry + key) và `knowhow vlm ping [--provider] [--video --classification]` (clip tổng hợp phụ thuộc thứ tự khung, hoặc video thật; `--classification` mặc định `factory_confidential` để fail-closed).
+- **FR-06** Kết quả lưu vào profile store (spec 08) với `status=draft`; lưu raw response mỗi lượt tại `data/work/vlm/<video_id>/` để debug. Chưa có spec 08: profile ghi vào `data/work/vlm/<video_id>/profiles.json` (`propose-reasons` đọc và cập nhật file này); raw từng lượt ở `data/work/vlm/<video_id>/describe-<provider>/` (`pass_a/`, `pass_b/pass_a/`, `pass_c.json`, `predictions.json`, `failed_segments.json`).
 - **FR-07** Retry mạng: tối đa 3 lần, backoff mũ; timeout 90s/lời gọi.
 - **FR-08** Server tự host tại `3rdparty/vlm_server/` — uv project riêng (vLLM 0.16.0 + torch 2.9.1 cu126,
   vì driver máy dev là CUDA 12.6), API OpenAI-compatible, phục vụ `Qwen/Qwen3-VL-8B-Instruct` BF16 trên
@@ -154,10 +154,10 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - [x] T04-1 Provider protocol + `OpenAICompatVLM` + `FakeVLM` + factory + DataGuard (AC-03).
 - [x] T04-2 Frame sampler từ clip (fps thích ứng, bỏ trùng, trần số ảnh, resize) (AC-10).
 - [x] T04-3 Lượt A + prompt + validate + repair (AC-01, AC-02, AC-06). *(Nối vào profile store chờ spec 08; hiện ghi `profiles_draft.json`.)*
-- [ ] T04-4 Lượt B tự nhất quán (AC-04).
-- [ ] T04-5 Lượt C tổng hợp (AC-05).
+- [x] T04-4 Lượt B tự nhất quán (AC-04).
+- [x] T04-5 Lượt C tổng hợp (AC-05).
 - [x] T04-6 `sweep` + `key_point_recall` (AC-07).
-- [ ] T04-7 `propose-reasons` + hậu kiểm trích dẫn (AC-08, AC-09).
+- [x] T04-7 `propose-reasons` + hậu kiểm trích dẫn (AC-08, AC-09). *(Cần `transcript_excerpt` từ spec 03; chưa có thì lệnh không làm gì.)*
 - [x] T04-8 Registry provider dùng chung (`core.providers`) + cloud `openrouter`/`siliconflow` + key từ `.env` + `knowhow vlm providers|ping` (AC-11, AC-12, AC-13).
 - [x] T04-9 Server tự host `3rdparty/vlm_server` (vLLM, Qwen3-VL-8B-Instruct, 1 GPU) + smoke test (AC-14, AC-15).
 - [x] T04-10 Outbound guard cho VLM cloud: che PII + LeakGuard + làm mờ mặt + audit (AC-16, AC-17).
@@ -172,3 +172,4 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - v1.6 (28/9, Phúc): FR-09b `DASHSCOPE_BASE_URL` cho host workspace Singapore (tài liệu Alibaba 28/9).
 - v1.7 (28/9, Phúc): FR-09 + AC-12 key đọc từ `.env` (không còn `.secrets/secrets.env`); `.secrets/README.md` chỉ là hướng dẫn lấy key.
 - v1.8 (28/9, Phúc): lượt A nhận `objects` dạng chuỗi "a, b" (DashScope `json_object` không ép schema, gặp khi chạy cloud trên video LASI); AC-15 chạy thật trên MI250 (GCD 1, vLLM 0.23 ROCm): PASS.
+- v1.9 (28/9, Phúc): T04-4 lượt B, T04-5 lượt C (`pass_c_merge.md`, so khớp ngược), T04-7 `propose-reasons` (`propose_reason.md`, `partial_ratio ≥ 85`) xong; `processing.vlm.pipeline.describe_video` nối A → B → C → hậu xử lý; FR-05 `describe` nhận thêm `--video`/`--segments`; FR-06 lưu tạm `profiles.json` khi chưa có spec 08.

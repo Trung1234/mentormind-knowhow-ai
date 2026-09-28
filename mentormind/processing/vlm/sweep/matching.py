@@ -9,31 +9,18 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from pydantic import BaseModel
-from rapidfuzz import fuzz, utils
 
+from mentormind.processing.vlm.passes.matching import MATCH_THRESHOLD, overlaps, similarity
 from mentormind.processing.vlm.passes.models import TimedStep
 from mentormind.processing.vlm.sweep.truth import TruthStep
 
-MATCH_THRESHOLD = 70.0
+__all__ = ["MATCH_THRESHOLD", "Match", "match_steps", "overlaps", "similarity"]
 
 
 class Match(BaseModel):
     truth_index: int
     predicted_index: int
     score: float
-
-
-def similarity(a: str, b: str) -> float:
-    return float(fuzz.token_set_ratio(a, b, processor=utils.default_process))
-
-
-def overlaps(a_start: float, a_end: float, b_start: float, b_end: float) -> bool:
-    """Positive overlap; an instantaneous step counts when it falls inside the other interval."""
-    if a_end - a_start <= 0:
-        return b_start <= a_start <= b_end
-    if b_end - b_start <= 0:
-        return a_start <= b_start <= a_end
-    return min(a_end, b_end) - max(a_start, b_start) > 0
 
 
 def match_steps(
