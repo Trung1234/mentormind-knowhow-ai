@@ -14,12 +14,14 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import ValidationError
 
 from mentormind.agents.ports import GraphTemplates, Retriever, SigmaSource
 from mentormind.agents.prompting import render_prompt
+from mentormind.agents.rca.report import DISCLAIMER, RCA_SCHEMA, LlmReport, five_why, hypotheses
 from mentormind.agents.trace import TraceLog
 from mentormind.core.providers.errors import InvalidJSONError
 from mentormind.core.providers.llm import LLMProvider, strictest
@@ -29,75 +31,13 @@ from mentormind.core.schemas import (
     Citation,
     DataClassification,
     DefectRecord,
-    Hypothesis,
     LotRecord,
     RcaReport,
     RcaRequest,
-    WhyStep,
 )
-from mentormind.core.schemas.agents import Likelihood
 
-DISCLAIMER = (
-    "Đây là giả thuyết dựa trên dữ liệu hiện có, chưa phải kết luận: cần xác minh tại hiện trường "
-    "trước khi xử lý."
-)
-UNVERIFIED = "Chưa có căn cứ, cần xác minh tại hiện trường."
+PROMPTS = Path(__file__).resolve().parent / "prompts"
 TEMPLATES = ("root_causes_of_symptom", "where_symptom_occurred", "prevention_steps")
-MIN_WHY, MAX_WHY, MAX_HYPOTHESES = 3, 5, 3
-_RANK: dict[str, int] = {"high": 0, "medium": 1, "low": 2}
-
-RCA_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "properties": {
-        "hypotheses": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "cause": {"type": "string"},
-                    "likelihood": {"enum": ["high", "medium", "low"]},
-                    "evidence_ids": {"type": "array", "items": {"type": "integer"}},
-                    "check_actions": {"type": "array", "items": {"type": "string"}},
-                },
-                "required": ["cause", "likelihood", "evidence_ids"],
-            },
-        },
-        "five_why": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "why": {"type": "string"},
-                    "answer": {"type": "string"},
-                    "evidence_ids": {"type": "array", "items": {"type": "integer"}},
-                },
-                "required": ["why", "answer", "evidence_ids"],
-            },
-        },
-    },
-    "required": ["hypotheses", "five_why"],
-}
-
-
-class _LlmHypothesis(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    cause: str = Field(min_length=1)
-    likelihood: Likelihood
-    evidence_ids: list[int] = Field(default_factory=list)
-    check_actions: list[str] = Field(default_factory=list)
-
-
-class _LlmWhy(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    why: str = Field(min_length=1)
-    answer: str = Field(min_length=1)
-    evidence_ids: list[int] = Field(default_factory=list)
-
-
-class _LlmReport(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    hypotheses: list[_LlmHypothesis] = Field(default_factory=list)
-    five_why: list[_LlmWhy] = Field(default_factory=list)
 
 
 class RcaAgent:
@@ -131,6 +71,7 @@ class RcaAgent:
         context = self.retriever.retrieve(query, process_id, route=False)
         evidence, labels = self._evidence(lot, defects, rows, context)
         prompt = render_prompt(
+            PROMPTS,
             "rca.md",
             symptom=symptom,
             process_id=process_id or "(chưa rõ)",
@@ -144,8 +85,8 @@ class RcaAgent:
         report = RcaReport(
             lot_id=lot.lot_id if lot else None,
             symptom=symptom,
-            hypotheses=_hypotheses(parsed, evidence, rows),
-            five_why=_five_why(parsed, evidence, symptom),
+            hypotheses=hypotheses(parsed, evidence, rows),
+            five_why=five_why(parsed, evidence, symptom),
             related_lots=sorted(
                 {r["lot_id"] for r in rows["where_symptom_occurred"] if r.get("lot_id")}
                 - ({lot.lot_id} if lot else set())
@@ -230,7 +171,7 @@ class RcaAgent:
         labels = [self.sigma_classification] * len(sigma) + [p.classification for p in kept]
         return sigma + retrieved, labels or [self.sigma_classification]
 
-    def _ask(self, prompt: str, label: DataClassification, prompts: list[str]) -> _LlmReport | None:
+    def _ask(self, prompt: str, label: DataClassification, prompts: list[str]) -> LlmReport | None:
         for attempt in range(2):
             text_prompt = prompt if attempt == 0 else prompt + "\n\nLƯU Ý: chỉ trả về JSON hợp lệ."
             prompts.append(text_prompt)
@@ -238,54 +179,10 @@ class RcaAgent:
                 text_prompt, classification=label, json_schema=RCA_SCHEMA, temperature=0.2
             )
             try:
-                return _LlmReport.model_validate(parse_json_object(response.text))
+                return LlmReport.model_validate(parse_json_object(response.text))
             except (InvalidJSONError, ValidationError):
                 continue
         return None
-
-
-def _cited(ids: list[int], evidence: list[Citation]) -> list[Citation]:
-    return [evidence[i - 1] for i in dict.fromkeys(ids) if 1 <= i <= len(evidence)]
-
-
-def _hypotheses(
-    parsed: _LlmReport | None, evidence: list[Citation], rows: dict[str, list[dict[str, Any]]]
-) -> list[Hypothesis]:
-    if parsed is None or not parsed.hypotheses:
-        # No usable answer: the graph's known root causes are the hypotheses.
-        causes = {c.ref_id: c for c in evidence if c.snippet.startswith("Nguyên nhân đã biết")}
-        return [
-            Hypothesis(
-                cause=r.get("description", r["cause_id"]),
-                likelihood="medium",
-                evidence=[causes[r["cause_id"]]] if r["cause_id"] in causes else [],
-            )
-            for r in rows["root_causes_of_symptom"][:MAX_HYPOTHESES]
-            if r.get("cause_id")
-        ]
-    result = []
-    for h in parsed.hypotheses:
-        cited = _cited(h.evidence_ids, evidence)
-        likelihood: Likelihood = h.likelihood if cited else "low"
-        result.append(
-            Hypothesis(
-                cause=h.cause, likelihood=likelihood, evidence=cited, check_actions=h.check_actions
-            )
-        )
-    result.sort(key=lambda h: _RANK[h.likelihood])
-    return result[:MAX_HYPOTHESES]
-
-
-def _five_why(parsed: _LlmReport | None, evidence: list[Citation], symptom: str) -> list[WhyStep]:
-    steps = [
-        WhyStep(why=w.why, answer=w.answer, verified=bool(_cited(w.evidence_ids, evidence)))
-        for w in (parsed.five_why if parsed else [])
-    ][:MAX_WHY]
-    while len(steps) < MIN_WHY:
-        level = len(steps) + 1
-        why = f"Vì sao xảy ra lỗi {symptom}?" if level == 1 else f"Vì sao (tầng {level})?"
-        steps.append(WhyStep(why=why, answer=UNVERIFIED, verified=False))
-    return steps
 
 
 def _lot_line(lot: LotRecord | None) -> str:

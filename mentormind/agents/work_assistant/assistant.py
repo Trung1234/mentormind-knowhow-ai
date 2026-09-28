@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import re
 import time
+from pathlib import Path
 
 from mentormind.agents.ports import ExpertDirectory, Retriever
 from mentormind.agents.prompting import render_prompt
@@ -23,6 +24,7 @@ from mentormind.core.providers.llm import LLMProvider, strictest
 from mentormind.core.providers.llm.context import ContextPassage, filter_passages
 from mentormind.core.schemas import AskRequest, AssistantAnswer, Citation, RetrievedContext
 
+PROMPTS = Path(__file__).resolve().parent / "prompts"
 DEFAULT_MIN_SCORE = 0.35
 REFUSAL = (
     "Mình chưa có thông tin đã được chuyên gia duyệt để trả lời câu này, nên không trả lời "
@@ -80,6 +82,7 @@ class WorkAssistant:
         if not sources or best < self.min_score:
             return self._refuse(request)
         prompt = render_prompt(
+            PROMPTS,
             "assistant.md",
             process_id=request.process_id or "(chưa rõ)",
             sources="\n".join(

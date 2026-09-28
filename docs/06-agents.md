@@ -104,3 +104,4 @@ Luồng:
 - v1.3 (28/9, Phúc): T06-1 xong — `core.llm` (registry, OpenAI-compatible + fake, outbound guard, lọc passage confidential); model mặc định kiểm tra ngày 28/9.
 - v1.4 (28/9, Phúc): LLM chuyển `core.llm` → `core.providers.llm` (§2), cùng chỗ với VLM `core.providers.vlm`.
 - v1.5 (28/9, Phúc): T06-2 Work Assistant, T06-3 RCA Agent, T06-4 trace + CLI `knowhow agent ask|rca` xong; chốt interface với spec 05/07 ở §7 (model trong `core.schemas`, `RetrievedContext` 1-1 passage↔citation + nhãn passage, `route=False` cho RCA, tên factory).
+- v1.6 (28/9, Phúc): `agents/` chia package: `work_assistant/`, `rca/` (`agent`, `report` hậu xử lý, `prompts/`), `cli/` (mỗi lệnh 1 module); `ports`, `trace`, `prompting`, `factory` dùng chung.
