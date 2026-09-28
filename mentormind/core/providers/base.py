@@ -2,7 +2,7 @@
 
 Each kind subclasses :class:`ProviderBase` in its own package
 (``mentormind.processing.vlm.providers`` for VLM, ``mentormind.core.llm`` for LLM) and adds its
-call surface. Adding a provider never touches business logic (constitution Điều 5): subclass the
+call surface. Adding a provider never touches business logic (constitution art. 5): subclass the
 kind's base, register it under a name, done.
 """
 
@@ -23,7 +23,7 @@ class ProviderBase(ABC):
 
     #: Registry name this instance was built under (goes into ``model_info.provider``).
     name: str
-    #: True when calls leave the premises — DataGuard refuses confidential data (Điều 2).
+    #: True when calls leave the premises; DataGuard then refuses confidential data (art. 2).
     is_cloud: bool
 
     @classmethod

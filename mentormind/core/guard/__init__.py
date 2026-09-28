@@ -1,4 +1,4 @@
-"""Guards that enforce the constitution in code (Điều 2).
+"""Guards that enforce the constitution in code (constitution art. 2).
 
 ``data_guard`` (confidential data never goes to the cloud), ``pii`` (mask text, LeakGuard),
 ``outbound`` (the per-call chain + audit log).

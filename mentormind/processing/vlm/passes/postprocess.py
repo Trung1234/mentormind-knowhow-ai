@@ -1,6 +1,6 @@
-"""Mandatory post-processing of lượt A into draft WorkProfiles (spec 04 §3).
+"""Mandatory post-processing of pass A into draft WorkProfiles (spec 04 §3).
 
-``reason``/``reason_source`` are forced to None whatever the model said (constitution Điều 3,
+``reason``/``reason_source`` are forced to None whatever the model said (constitution art. 3,
 AC-02), ``status="draft"``, evidence and model_info filled, every profile validated against the
 contract before it is returned.
 """
@@ -47,7 +47,7 @@ def to_work_profiles(
             hand_action=step.hand_action,
             objects=step.objects,
             key_point=step.key_point_observed,
-            # Constitution Điều 3: a VLM never supplies the reason, whatever it returned.
+            # Constitution art. 3: a VLM never supplies the reason, whatever it returned.
             reason=None,
             reason_source=None,
             evidence={

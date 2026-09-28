@@ -1,4 +1,4 @@
-"""Run lượt A once per fps over the same segments and score every run."""
+"""Run pass A once per fps over the same segments and score every run."""
 
 from __future__ import annotations
 

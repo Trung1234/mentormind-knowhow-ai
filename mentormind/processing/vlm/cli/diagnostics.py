@@ -48,7 +48,7 @@ VIDEO_PROMPT = (
 
 
 def providers_cmd() -> None:
-    """Liệt kê các VLM provider đã đăng ký, provider nào đang được chọn, đã có key chưa."""
+    """List registered VLM providers, the selected one and whether each has its key."""
     from mentormind.core.config import lookup_secret
     from mentormind.core.providers.openai_compat import OPENAI_COMPAT_ENDPOINTS
     from mentormind.processing.vlm.providers import VLM_REGISTRY
@@ -85,7 +85,7 @@ def ping_cmd(
     ] = DataClassification.FACTORY_CONFIDENTIAL,
     frames: Annotated[int, typer.Option(min=2, max=64, help="Số khung của clip tổng hợp.")] = 8,
 ) -> None:
-    """Gọi thử VLM đang cấu hình với nhiều khung hình và in kết quả, độ trễ, token."""
+    """Call the configured VLM with several frames; print answer, latency and tokens."""
     from mentormind.core.providers.errors import ProviderError
     from mentormind.processing.vlm.providers import get_vlm_provider
 

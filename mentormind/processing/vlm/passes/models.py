@@ -1,4 +1,4 @@
-"""Data models of lượt A: the step as the VLM reports it, placed on the timeline, the run."""
+"""Data models of pass A: the step as the VLM reports it, placed on the timeline, the run."""
 
 from __future__ import annotations
 

@@ -2,7 +2,7 @@
 
 Provider API keys have vendor-specific names (``OPENROUTER_API_KEY``, ``DASHSCOPE_API_KEY``...)
 so several keys can sit side by side and switching provider is only ``KNOWHOW_VLM_PROVIDER``.
-Setup guide: ``.secrets/README.md``. Constitution Điều 6: no secret is ever hardcoded.
+Setup guide: ``.secrets/README.md``. Constitution art. 6: no secret is ever hardcoded.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""``knowhow vlm sweep``: lượt A at several fps, scored against a hand-labelled truth (§6)."""
+"""``knowhow vlm sweep``: pass A at several fps, scored against a hand-labelled truth (§6)."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ def sweep_cmd(
     ] = DataClassification.FACTORY_CONFIDENTIAL,
     process_id: Annotated[str, typer.Option(help="Mã công đoạn.")] = "PACK01",
 ) -> None:
-    """Chạy lượt A ở nhiều fps trên một video và so với ground truth; in bảng cho slide."""
+    """Run pass A at several fps on one video and score it against the truth."""
     import json
 
     from mentormind.core.providers.errors import ProviderError

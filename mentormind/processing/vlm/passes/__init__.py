@@ -1,6 +1,6 @@
-"""The VLM passes of spec 04 §3. Lượt A (describe) is here; B (consistency) and C (merge) follow.
+"""The VLM passes of spec 04 §3. Pass A (describe) is here; B (consistency) and C (merge) follow.
 
-``describe`` runs lượt A, ``postprocess`` turns its steps into draft WorkProfiles, ``models`` holds
+``describe`` runs pass A, ``postprocess`` turns its steps into draft WorkProfiles, ``models`` holds
 the data exchanged between them and ``prompting`` renders the ``prompts/*.md`` templates.
 """
 

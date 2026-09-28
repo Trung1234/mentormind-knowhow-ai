@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 
 class DataClassification(StrEnum):
-    """Sensitivity label carried by every data source (constitution Điều 2)."""
+    """Sensitivity label carried by every data source (constitution art. 2)."""
 
     PUBLIC = "public"
     SYNTHETIC = "synthetic"

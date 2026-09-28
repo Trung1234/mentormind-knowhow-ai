@@ -1,7 +1,7 @@
 """HTTP transport for providers: timeout + retry with exponential backoff (spec 04 FR-07).
 
 Providers depend on the :class:`HttpClient` protocol and receive a client by injection, so tests
-hand them a fake and never touch the network (constitution Điều 6).
+hand them a fake and never touch the network (constitution art. 6).
 """
 
 from __future__ import annotations

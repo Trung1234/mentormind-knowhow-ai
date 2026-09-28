@@ -1,4 +1,4 @@
-"""DataGuard — constitution Điều 2 enforced in code, not by discipline (spec 01 FR-09).
+"""DataGuard — constitution art. 2 enforced in code, not by discipline (spec 01 FR-09).
 
 ``factory_confidential`` data must never reach a provider whose ``is_cloud`` is True. Every
 provider call path checks here BEFORE touching the data (spec 04 FR-02).

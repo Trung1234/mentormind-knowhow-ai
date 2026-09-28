@@ -1,4 +1,4 @@
-"""spec 04 T04-3 — lượt A: valid drafts (AC-01), no reason (AC-02), repair + failures (AC-06)."""
+"""spec 04 T04-3 — pass A: valid drafts (AC-01), no reason (AC-02), repair + failures (AC-06)."""
 
 from __future__ import annotations
 

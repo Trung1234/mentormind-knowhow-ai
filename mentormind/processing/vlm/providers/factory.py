@@ -1,7 +1,7 @@
 """``get_vlm_provider`` — the only way business code obtains a VLM (spec 04 FR-01).
 
 Code never imports a concrete provider class; switching self-host <-> cloud is config only
-(constitution Điều 5).
+(constitution art. 5).
 """
 
 from __future__ import annotations

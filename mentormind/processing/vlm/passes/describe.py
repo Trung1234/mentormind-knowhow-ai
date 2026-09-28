@@ -1,4 +1,4 @@
-"""Lượt A — describe each segment (spec 04 §3, T04-3).
+"""Pass A — describe each segment (spec 04 §3, T04-3).
 
 For every :class:`Segment`: sample frames (FR-02b), ask the VLM with ``prompts/pass_a_describe.md``,
 validate the answer against :data:`PASS_A_SCHEMA`; an invalid answer is retried ONCE with
@@ -75,7 +75,7 @@ def describe_segments(
     temperature: float = PASS_A_TEMPERATURE,
     sampler: Sampler = sample_frames,
 ) -> PassAResult:
-    """Run lượt A over ``segments`` (in order). Never raises for one bad segment."""
+    """Run pass A over ``segments`` (in order). Never raises for one bad segment."""
     result = PassAResult()
     for segment in segments:
         _describe_one(

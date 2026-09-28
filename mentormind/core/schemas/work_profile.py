@@ -143,7 +143,7 @@ class WorkProfile(BaseModel):
 
     @model_validator(mode="after")
     def _check_contract_rules(self) -> WorkProfile:
-        # Contract allOf[0] — constitution Điều 3: a VLM draft never carries a reason.
+        # Contract allOf[0] — constitution art. 3: a VLM draft never carries a reason.
         is_vlm_draft = self.generated_by == "vlm" and self.status == "draft"
         if is_vlm_draft and (self.reason is not None or self.reason_source is not None):
             raise ValueError("Bản nháp do VLM sinh không được có reason/reason_source.")

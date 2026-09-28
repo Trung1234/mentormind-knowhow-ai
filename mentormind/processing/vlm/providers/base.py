@@ -3,7 +3,7 @@
 :meth:`VLMProvider.generate` is a template method, so no provider can skip a guard:
 
 1. ``DataGuard.check`` — confidential data never reaches a cloud provider, checked BEFORE any
-   frame file is opened (constitution Điều 2, spec 04 FR-02 / AC-03);
+   frame file is opened (constitution art. 2, spec 04 FR-02 / AC-03);
 2. for a cloud provider only (spec 01 FR-09b, spec 04 FR-02c): PII in the prompt is masked,
    LeakGuard re-scans it, faces in the frames are pixelated, the answer's tokens are restored
    and the call is audited;

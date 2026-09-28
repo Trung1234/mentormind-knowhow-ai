@@ -6,7 +6,7 @@
 4. At most ``max_frames`` frames: above the cap, re-sample evenly down to the cap.
 
 ``DataGuard`` runs before the clip is opened: frames are cut only for a destination allowed to
-receive them (constitution Điều 2).
+receive them (constitution art. 2).
 """
 
 from __future__ import annotations
