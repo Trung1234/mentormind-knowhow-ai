@@ -1,4 +1,4 @@
-"""spec 04 FR-03/FR-04/FR-06 — describe_video runs passes A, B, C and post-processing."""
+"""spec 04 FR-03/FR-04/FR-06 — DescribePipeline runs passes A, B, C and post-processing."""
 
 from __future__ import annotations
 
@@ -10,16 +10,17 @@ import pytest
 
 from mentormind.core.llm.backends.fake import FakeLLM
 from mentormind.core.schemas.work_profile import validate_against_contract
-from mentormind.processing.vlm.pipeline import describe_video, read_profiles
+from mentormind.processing.vlm.pipeline import DescribePipeline, read_profiles
 from mentormind.processing.vlm.providers.backends.fake import FakeVLM
 from tests.processing.vlm.passes.test_describe import fake_sampler, segments, step
 
 
 def run(vlm: FakeVLM, tmp_path: Path, llm: FakeLLM | None = None, **kwargs: Any) -> Any:
-    return describe_video(
-        segments(2), vlm, process_id="PACK01", work_dir=tmp_path / "run", default_fps=4.0,
-        max_frames=48, llm=llm, sampler=fake_sampler, **kwargs,
+    pipeline = DescribePipeline(
+        vlm, llm=llm, process_id="PACK01", default_fps=4.0, max_frames=48, sampler=fake_sampler,
+        **kwargs,
     )  # fmt: skip
+    return pipeline.run(segments(2), tmp_path / "run")
 
 
 # Segment 1 then 2 for the first pass-A run, the same two again for the second run.
@@ -88,3 +89,14 @@ def test_a_segment_failing_twice_is_reported(tmp_path: Path) -> None:
 @pytest.fixture(autouse=True)
 def _isolated_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
+
+
+def test_one_pass_can_run_on_its_own(tmp_path: Path) -> None:
+    pipeline = DescribePipeline(
+        FakeVLM(RUN_1), process_id="PACK01", default_fps=4.0, max_frames=48, sampler=fake_sampler
+    )
+    first = pipeline.pass_a(segments(2), tmp_path / "a")
+    assert len(first.steps) == 4
+    assert pipeline.pass_b(first, first).steps  # a run agrees with itself
+    with pytest.raises(ValueError, match="LLM"):
+        pipeline.pass_c(first, segments(2), tmp_path)

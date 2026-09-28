@@ -68,7 +68,7 @@ def describe_cmd(
     from mentormind.core.guard import ConfidentialDataError, DataGuard
     from mentormind.core.llm.context import strictest
     from mentormind.core.providers.errors import ProviderError
-    from mentormind.processing.vlm.pipeline import describe_video, write_profiles
+    from mentormind.processing.vlm.pipeline import DescribePipeline, write_profiles
     from mentormind.processing.vlm.providers import get_vlm_provider
 
     settings = get_settings()
@@ -87,16 +87,15 @@ def describe_cmd(
         if llm is not None:
             DataGuard.check(label, llm)
         work_dir = WORK / "vlm" / vid / f"describe-{vlm.name}"
-        result = describe_video(
-            loaded,
+        pipeline = DescribePipeline(
             vlm,
+            llm=llm,
             process_id=process_id,
-            work_dir=work_dir,
             default_fps=fps or settings.vlm_fps,
             max_frames=settings.vlm_max_frames,
-            llm=llm,
             consistency=consistency,
         )
+        result = pipeline.run(loaded, work_dir)
     except ConfidentialDataError as exc:
         typer.secho(
             f"Lỗi: {exc}\nDữ liệu nhà máy chỉ chạy với provider tự host: KNOWHOW_VLM_PROVIDER="

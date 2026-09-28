@@ -1,4 +1,4 @@
-"""``describe_video`` — the whole spec 04 §3 pipeline: segments in, draft WorkProfiles out.
+"""``DescribePipeline`` — the whole spec 04 §3 pipeline: segments in, draft WorkProfiles out.
 
     pass A   describe every segment (VLM)                          passes/describe.py
     pass B   pass A a second time; keep steps both runs report     passes/consistency.py
@@ -41,54 +41,105 @@ class DescribeResult(BaseModel):
     failed_segments: list[str]
 
 
-def describe_video(
-    segments: Sequence[Segment],
-    vlm: VLMProvider,
-    *,
-    process_id: str,
-    work_dir: Path,
-    default_fps: float,
-    max_frames: int,
-    llm: LLMProvider | None = None,
-    consistency: bool = True,
-    sampler: Sampler = sample_frames,
-) -> DescribeResult:
-    """Run passes A, B (``consistency``) and C (when an ``llm`` is given) and post-process."""
-    work_dir.mkdir(parents=True, exist_ok=True)
-    cached = _cache(sampler)
-    kwargs: dict[str, Any] = {
-        "process_id": process_id,
-        "default_fps": default_fps,
-        "max_frames": max_frames,
-        "sampler": cached,
-    }
-    first = describe_segments(segments, vlm, work_dir=work_dir, **kwargs)
-    steps = first
-    if consistency:
-        second = describe_segments(segments, vlm, work_dir=work_dir / "pass_b", **kwargs)
-        steps = self_consistent(first, second)
-    report = None
-    if llm is not None:
-        steps, report = merge_steps(steps, segments, llm, process_id=process_id, work_dir=work_dir)
-    profiles = to_work_profiles(
-        steps, segments=segments, process_id=process_id, provider=vlm, model=vlm.model
-    )
-    failed = [f.segment_id for f in steps.failed]
-    (work_dir / "failed_segments.json").unlink(missing_ok=True)
-    if steps.failed:
-        (work_dir / "failed_segments.json").write_text(
-            json.dumps([f.model_dump() for f in steps.failed], ensure_ascii=False, indent=2),
-            encoding="utf-8",
+class DescribePipeline:
+    """Segments in, draft WorkProfiles out: passes A, B, C and post-processing (spec 04 §3).
+
+    Configure once, then :meth:`run` any number of videos. Each pass is its own method, so a caller
+    (or a test) can run or replace one pass without the others.
+    """
+
+    def __init__(
+        self,
+        vlm: VLMProvider,
+        *,
+        process_id: str,
+        default_fps: float,
+        max_frames: int,
+        llm: LLMProvider | None = None,
+        consistency: bool = True,
+        sampler: Sampler = sample_frames,
+    ) -> None:
+        self.vlm = vlm
+        #: Pass C runs only with an LLM; ``None`` skips it.
+        self.llm = llm
+        self.process_id = process_id
+        self.default_fps = default_fps
+        self.max_frames = max_frames
+        #: Pass B (a second pass-A run, twice the VLM tokens); False skips it.
+        self.consistency = consistency
+        self._sampler = sampler
+
+    def run(self, segments: Sequence[Segment], work_dir: Path) -> DescribeResult:
+        """All passes over one video's ``segments``; artefacts go to ``work_dir`` (FR-06)."""
+        work_dir.mkdir(parents=True, exist_ok=True)
+        sampler = _cache(self._sampler)  # both pass-A runs see the same frames
+        first = self.pass_a(segments, work_dir, sampler=sampler)
+        steps = first
+        if self.consistency:
+            second = self.pass_a(segments, work_dir / "pass_b", sampler=sampler)
+            steps = self.pass_b(first, second)
+        report = None
+        if self.llm is not None:
+            steps, report = self.pass_c(steps, segments, work_dir)
+        profiles = self.postprocess(steps, segments)
+        self._save(steps, profiles, work_dir)
+        return DescribeResult(
+            profiles=profiles,
+            steps=steps,
+            pass_a_steps=len(first.steps),
+            merge=report,
+            failed_segments=[f.segment_id for f in steps.failed],
         )
-    (work_dir / "predictions.json").write_text(steps.model_dump_json(indent=2), encoding="utf-8")
-    write_profiles(profiles, work_dir / "profiles.json")
-    return DescribeResult(
-        profiles=profiles,
-        steps=steps,
-        pass_a_steps=len(first.steps),
-        merge=report,
-        failed_segments=failed,
-    )
+
+    def pass_a(
+        self, segments: Sequence[Segment], work_dir: Path, *, sampler: Sampler | None = None
+    ) -> PassAResult:
+        """Describe every segment once (VLM)."""
+        return describe_segments(
+            segments,
+            self.vlm,
+            process_id=self.process_id,
+            work_dir=work_dir,
+            default_fps=self.default_fps,
+            max_frames=self.max_frames,
+            sampler=sampler or self._sampler,
+        )
+
+    def pass_b(self, first: PassAResult, second: PassAResult) -> PassAResult:
+        """Keep the steps both pass-A runs report."""
+        return self_consistent(first, second)
+
+    def pass_c(
+        self, steps: PassAResult, segments: Sequence[Segment], work_dir: Path
+    ) -> tuple[PassAResult, MergeReport]:
+        """Merge steps cut by segment boundaries (text LLM, reverse-checked)."""
+        if self.llm is None:
+            raise ValueError("Pass C needs an LLM.")
+        return merge_steps(steps, segments, self.llm, process_id=self.process_id, work_dir=work_dir)
+
+    def postprocess(self, steps: PassAResult, segments: Sequence[Segment]) -> list[WorkProfile]:
+        """reason=None, status=draft, evidence, model_info, contract check."""
+        return to_work_profiles(
+            steps,
+            segments=segments,
+            process_id=self.process_id,
+            provider=self.vlm,
+            model=self.vlm.model,
+        )
+
+    @staticmethod
+    def _save(steps: PassAResult, profiles: Sequence[WorkProfile], work_dir: Path) -> None:
+        failed = work_dir / "failed_segments.json"
+        failed.unlink(missing_ok=True)  # pass A's own file only saw the first run
+        if steps.failed:
+            failed.write_text(
+                json.dumps([f.model_dump() for f in steps.failed], ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        (work_dir / "predictions.json").write_text(
+            steps.model_dump_json(indent=2), encoding="utf-8"
+        )
+        write_profiles(profiles, work_dir / "profiles.json")
 
 
 def write_profiles(profiles: Sequence[WorkProfile], path: Path) -> None:
