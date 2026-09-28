@@ -1,0 +1,157 @@
+"""spec 04 T04-6 — matching rule, metrics, the CSV of AC-07, truth file, fixed windows."""
+
+from __future__ import annotations
+
+import csv
+import json
+from pathlib import Path
+from typing import Any
+
+import pytest
+from PIL import Image
+
+from mentormind.core.config import REPO_ROOT
+from mentormind.core.guard import SupportsCloudFlag
+from mentormind.core.schemas.common import DataClassification
+from mentormind.core.schemas.video import Segment
+from mentormind.processing.vlm.frames import SampledFrames
+from mentormind.processing.vlm.providers.backends.fake import FakeVLM
+from mentormind.processing.vlm.sweep import (
+    CSV_COLUMNS,
+    TruthStep,
+    load_truth,
+    match_steps,
+    order_accuracy,
+    run_sweep,
+    write_csv,
+)
+
+REPO = REPO_ROOT
+
+
+def segments(n: int = 3) -> list[Segment]:
+    return [
+        Segment(
+            segment_id=f"VID-TEST-S{i:03d}",
+            video_id="VID-TEST",
+            index=i,
+            t_start=10.0 * (i - 1),
+            t_end=10.0 * i,
+            method="fixed_window",
+            motion_score=None,
+            keyframes=[f"kf_{i}.jpg"],
+            clip_path=f"clip_{i}.mp4",
+            data_classification=DataClassification.SYNTHETIC,
+        )
+        for i in range(1, n + 1)
+    ]
+
+
+def fake_sampler(
+    segment: Segment,
+    destination: SupportsCloudFlag,
+    *,
+    out_dir: Path,
+    default_fps: float,
+    max_frames: int,
+) -> SampledFrames:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for i in range(3):
+        path = out_dir / f"f{i}.jpg"
+        Image.new("RGB", (32, 18), (i * 60, 90, 120)).save(path)
+        paths.append(path)
+    return SampledFrames(paths=paths, timestamps=[0.0, 1.0, 2.0], fps=default_fps)
+
+
+def step(name: str, start: float, end: float, **extra: Any) -> dict[str, Any]:
+    return {
+        "step": name,
+        "hand_action": "tay phải",
+        "objects": ["cốc"],
+        "key_point_observed": None,
+        "t_start_rel": start,
+        "t_end_rel": end,
+        "confidence": 0.8,
+        **extra,
+    }
+
+
+def test_matching_needs_similar_text_and_overlapping_time() -> None:
+    truth = [
+        TruthStep(step="Đậy nắp đỏ lên sản phẩm", t_start=10, t_end=15),
+        TruthStep(step="Đặt cốc vào thùng carton", t_start=20, t_end=25),
+    ]
+    predicted = [
+        _timed("Đậy nắp đỏ lên cốc sản phẩm", 11, 13),  # similar + overlap -> match
+        _timed("Đặt cốc vào thùng carton", 40, 45),  # similar but no overlap -> no match
+    ]
+    matches = match_steps(truth, predicted)
+    assert [(m.truth_index, m.predicted_index) for m in matches] == [(0, 0)]
+
+
+def test_order_accuracy_is_normalised_kendall_tau() -> None:
+    truth = [TruthStep(step=f"Bước số {i}", t_start=i * 10, t_end=i * 10 + 9) for i in range(3)]
+    in_order = [_timed(f"Bước số {i}", i * 10 + 1, i * 10 + 2) for i in range(3)]
+    assert order_accuracy(match_steps(truth, in_order), in_order) == 1.0
+
+
+def test_ac_07_sweep_writes_every_required_column(tmp_path: Path) -> None:
+    truth_file = tmp_path / "truth.json"
+    truth_file.write_text(
+        json.dumps(
+            [
+                {"step": "Nhặt cốc", "t_start": 0, "t_end": 3, "key_point": "cầm thân cốc"},
+                {"step": "Đặt cốc vào thùng", "t_start": 10, "t_end": 15},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    answer = {
+        "steps": [step("Nhặt cốc", 0, 2, key_point_observed="cầm thân cốc"), step("Lau bàn", 3, 4)]
+    }
+    vlm = FakeVLM([answer])
+    rows = run_sweep(
+        segments(1),
+        load_truth(truth_file),
+        [1, 2],
+        vlm,
+        process_id="PACK01",
+        work_dir=tmp_path / "work",
+        max_frames=48,
+        sampler=fake_sampler,
+    )
+    out = tmp_path / "sweep.csv"
+    write_csv(rows, out)
+    with out.open(encoding="utf-8") as handle:
+        table = list(csv.DictReader(handle))
+    required = {"fps", "recall", "precision", "order_accuracy", "key_point_recall"}
+    assert required | {"tokens_used", "latency_s"} <= set(table[0]) == set(CSV_COLUMNS)
+    assert [r["fps"] for r in table] == ["1.0", "2.0"]
+    assert (float(table[0]["recall"]), float(table[0]["precision"])) == (0.5, 0.5)
+    assert float(table[0]["key_point_recall"]) == 1.0
+    assert (tmp_path / "work" / "fps1" / "profiles_draft.json").is_file()
+
+
+def test_repo_groundtruth_file_loads() -> None:
+    truth = load_truth(REPO / "data" / "video" / "groundtruth.json")
+    assert len(truth) >= 20
+    assert all(t.t_end >= t.t_start for t in truth)
+
+
+def _timed(name: str, start: float, end: float) -> Any:
+    from mentormind.processing.vlm.passes import TimedStep
+
+    return TimedStep(segment_id="S", t_start=start, t_end=end, step=name, confidence=0.9, fps=4.0)
+
+
+@pytest.fixture(autouse=True)
+def _isolated_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+
+
+def test_fixed_windows_merge_a_short_tail() -> None:
+    from mentormind.processing.vlm.sweep.windows import window_bounds
+
+    assert window_bounds(25.0, 10.0) == [(0.0, 10.0), (10.0, 20.0), (20.0, 25.0)]
+    assert window_bounds(21.5, 10.0) == [(0.0, 10.0), (10.0, 21.5)]  # 1.5 s tail merged

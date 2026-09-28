@@ -1,0 +1,88 @@
+"""Settings read from ``KNOWHOW_*`` environment variables (spec 01 FR-03).
+
+Sources, later wins: ``.env`` at the repo root, then ``.secrets/secrets.env`` (API keys, see
+``.secrets/README.md``), then the real process environment. Every module reads configuration
+through :func:`get_settings` — never ``os.environ`` directly.
+"""
+
+from __future__ import annotations
+
+from functools import lru_cache
+from pathlib import Path
+from typing import Any, Literal
+
+from pydantic import SecretStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+SECRETS_FILE = REPO_ROOT / ".secrets" / "secrets.env"
+
+JsonMode = Literal["auto", "json_schema", "json_object", "off"]
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="KNOWHOW_",
+        env_file=(REPO_ROOT / ".env", SECRETS_FILE),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # --- Knowledge base (spec 01 §4, spec 05) ---------------------------------------------
+    neo4j_uri: str = "bolt://localhost:7687"
+    neo4j_user: str = "neo4j"
+    neo4j_password: SecretStr = SecretStr("change-me")
+    vector_backend: Literal["pgvector", "memory"] = "pgvector"
+    pg_dsn: str = "postgresql://knowhow:change-me@localhost:5432/knowhow"
+    vector_table: str = "knowhow_chunks"
+    embed_dim: int = 1024
+    embed_model: str = "BAAI/bge-m3"
+
+    # --- VLM (spec 04) ----------------------------------------------------------------------
+    # Registry name of the provider (``knowhow vlm providers`` lists them).
+    vlm_provider: str = "local_openai"
+    # Empty = the provider's default endpoint / default Qwen3-VL-8B model id.
+    vlm_base_url: str | None = None
+    vlm_model: str | None = None
+    # Empty = the provider's own key variable (e.g. OPENROUTER_API_KEY in .secrets/secrets.env).
+    vlm_api_key: SecretStr | None = None
+    vlm_fps: float = 4.0
+    vlm_max_frames: int = 48
+    vlm_timeout_s: float = 90.0  # FR-07
+    vlm_max_retries: int = 3  # FR-07
+    vlm_json_mode: JsonMode = "auto"
+    vlm_max_tokens: int = 2048
+    # JSON merged into every request body: vendor sampling knobs (e.g. {"presence_penalty": 1.5},
+    # which stops Qwen3-VL from looping step lists — see 3rdparty/vlm_server/README.md).
+    vlm_extra_body: dict[str, Any] = {}
+
+    # --- LLM (spec 06) ----------------------------------------------------------------------
+    llm_provider: str = "qwen_api"
+    llm_model: str = "qwen-plus"
+
+    # --- Outbound guard for cloud calls (spec 01 FR-09b, spec 04 FR-02c) ---------------------
+    # Mask PII in text sent to cloud providers. False = refuse instead (LeakGuard always runs).
+    guard_mask_text: bool = True
+    # Pixelate faces in frames sent to cloud VLMs (YuNet model fetched once, SHA-256 pinned).
+    guard_blur_faces: bool = True
+    guard_face_model: Path = (
+        REPO_ROOT / "data" / "work" / "models" / "face_detection_yunet_2023mar.onnx"
+    )
+    # One JSON line per cloud call, counts only. Empty = no audit log.
+    guard_audit_dir: Path | None = REPO_ROOT / "data" / "work" / "audit"
+    # Site-specific codes to mask, entity -> regex, e.g. {"EQUIPMENT": "SIGMA-EQ-\\d+"}.
+    guard_extra_patterns: dict[str, str] = {}
+
+    # --- Stores & adapters (spec 07, 08) ----------------------------------------------------
+    profile_db: Path = Path("data/work/profiles.sqlite")
+    sigma_adapter: str = "csv"
+    sigma_csv_dir: Path = Path("data/mock_sigma")
+
+    # Where provider-specific API keys are looked up after the process environment.
+    secrets_file: Path = SECRETS_FILE
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    """Return the process-wide settings (cached; tests build ``Settings`` directly)."""
+    return Settings()
