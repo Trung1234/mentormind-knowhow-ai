@@ -34,7 +34,7 @@ class GeminiVLM:         # Could — chỉ khi còn thời gian
   (loopback, IP private, CGNAT/Tailscale, hostname LAN → local; còn lại → cloud) — AC-13.
 - JSON mode theo endpoint (`KNOWHOW_VLM_JSON_MODE=auto`): `local_openai`, `openrouter` → `json_schema`;
   `qwen_api`, `siliconflow` → `json_object`. Luôn parse lại bằng `parse_json_object` (chịu được markdown fence).
-- Key lấy theo tên biến của vendor (`OPENROUTER_API_KEY`...) từ môi trường rồi `.secrets/secrets.env`;
+- Key lấy theo tên biến của vendor (`OPENROUTER_API_KEY`...) từ môi trường rồi `.env`;
   `KNOWHOW_VLM_API_KEY` (khác rỗng) thắng tất cả. Hướng dẫn: `.secrets/README.md`.
 - **Chế độ gửi mặc định: `frames`** — lấy mẫu khung hình từ `clip_path` theo `KNOWHOW_VLM_FPS`, gửi dạng nhiều ảnh base64 trong một message. Cách này chạy được trên mọi endpoint OpenAI-compatible, kể cả vLLM self-host với Qwen3-VL-8B sau này.
 - Ảnh gửi đi resize cạnh dài 448px (ưu tiên độ dày thời gian hơn độ nét).
@@ -128,8 +128,8 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
   qua SSH tunnel. Token tùy chọn `VLM_SERVER_API_KEY` truyền qua biến môi trường, không qua argv. Code
   chính chỉ gọi HTTP qua provider `local_openai`, không import server.
 - **FR-09b** URL theo tài khoản: endpoint có thể khai biến secret cho base URL; `qwen_api` đọc `DASHSCOPE_BASE_URL` (key Singapore mới `sk-ws...` đi kèm host `{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com`), không có thì dùng `dashscope-intl.aliyuncs.com`.
-- **FR-09** Secret nằm trong `.secrets/secrets.env` (bị `.gitignore` chặn; chỉ `README.md` hướng dẫn và
-  `secrets.env.example` được commit). Cloud provider thiếu key → lỗi nêu đúng tên biến và `.secrets/README.md`.
+- **FR-09** Secret nằm trong `.env` ở gốc repo (bị `.gitignore` chặn; chỉ `.env.example` được commit;
+  `.secrets/README.md` là hướng dẫn lấy key). Cloud provider thiếu key → lỗi nêu đúng tên biến và `.secrets/README.md`.
 
 ## 8. Acceptance Criteria
 - **AC-01** Với `FakeVLM` + 3 segment fixture → ra WorkProfile hợp lệ contract, `step_order` liên tục từ 1.
@@ -143,7 +143,7 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - **AC-09** FakeLLM trả `reason` là câu diễn giải không có trong `transcript_excerpt` → profile giữ `reason=None`, `status` không đổi.
 - **AC-10** Segment có `motion_score=0.8` → sampler dùng 8 fps; clip fixture gồm các khung giống hệt nhau → sau bỏ trùng còn 1 khung; clip dài cho ra > 48 khung → số ảnh gửi đi = 48.
 - **AC-11** Thêm provider mới = 1 class + `@register_vlm("ten")`, dựng được bằng tên qua registry mà không sửa code nghiệp vụ; tên chưa đăng ký → `ProviderConfigError` liệt kê tên có sẵn.
-- **AC-12** Provider cloud thiếu key → `ProviderConfigError` nêu tên biến (vd. `OPENROUTER_API_KEY`) và `.secrets/README.md`; key chỉ có trong `.secrets/secrets.env` vẫn được dùng; `KNOWHOW_VLM_API_KEY` khác rỗng thắng key của vendor, rỗng thì bị bỏ qua.
+- **AC-12** Provider cloud thiếu key → `ProviderConfigError` nêu tên biến (vd. `OPENROUTER_API_KEY`) và `.secrets/README.md`; key chỉ có trong `.env` vẫn được dùng; `KNOWHOW_VLM_API_KEY` khác rỗng thắng key của vendor, rỗng thì bị bỏ qua.
 - **AC-13** `local_openai` trỏ `KNOWHOW_VLM_BASE_URL` tới host public → `is_cloud=True`, dữ liệu `factory_confidential` bị chặn.
 - **AC-14** Launcher server: `VLM_SERVER_GPU="0,1"` bị từ chối; môi trường chạy vLLM có `CUDA_VISIBLE_DEVICES` đúng 1 index, lệnh có `--tensor-parallel-size 1`; token không xuất hiện trong argv.
 - **AC-15** (thủ công, cần GPU) `make vlm-server` rồi `uv run knowhow vlm ping --frames 48` → `PASS` (model nhận ra hình vuông đỏ đi từ trái sang phải vào hộp).
@@ -158,7 +158,7 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - [ ] T04-5 Lượt C tổng hợp (AC-05).
 - [x] T04-6 `sweep` + `key_point_recall` (AC-07).
 - [ ] T04-7 `propose-reasons` + hậu kiểm trích dẫn (AC-08, AC-09).
-- [x] T04-8 Registry provider dùng chung (`core.providers`) + cloud `openrouter`/`siliconflow` + key từ `.secrets/` + `knowhow vlm providers|ping` (AC-11, AC-12, AC-13).
+- [x] T04-8 Registry provider dùng chung (`core.providers`) + cloud `openrouter`/`siliconflow` + key từ `.env` + `knowhow vlm providers|ping` (AC-11, AC-12, AC-13).
 - [x] T04-9 Server tự host `3rdparty/vlm_server` (vLLM, Qwen3-VL-8B-Instruct, 1 GPU) + smoke test (AC-14, AC-15).
 - [x] T04-10 Outbound guard cho VLM cloud: che PII + LeakGuard + làm mờ mặt + audit (AC-16, AC-17).
 
@@ -170,3 +170,4 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - v1.4 (28/9, Phúc): provider theo registry (`core.providers` + `@register_vlm`), thêm `openrouter`, `siliconflow`, `openai_compatible`; `generate` là template method chạy DataGuard trước khi đọc file; FR-01b `KNOWHOW_VLM_EXTRA_BODY`; FR-08 server tự host `3rdparty/vlm_server` trên 1 GPU; FR-09 secret trong `.secrets/`; AC-11..AC-15; T04-1, T04-2, T04-8, T04-9 xong. Đo trên A5000: 48 khung ≈ 5.5k token, 2.9–3.8 s. Lưu ý: Alibaba ngừng `qwen3-vl-8b-instruct` ngày 10/10/2026.
 - v1.5 (28/9, Phúc): prompt lượt A thêm bước mô tả `scene` trước `steps` + mốc thời gian từng ảnh (§4, kèm số liệu thí nghiệm); FR-02c outbound guard cho cloud (che PII, LeakGuard, làm mờ mặt, audit) + AC-16, AC-17, T04-10; sweep nhận truth dạng object, fallback `fixed_window` khi chưa có spec 03, thêm cột phụ `recall_essential`/`recall_time_only`; T04-3, T04-6 xong; package `processing/vlm/` chia theo chức năng.
 - v1.6 (28/9, Phúc): FR-09b `DASHSCOPE_BASE_URL` cho host workspace Singapore (tài liệu Alibaba 28/9).
+- v1.7 (28/9, Phúc): FR-09 + AC-12 key đọc từ `.env` (không còn `.secrets/secrets.env`); `.secrets/README.md` chỉ là hướng dẫn lấy key.

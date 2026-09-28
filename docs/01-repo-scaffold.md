@@ -14,7 +14,7 @@ mentormind-knowhow-ai/
 ├── pyproject.toml
 ├── .env.example
 ├── .gitignore
-├── .secrets/                   # API key (gitignored) + README.md hướng dẫn + secrets.env.example
+├── .secrets/                   # CHỈ README.md: hướng dẫn lấy API key (key thật nằm trong .env)
 ├── docker-compose.yml
 ├── mentormind/                 # TOÀN BỘ mã nguồn ứng dụng — Python package `mentormind`
 │   ├── __init__.py
@@ -78,7 +78,7 @@ mentormind-knowhow-ai/
 - **FR-05d** Hai container dev chạy không cần profile (`docker compose up -d`): `mentormind` (image `infra/docker/mentormind.Dockerfile`: Python 3.11 + uv + ffmpeg + mọi extra; repo bind-mount tại `/workspace`, venv ở `/opt/venv`) và `vlm-server` (image của submodule `vlm-engine`, đúng 1 GPU `VLM_GPU`). Code trong `mentormind` chỉ gọi API VLM qua `KNOWHOW_VLM_BASE_URL=http://vlm-server:8100/v1`. `VLM_SERVER_AUTOSTART=true` → server Qwen3-VL bật cùng container; `false` (mặc định) → container chờ, bật bằng `docker compose exec vlm-server python -m vlm_server serve`. Override đặt trong `infra/docker/`: `docker-compose.cdi.yml` (GPU qua CDI), `docker-compose.devbox.yml` (rootless Docker: host network), `docker-compose.rocm.yml` (AMD, vd. MI250); chọn bằng `make up PLATFORM=rocm|devbox|cdi`.
 - **FR-05b** Giới hạn tài nguyên để chạy được trên máy dev: Neo4j đặt `NEO4J_server_memory_heap_max__size=1G`, `NEO4J_server_memory_pagecache_size=512M`; mọi service trong compose có `mem_limit` (neo4j 2g, postgres 1g, mentormind 1g; vlm-server `VLM_SERVER_MEM_LIMIT`, mặc định 32g vì vLLM map checkpoint 17 GB vào RAM host khi nạp).
 - **FR-05c** Vector store đứng sau interface `knowledge_base.store.vector_store.VectorStore` (`upsert(chunks)`, `search(query, k, filters) -> list[VectorHit]`, `delete(ids)`). Hai implementation chọn bằng `KNOWHOW_VECTOR_BACKEND`: `pgvector` (mặc định, cần `make up`) và `memory` (in-process, cosine + BM25 đơn giản, dùng cho unit test/CI không docker) — chỉ đổi config, Constitution Điều 5.
-- **FR-06** `.gitignore` chặn: `data/raw/`, `data/factory/`, `data/work/`, `.env`, `.secrets/*` (**trừ** `.secrets/README.md`, `.secrets/secrets.env.example`), `guidance/`, `*.mp4|*.mov|*.mkv|*.webm|*.avi|*.wav|*.mp3` **trừ** `data/samples/**`.
+- **FR-06** `.gitignore` chặn: `data/raw/`, `data/factory/`, `data/work/`, `.env` (**trừ** `.env.example`), `.secrets/*` (**trừ** `.secrets/README.md`), `guidance/`, `*.mp4|*.mov|*.mkv|*.webm|*.avi|*.wav|*.mp3` **trừ** `data/samples/**`.
 - **FR-07** GitHub Actions `ci.yml`: trên push/PR chạy `uv sync --all-extras` + `make check`. Test không cần docker (dùng fake).
 - **FR-08** `core/schemas/work_profile.py` là Pydantic v2 model tương đương 1-1 với `docs/contracts/work_profile.schema.json`, kèm hàm `validate_against_contract(obj) -> None` dùng `jsonschema` để kiểm tra chéo.
 - **FR-09** `core/guard/data_guard.py`: `DataGuard.check(classification, provider)` raise `ConfidentialDataError` khi `classification == factory_confidential` và `provider.is_cloud`.
@@ -115,7 +115,7 @@ KNOWHOW_SIGMA_ADAPTER=csv
 KNOWHOW_SIGMA_CSV_DIR=data/mock_sigma
 ```
 > Tên model/URL cloud là giá trị mặc định cho giai đoạn demo; kiểm tra lại tên model hiện hành của nhà cung cấp trước khi chạy.
-> API key **không** nằm trong `.env`: key theo vendor (`OPENROUTER_API_KEY`, `SILICONFLOW_API_KEY`, `DASHSCOPE_API_KEY`, `VLM_SERVER_API_KEY`) để trong `.secrets/secrets.env` (hướng dẫn `.secrets/README.md`); `KNOWHOW_VLM_API_KEY` chỉ dùng để ép một key. Trong file dotenv, không đặt comment cùng dòng với giá trị rỗng (dotenv đọc comment thành giá trị).
+> API key nằm **cùng trong `.env`**: key theo vendor (`OPENROUTER_API_KEY`, `SILICONFLOW_API_KEY`, `DASHSCOPE_API_KEY`, `VLM_SERVER_API_KEY`) đặt thẳng vào `.env` (cách lấy key: `.secrets/README.md`); `KNOWHOW_VLM_API_KEY` chỉ dùng để ép một key. Trong file dotenv, không đặt comment cùng dòng với giá trị rỗng (dotenv đọc comment thành giá trị).
 
 ## 5. Acceptance Criteria
 - **AC-01** Clone mới → `uv sync --all-extras && make check` pass, không cần mạng tới dịch vụ ngoài.
@@ -123,7 +123,7 @@ KNOWHOW_SIGMA_CSV_DIR=data/mock_sigma
 - **AC-03** `uv run knowhow --help` liệt kê sub-command: `ingest`, `video`, `vlm`, `kg`, `agent`, `sigma`, `eval`.
 - **AC-04** Một WorkProfile mẫu hợp lệ pass cả Pydantic lẫn `validate_against_contract`; một profile VLM `draft` có `reason` khác null bị cả hai từ chối.
 - **AC-05** `DataGuard.check("factory_confidential", cloud_provider)` raise; với `local_provider` không raise.
-- **AC-06** `git add data/raw/x.mp4` bị `.gitignore` bỏ qua; `data/samples/demo.mp4` thì không; `.secrets/secrets.env` bị bỏ qua, `.secrets/README.md` thì không.
+- **AC-06** `git add data/raw/x.mp4` bị `.gitignore` bỏ qua; `data/samples/demo.mp4` thì không; `.env` (chứa mọi key) bị bỏ qua, `.env.example` và `.secrets/README.md` thì không.
 - **AC-07** `docker compose config` cho thấy mọi service có `mem_limit`; tổng của stack demo lite (`mentormind` + `postgres` + `neo4j`) ≤ 4 GB. `vlm-server` (GPU, tùy chọn — có thể thay bằng provider cloud) có giới hạn riêng.
 - **AC-08** `Settings` với `KNOWHOW_VECTOR_BACKEND=memory` → `get_vector_store()` trả store dùng được (upsert + search) mà không cần docker.
 - **AC-09** Masking văn bản khớp bộ ca của bankassist-mcp: SĐT (`0…`, `+84…`, có dấu cách) → cùng một `[PHONE_n]`; CCCD, email, thẻ hợp lệ Luhn bị che; số tiền `500000000`, ngày `15082026`, mã 16 số sai Luhn giữ nguyên; tên đã biết bị che không phân biệt hoa thường; hoàn nguyên trả đúng chuỗi gốc; vault cô lập theo phiên.
@@ -148,3 +148,4 @@ KNOWHOW_SIGMA_CSV_DIR=data/mock_sigma
 - v1.5 (28/9, Phúc): T01-1..T01-4 xong; cây thư mục chi tiết `core/{config,guard/{pii,outbound},providers/{transport,openai_compat,parsing}}`, `.secrets/`, submodule `3rdparty/vlm_server` (vlm-engine); FR-04 thêm `vlm-server*` + `mypy --strict`; FR-06 + AC-06 chặn `.secrets/*`, `guidance/`, `*.mkv|*.webm|*.avi`; env VLM mặc định `local_openai` + nhóm `KNOWHOW_GUARD_*`; FR-09b masking PII ra cloud (port bankassist-mcp) + AC-09..AC-11 (spec 04 v1.4–v1.5). `extras` chỉ khai báo dependency của task đã làm (`vlm`, `api`, `dev`).
 - v1.6 (28/9, Phúc): T01-5 xong theo task D3 — profile `lite` (pgvector + Neo4j giới hạn bộ nhớ), FR-05d hai container dev `mentormind` + `vlm-server` với `VLM_SERVER_AUTOSTART`, override CDI/devbox/ROCm; AC-07 tính 4 GB cho stack demo lite (không gồm vlm-server GPU); Makefile `up`/`down`/`dev-up`/`dev-shell`.
 - v1.7 (28/9, Phúc): override compose chuyển vào `infra/docker/`, chọn bằng `make up PLATFORM=rocm|devbox|cdi` (FR-05d); override ROCm thêm GID `render` của host.
+- v1.8 (28/9, Phúc): API key nằm cùng trong `.env` (§4), `.secrets/` chỉ còn `README.md` hướng dẫn lấy key (FR-06, AC-06).

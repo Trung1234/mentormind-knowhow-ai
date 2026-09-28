@@ -1,8 +1,9 @@
 """Settings read from ``KNOWHOW_*`` environment variables (spec 01 FR-03).
 
-Sources, later wins: ``.env`` at the repo root, then ``.secrets/secrets.env`` (API keys, see
-``.secrets/README.md``), then the real process environment. Every module reads configuration
-through :func:`get_settings` — never ``os.environ`` directly.
+Sources, later wins: ``.env`` at the repo root (gitignored; ``.env.example`` is the template),
+then the real process environment. ``.env`` holds the vendor API keys too — ``.secrets/README.md``
+is only the guide for obtaining them. Every module reads configuration through
+:func:`get_settings` — never ``os.environ`` directly.
 """
 
 from __future__ import annotations
@@ -15,7 +16,8 @@ from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-SECRETS_FILE = REPO_ROOT / ".secrets" / "secrets.env"
+#: The one dotenv file: ``KNOWHOW_*`` settings and the vendor API keys live side by side.
+ENV_FILE = REPO_ROOT / ".env"
 
 JsonMode = Literal["auto", "json_schema", "json_object", "off"]
 
@@ -23,7 +25,7 @@ JsonMode = Literal["auto", "json_schema", "json_object", "off"]
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="KNOWHOW_",
-        env_file=(REPO_ROOT / ".env", SECRETS_FILE),
+        env_file=(ENV_FILE,),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -44,7 +46,7 @@ class Settings(BaseSettings):
     # Empty = the provider's default endpoint / default Qwen3-VL-8B model id.
     vlm_base_url: str | None = None
     vlm_model: str | None = None
-    # Empty = the provider's own key variable (e.g. OPENROUTER_API_KEY in .secrets/secrets.env).
+    # Empty = the provider's own key variable (e.g. OPENROUTER_API_KEY in .env).
     vlm_api_key: SecretStr | None = None
     vlm_fps: float = 4.0
     vlm_max_frames: int = 48
@@ -87,7 +89,7 @@ class Settings(BaseSettings):
     sigma_csv_dir: Path = Path("data/mock_sigma")
 
     # Where provider-specific API keys are looked up after the process environment.
-    secrets_file: Path = SECRETS_FILE
+    secrets_file: Path = ENV_FILE
 
 
 @lru_cache(maxsize=1)

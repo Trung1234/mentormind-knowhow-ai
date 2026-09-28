@@ -35,3 +35,17 @@ def test_env_example_parses_into_settings(monkeypatch: pytest.MonkeyPatch) -> No
     assert not settings.vlm_base_url  # blank -> provider default
     assert settings.vlm_extra_body == {"presence_penalty": 1.5}
     assert not settings.vlm_model
+
+
+def test_fr_09_api_keys_live_in_the_same_env_file_as_the_settings() -> None:
+    """One dotenv file for everything: .env, never .secrets/ (which is documentation only)."""
+    from mentormind.core.config import ENV_FILE, REPO_ROOT, lookup_secret
+
+    assert ENV_FILE == REPO_ROOT / ".env"
+    assert Settings.model_config["env_file"] == (ENV_FILE,)
+    assert Settings(_env_file=None).secrets_file == ENV_FILE
+    example = REPO_ROOT / ".env.example"
+    for name in ("OPENROUTER_API_KEY", "DASHSCOPE_API_KEY", "VLM_SERVER_API_KEY"):
+        assert f"\n{name}=" in example.read_text(), name
+    # A vendor key set in that file is what the provider factories look up.
+    assert lookup_secret("DASHSCOPE_API_KEY", secrets_file=example, environ={}) is None

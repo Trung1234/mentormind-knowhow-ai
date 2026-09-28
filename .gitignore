@@ -6,10 +6,10 @@ node_modules/
 .env.*
 !.env.example
 
-# Secrets — API keys live here, never in git. Only the setup guide and the template are tracked.
+# Secrets and settings live in .env (ignored above). .secrets/ is documentation only: how to
+# obtain each vendor's API key. Anything else dropped in there is treated as a secret.
 .secrets/*
 !.secrets/README.md
-!.secrets/secrets.env.example
 
 # Personal guides generated for one developer (not shared).
 guidance/

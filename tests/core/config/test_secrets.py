@@ -1,4 +1,4 @@
-"""Secret lookup: process environment first, then .secrets/secrets.env."""
+"""Secret lookup: process environment first, then the repo's .env (spec 01 FR-09)."""
 
 from __future__ import annotations
 

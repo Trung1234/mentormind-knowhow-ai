@@ -32,17 +32,17 @@ def test_ac_06_samples_are_not_ignored() -> None:
 
 
 def test_secret_files_are_ignored_but_guide_is_tracked() -> None:
+    # Keys live in .env; .secrets/ keeps only the guide for obtaining them.
     assert is_ignored(".secrets/secrets.env")
     assert is_ignored(".secrets/openrouter.key")
     assert not is_ignored(".secrets/README.md")
-    assert not is_ignored(".secrets/secrets.env.example")
 
 
-def test_env_file_is_ignored() -> None:
+def test_ac_06_the_env_file_holding_every_key_is_ignored() -> None:
     assert is_ignored(".env")
     assert not is_ignored(".env.example")
 
 
 def test_tracked_example_files_exist() -> None:
-    for name in (".env.example", ".secrets/README.md", ".secrets/secrets.env.example"):
+    for name in (".env.example", ".secrets/README.md"):
         assert Path(REPO_ROOT / name).is_file(), name

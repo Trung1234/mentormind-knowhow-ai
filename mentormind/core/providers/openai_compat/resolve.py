@@ -71,7 +71,7 @@ def resolve_endpoint(
     if endpoint and endpoint.is_cloud and not api_key:
         raise ProviderConfigError(
             f"Thiếu API key cho provider '{name}': thêm {endpoint.api_key_env}=... vào "
-            f".secrets/secrets.env (hướng dẫn: {SECRETS_GUIDE})."
+            f".env (cách lấy key: {SECRETS_GUIDE})."
         )
     json_mode = config.json_mode
     if json_mode == "auto":

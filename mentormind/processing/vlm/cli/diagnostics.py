@@ -69,7 +69,7 @@ def providers_cmd() -> None:
         marker = "*" if name == settings.vlm_provider else " "
         model = default_vlm_model(name) or "(KNOWHOW_VLM_MODEL)"
         typer.echo(f"{marker} {name:<20}{where:<10}{model:<32}{key}")
-    typer.echo("\n* = KNOWHOW_VLM_PROVIDER. Cách lấy/đặt API key: .secrets/README.md")
+    typer.echo("\n* = KNOWHOW_VLM_PROVIDER. Key đặt trong .env; cách lấy key: .secrets/README.md")
 
 
 def ping_cmd(

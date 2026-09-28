@@ -33,6 +33,11 @@ services:
       KNOWHOW_NEO4J_URI: bolt://neo4j:7687
       KNOWHOW_NEO4J_PASSWORD: ${KNOWHOW_NEO4J_PASSWORD:-change-me}
       KNOWHOW_PG_DSN: postgresql://knowhow:${KNOWHOW_PG_PASSWORD:-change-me}@postgres:5432/knowhow
+    # The repo is bind-mounted, so the app also reads /workspace/.env itself; this makes the same
+    # variables visible to anything started inside the container.
+    env_file:
+      - path: .env
+        required: false
     # Rootful Docker: DEV_UID=$(id -u) DEV_GID=$(id -g) keeps files you create yours.
     user: "${DEV_UID:-0}:${DEV_GID:-0}"
     depends_on:
@@ -59,10 +64,12 @@ services:
       VLM_SERVER_PORT: "8100"
       # Only the reserved GPU is visible inside the container, so "auto" means that one.
       VLM_SERVER_GPU: auto
-      VLM_SERVER_SECRETS_FILE: /run/knowhow-secrets/secrets.env
+    # VLM_SERVER_API_KEY / HF_TOKEN and friends: one .env for the whole repo (spec 01 FR-09).
+    env_file:
+      - path: .env
+        required: false
     volumes:
       - ${HF_CACHE:-~/.cache/huggingface}:/root/.cache/huggingface
-      - ./.secrets:/run/knowhow-secrets:ro
     ports:
       - "127.0.0.1:${VLM_SERVER_PORT:-8100}:8100"
     ipc: host

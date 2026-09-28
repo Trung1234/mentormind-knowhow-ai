@@ -1,8 +1,9 @@
-"""Look up a named secret: process environment first, then ``.secrets/secrets.env``.
+"""Look up a named secret: process environment first, then the repo's ``.env``.
 
 Provider API keys have vendor-specific names (``OPENROUTER_API_KEY``, ``DASHSCOPE_API_KEY``...)
 so several keys can sit side by side and switching provider is only ``KNOWHOW_VLM_PROVIDER``.
-Setup guide: ``.secrets/README.md``. Constitution art. 6: no secret is ever hardcoded.
+``.env`` is gitignored; ``.secrets/README.md`` explains how to obtain each vendor's key.
+Constitution art. 6: no secret is ever hardcoded.
 """
 
 from __future__ import annotations

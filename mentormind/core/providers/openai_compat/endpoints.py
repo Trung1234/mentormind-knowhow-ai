@@ -48,7 +48,7 @@ OPENAI_COMPAT_ENDPOINTS: dict[str, Endpoint] = {
     # Alibaba Model Studio (DashScope), Singapore. Retires qwen3-vl-8b-instruct on 2026-10-10.
     # New Singapore keys (sk-ws...) come with a workspace host shown next to the key. Put
     #   https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
-    # in DASHSCOPE_BASE_URL (.secrets/secrets.env); this legacy URL is only the fallback.
+    # in DASHSCOPE_BASE_URL (.env); this legacy URL is only the fallback.
     "qwen_api": Endpoint(
         base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
         is_cloud=True,
