@@ -27,3 +27,7 @@ data/work/
 .DS_Store
 .vscode/
 .idea/
+
+# Ag-kit
+.agents/
+
