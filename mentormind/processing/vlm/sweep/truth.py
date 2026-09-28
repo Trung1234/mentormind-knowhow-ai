@@ -5,7 +5,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from mentormind.core.schemas import Actor
+from mentormind.processing.vlm.passes.models import normalize_actor
 
 
 class TruthStep(BaseModel):
@@ -19,6 +22,13 @@ class TruthStep(BaseModel):
     key_point: str | None = None
     #: Part of the main process; ``recall_essential`` counts only these.
     essential: bool = True
+    #: Who performs it. The LASI truth labels ``worker``/``engineer``; both count as ``human``.
+    actor: Actor | None = None
+
+    @field_validator("actor", mode="before")
+    @classmethod
+    def _actor(cls, value: object) -> Actor | None:
+        return normalize_actor(value)
 
 
 def load_truth(path: Path) -> list[TruthStep]:

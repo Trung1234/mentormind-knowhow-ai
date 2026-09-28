@@ -31,6 +31,8 @@ class SweepRow(BaseModel):
     recall_essential: float | None
     #: Truth steps overlapped in time by ANY prediction — coverage, whatever the wording.
     recall_time_only: float | None
+    #: Right actor (human/robot/machine) on the prediction overlapping each truth step the most.
+    actor_accuracy: float | None
     failed_segments: int
     provider: str
     model: str
@@ -66,6 +68,27 @@ def key_point_recall(
     return hits / len(with_key_point)
 
 
+def actor_accuracy(truth: Sequence[TruthStep], predicted: Sequence[TimedStep]) -> float | None:
+    """Share of truth steps whose most-overlapping prediction names the same actor.
+
+    Judged on time, not wording: who does a step is a separate question from how it is phrased.
+    Only truth steps with an actor and at least one overlapping prediction with an actor count.
+    """
+    judged = hits = 0
+    for t in truth:
+        if t.actor is None:
+            continue
+        candidates = [
+            p for p in predicted if p.actor and overlaps(t.t_start, t.t_end, p.t_start, p.t_end)
+        ]
+        if not candidates:
+            continue
+        best = max(candidates, key=lambda p: min(t.t_end, p.t_end) - max(t.t_start, p.t_start))
+        judged += 1
+        hits += best.actor == t.actor
+    return hits / judged if judged else None
+
+
 def evaluate(
     truth: Sequence[TruthStep],
     result: PassAResult,
@@ -94,6 +117,7 @@ def evaluate(
             len(matched_truth.intersection(essential)) / len(essential) if essential else None
         ),
         recall_time_only=_round(_time_coverage(truth, predicted)),
+        actor_accuracy=_round(actor_accuracy(truth, predicted)),
         failed_segments=len(result.failed),
         provider=provider,
         model=model,

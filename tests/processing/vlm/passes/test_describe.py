@@ -147,3 +147,45 @@ def test_objects_given_as_one_string_become_a_list(tmp_path: Path) -> None:
     vlm = FakeVLM([{"steps": [step("Đặt linh kiện vào hộp", 0, 2, objects="linh kiện, hộp")]}])
     result = run(vlm, tmp_path)
     assert result.failed == [] and result.steps[0].objects == ["linh kiện", "hộp"]
+
+
+@pytest.mark.parametrize(
+    ("said", "actor"),
+    [
+        ("human", "human"),
+        ("robot", "robot"),
+        ("machine", "machine"),
+        ("công nhân", "human"),
+        ("kỹ sư", "human"),
+        ("worker", "human"),
+        ("robot SCARA", "robot"),
+        ("máy dựng thùng", "machine"),
+        ("không rõ", None),
+        (None, None),
+    ],
+)
+def test_ac_18_pass_a_reads_who_performs_the_step(
+    said: str | None, actor: str | None, tmp_path: Path
+) -> None:
+    vlm = FakeVLM([{"steps": [step("Đặt cốc vào thùng", 0, 2, actor=said)]}])
+    result = run(vlm, tmp_path)
+    assert result.failed == [] and result.steps[0].actor == actor
+    profiles = to_work_profiles(
+        result, segments=segments(), process_id="PACK01", provider=vlm, model=vlm.model
+    )
+    for profile in profiles:  # the fake repeats its answer for each of the 3 segments
+        assert profile.actor == actor
+        validate_against_contract(profile)
+
+
+def test_ac_18_pass_a_asks_for_the_actor() -> None:
+    from mentormind.processing.vlm.passes.describe import PASS_A_SCHEMA
+    from mentormind.processing.vlm.passes.prompting import render_prompt
+
+    item = PASS_A_SCHEMA["properties"]["steps"]["items"]
+    assert item["properties"]["actor"]["enum"] == ["human", "robot", "machine", None]
+    assert "actor" in item["required"]
+    prompt = render_prompt(
+        "pass_a_describe.md", process_id="PACK01", duration="10.0", fps="4", timestamps="0.0"
+    )
+    assert '"actor"' in prompt and "human" in prompt and "robot" in prompt

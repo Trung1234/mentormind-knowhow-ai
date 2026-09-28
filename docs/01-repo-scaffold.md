@@ -150,3 +150,4 @@ KNOWHOW_SIGMA_CSV_DIR=data/mock_sigma
 - v1.7 (28/9, Phúc): override compose chuyển vào `infra/docker/`, chọn bằng `make up PLATFORM=rocm|devbox|cdi` (FR-05d); override ROCm thêm GID `render` của host.
 - v1.8 (28/9, Phúc): API key nằm cùng trong `.env` (§4), `.secrets/` chỉ còn `README.md` hướng dẫn lấy key (FR-06, AC-06).
 - v1.9 (28/9, Phúc): FR-06 cho phép `data/video/*` (video demo public LASI) vào git qua **Git LFS** (`.gitattributes`); dữ liệu nhà máy vẫn bị chặn.
+- v1.10 (28/9, Phúc): contract WorkProfile thêm `actor` (`human` | `robot` | `machine` | `null`: ai làm bước; `human` gộp công nhân + kỹ sư), `schema_version` giữ `1.0` (FR-08; spec 04 AC-18).

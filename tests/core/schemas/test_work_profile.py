@@ -109,3 +109,18 @@ def test_unknown_field_rejected_by_both() -> None:
         validate_against_contract(bad)
     with pytest.raises(ValidationError):
         WorkProfile.model_validate(bad)
+
+
+@pytest.mark.parametrize("actor", ["human", "robot", "machine", None])
+def test_ac_18_the_profile_says_who_performs_the_step(actor: str | None) -> None:
+    profile = vlm_draft(actor=actor)
+    validate_against_contract(profile)
+    validate_against_contract(WorkProfile.model_validate(profile))
+
+
+def test_ac_18_an_actor_outside_the_enum_is_rejected_by_both() -> None:
+    bad = vlm_draft(actor="worker")  # worker and engineer are both "human"
+    with pytest.raises(ContractValidationError):
+        validate_against_contract(bad)
+    with pytest.raises(ValidationError):
+        WorkProfile.model_validate(bad)

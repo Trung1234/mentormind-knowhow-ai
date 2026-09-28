@@ -20,6 +20,7 @@ from mentormind.processing.vlm.sweep.matching import (
 )
 from mentormind.processing.vlm.sweep.metrics import (
     SweepRow,
+    actor_accuracy,
     evaluate,
     key_point_recall,
     order_accuracy,
@@ -34,6 +35,7 @@ __all__ = [
     "Match",
     "SweepRow",
     "TruthStep",
+    "actor_accuracy",
     "evaluate",
     "key_point_recall",
     "load_truth",

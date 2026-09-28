@@ -2,16 +2,23 @@
 
 from __future__ import annotations
 
+from mentormind.core.schemas import Actor
 from mentormind.processing.vlm.passes import FailedSegment, PassAResult, TimedStep
 from mentormind.processing.vlm.passes.consistency import self_consistent
 
 
 def timed(
-    name: str, start: float, end: float, confidence: float = 0.8, seg: str = "S1"
+    name: str,
+    start: float,
+    end: float,
+    confidence: float = 0.8,
+    seg: str = "S1",
+    actor: Actor | None = None,
 ) -> TimedStep:
     return TimedStep(
-        segment_id=seg, t_start=start, t_end=end, step=name, confidence=confidence, fps=4.0
-    )
+        segment_id=seg, t_start=start, t_end=end, step=name, confidence=confidence, fps=4.0,
+        actor=actor,
+    )  # fmt: skip
 
 
 def run(*steps: TimedStep, failed: tuple[str, ...] = (), tokens: int = 100) -> PassAResult:
@@ -57,3 +64,17 @@ def test_a_segment_failed_in_either_run_is_failed_and_costs_add_up() -> None:
     assert result.steps == []  # S2 could not be confirmed by the second run
     assert sorted(f.segment_id for f in result.failed) == ["S1", "S2"]
     assert result.prompt_tokens == 150 and result.calls == 2
+
+
+def test_ac_19_runs_that_disagree_on_the_actor_leave_it_unknown() -> None:
+    first = run(timed("Đặt cốc vào thùng", 0, 2, actor="robot"))
+    second = run(timed("Đặt cốc vào thùng", 0, 2, actor="human"))
+    [step] = self_consistent(first, second).steps
+    assert step.actor is None
+
+
+def test_an_actor_only_one_run_could_tell_is_kept() -> None:
+    first = run(timed("Đặt cốc vào thùng", 0, 2, actor=None))
+    second = run(timed("Đặt cốc vào thùng", 0, 2, actor="machine"))
+    [step] = self_consistent(first, second).steps
+    assert step.actor == "machine"

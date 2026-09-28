@@ -9,7 +9,9 @@ Nothing the LLM says is trusted blindly (AC-05, "so khớp ngược"):
 * a returned step without a known, unused source id is dropped — that is an invented step;
 * a returned step whose text does not match any of its sources (``token_set_ratio >= 70``) is
   rejected: its sources are kept as they were;
-* sources must lie in the same or adjacent segments, otherwise the merge is rejected likewise;
+* sources must lie in the same or adjacent segments and share one ``actor`` (a person and a robot
+  never make one step), otherwise the merge is rejected likewise; the merged step's ``actor`` is
+  its sources' — the LLM cannot change it;
 * an input step the LLM left out is kept as it was.
 
 The prompt goes through the LLM guard like any other call: its classification is the strictest of
@@ -106,6 +108,7 @@ def merge_steps(
             "t_start": step.t_start,
             "t_end": step.t_end,
             "step": step.step,
+            "actor": step.actor,
             "hand_action": step.hand_action,
             "objects": step.objects,
         }
@@ -157,7 +160,8 @@ def _apply(
         segment_order = sorted({index.get(p.segment_id, 0) for p in parts})
         adjacent = all(b - a <= 1 for a, b in pairwise(segment_order))
         matches_a_source = any(similarity(item.step, p.step) >= threshold for p in parts)
-        if not (adjacent and matches_a_source):
+        one_actor = len({p.actor for p in parts if p.actor}) <= 1
+        if not (adjacent and matches_a_source and one_actor):
             report.rejected += 1
             log.info("Pass C: rejected %r (sources %s)", item.step, sources)
             continue
@@ -176,6 +180,8 @@ def _combine(name: str, parts: list[TimedStep]) -> TimedStep:
     return first.model_copy(
         update={
             "step": name,
+            # Who did it comes from the sources; the LLM has no say (it only merges and renames).
+            "actor": next((p.actor for p in parts if p.actor), None),
             "t_start": min(p.t_start for p in parts),
             "t_end": max(p.t_end for p in parts),
             "hand_action": next((p.hand_action for p in parts if p.hand_action), None),

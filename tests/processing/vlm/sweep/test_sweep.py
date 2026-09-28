@@ -19,6 +19,7 @@ from mentormind.processing.vlm.providers.backends.fake import FakeVLM
 from mentormind.processing.vlm.sweep import (
     CSV_COLUMNS,
     TruthStep,
+    actor_accuracy,
     load_truth,
     match_steps,
     order_accuracy,
@@ -131,6 +132,7 @@ def test_ac_07_sweep_writes_every_required_column(tmp_path: Path) -> None:
     assert (float(table[0]["recall"]), float(table[0]["precision"])) == (0.5, 0.5)
     assert float(table[0]["key_point_recall"]) == 1.0
     assert (tmp_path / "work" / "fps1" / "profiles_draft.json").is_file()
+    assert "actor_accuracy" in table[0]
 
 
 def test_repo_groundtruth_file_loads() -> None:
@@ -139,10 +141,38 @@ def test_repo_groundtruth_file_loads() -> None:
     assert all(t.t_end >= t.t_start for t in truth)
 
 
-def _timed(name: str, start: float, end: float) -> Any:
+def _timed(name: str, start: float, end: float, actor: str | None = None) -> Any:
     from mentormind.processing.vlm.passes import TimedStep
 
-    return TimedStep(segment_id="S", t_start=start, t_end=end, step=name, confidence=0.9, fps=4.0)
+    return TimedStep(
+        segment_id="S", t_start=start, t_end=end, step=name, confidence=0.9, fps=4.0, actor=actor
+    )
+
+
+def test_truth_workers_and_engineers_count_as_human() -> None:
+    truth = [
+        TruthStep(step="Đậy nắp đỏ", t_start=0, t_end=2, actor="worker"),
+        TruthStep(step="Chỉnh cơ cấu dẫn hướng", t_start=5, t_end=7, actor="engineer"),
+        TruthStep(step="Gắp cụm cốc", t_start=10, t_end=12, actor="robot"),
+        TruthStep(step="Dựng thùng", t_start=15, t_end=17, actor="machine"),
+    ]
+    assert [t.actor for t in truth] == ["human", "human", "robot", "machine"]
+
+
+def test_actor_accuracy_is_judged_on_time_whatever_the_wording() -> None:
+    truth = [
+        TruthStep(step="Đậy nắp đỏ lên sản phẩm", t_start=0, t_end=2, actor="worker"),
+        TruthStep(step="Gắp cụm cốc vào thùng", t_start=10, t_end=12, actor="robot"),
+        TruthStep(step="Dựng thùng carton", t_start=20, t_end=22, actor="machine"),
+        TruthStep(step="Không ai đoán tới", t_start=30, t_end=32, actor="worker"),
+    ]
+    predicted = [
+        _timed("Ấn nắp", 0.5, 1.5, actor="human"),  # right actor, different words
+        _timed("Đặt sản phẩm vào hộp", 10, 12, actor="human"),  # wrong: it was the robot
+        _timed("Mở thùng", 20, 22, actor=None),  # no actor: not judged
+    ]
+    assert actor_accuracy(truth, predicted) == 0.5
+    assert actor_accuracy(truth, []) is None
 
 
 @pytest.fixture(autouse=True)

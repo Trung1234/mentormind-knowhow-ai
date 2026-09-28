@@ -48,15 +48,15 @@ class GeminiVLM:         # Could — chỉ khi còn thời gian
 
 **Lượt A — mô tả từng đoạn.** Với mỗi `Segment`, gọi VLM với prompt `prompts/pass_a_describe.md`, output theo schema:
 ```json
-{"steps": [{"step": "str", "hand_action": "str", "objects": ["str"],
-            "key_point_observed": "str|null", "t_start_rel": 0.0, "t_end_rel": 0.0,
-            "confidence": 0.0}]}
+{"steps": [{"step": "str", "actor": "human|robot|machine|null", "hand_action": "str",
+            "objects": ["str"], "key_point_observed": "str|null", "t_start_rel": 0.0,
+            "t_end_rel": 0.0, "confidence": 0.0}]}
 ```
-Một đoạn có thể có 0..n bước.
+Một đoạn có thể có 0..n bước. `actor` = ai/cái gì làm bước đó: `human` (người: công nhân, kỹ sư), `robot` (robot có cánh tay), `machine` (máy tự động cố định), `null` = không rõ. Tên bước không ghi chủ thể. Từ ngoài enum ("công nhân", "robot SCARA") được chuẩn hóa; không nhận ra thì `null`, segment không bị loại.
 
-**Lượt B — tự nhất quán.** Chạy lượt A thêm 1 lần (tổng k=2, `temperature=0.2`). Chỉ giữ bước xuất hiện ở cả hai lần (so khớp: `rapidfuzz.token_set_ratio(step) ≥ 70` và overlap thời gian > 0). `confidence` cuối = trung bình hai lần × tỷ lệ khớp.
+**Lượt B — tự nhất quán.** Chạy lượt A thêm 1 lần (tổng k=2, `temperature=0.2`). Chỉ giữ bước xuất hiện ở cả hai lần (so khớp: `rapidfuzz.token_set_ratio(step) ≥ 70` và overlap thời gian > 0). `confidence` cuối = trung bình hai lần × tỷ lệ khớp (`token_set_ratio / 100` của cặp). `actor`: hai lần cùng thấy → giữ; một lần không rõ → lấy lần kia; hai lần khác nhau → `null`.
 
-**Lượt C — tổng hợp.** Gọi LLM text (không cần ảnh) với prompt `prompts/pass_c_merge.md`: gộp bước trùng giữa các đoạn kề nhau, sắp `step_order` theo thời gian, chuẩn hóa tên bước (động từ ở đầu). Không được thêm bước mới không có trong input. Mỗi bước đầu vào có mã `s1..sn`; LLM trả `{"steps": [{"step", "source_ids"}]}`. So khớp ngược: bước không có `source_ids` hợp lệ bị bỏ (bịa); bước có tên không khớp nguồn nào (`token_set_ratio < 70`) hoặc gộp đoạn không kề nhau bị từ chối, giữ nguyên các bước nguồn; bước đầu vào LLM bỏ sót được giữ nguyên. Nhãn của prompt = nhãn khắt khe nhất của các đoạn (DataGuard chặn LLM cloud với dữ liệu nhà máy).
+**Lượt C — tổng hợp.** Gọi LLM text (không cần ảnh) với prompt `prompts/pass_c_merge.md`: gộp bước trùng giữa các đoạn kề nhau, sắp `step_order` theo thời gian, chuẩn hóa tên bước (động từ ở đầu). Không được thêm bước mới không có trong input. Mỗi bước đầu vào có mã `s1..sn`; LLM trả `{"steps": [{"step", "source_ids"}]}`. So khớp ngược: bước không có `source_ids` hợp lệ bị bỏ (bịa); bước có tên không khớp nguồn nào (`token_set_ratio < 70`) hoặc gộp đoạn không kề nhau, hoặc gộp hai bước khác `actor` bị từ chối, giữ nguyên các bước nguồn; `actor` của bước gộp lấy từ nguồn (LLM không đổi được); bước đầu vào LLM bỏ sót được giữ nguyên. Nhãn của prompt = nhãn khắt khe nhất của các đoạn (DataGuard chặn LLM cloud với dữ liệu nhà máy).
 
 **Hậu xử lý bắt buộc**
 - Ép `reason = None`, `reason_source = None`, `generated_by = "vlm"`, `status = "draft"`.
@@ -74,16 +74,17 @@ Bước 1 — "scene": mô tả ngắn (1-2 câu) những gì thấy trong các 
 Bước 2 — "steps": liệt kê CÁC BƯỚC THAO TÁC QUAN SÁT ĐƯỢC của người (công nhân, kỹ sư) hoặc của máy/robot.
 Quy tắc:
 - Chỉ mô tả điều nhìn thấy trong ảnh. Không suy đoán lý do, không thêm bước "thường có" trong SOP.
-- Mỗi bước: động từ ở đầu, ngắn gọn (VD "Đặt linh kiện A vào ngăn trái").
+- Mỗi bước: động từ ở đầu, ngắn gọn, KHÔNG ghi chủ thể (VD "Đặt linh kiện A vào ngăn trái"); ai làm thì ghi ở "actor".
+- actor: ai/cái gì làm bước đó: "human" (người: công nhân, kỹ sư, kỹ thuật viên), "robot" (robot có cánh tay, VD SCARA), "machine" (máy tự động cố định: băng tải, máy dựng thùng, máy chiết rót); không nhìn rõ thì null.
 - Một thao tác lặp lại nhiều lần chỉ ghi MỘT bước; tối đa 6 bước cho cả đoạn.
-- hand_action: ai/tay nào, động tác gì (nhặt, xoay, ấn, đặt nghiêng...); objects: vật được thao tác.
+- hand_action: tay nào, động tác gì (nhặt, xoay, ấn, đặt nghiêng...); robot/máy thì tả chuyển động của đầu gắp; objects: vật được thao tác.
 - key_point_observed: chi tiết kỹ thuật NHÌN THẤY được (hướng, vị trí, thứ tự), null nếu không có.
 - t_start_rel, t_end_rel: giây tính từ đầu đoạn (0 đến {duration}), dựa vào mốc thời gian của ảnh.
 - Nếu không chắc, hạ confidence (< 0.5) thay vì bỏ qua hoặc bịa.
 - Cảnh chỉ có người nói chuyện, logo, chữ hoặc bảng số liệu thì không phải thao tác: "steps" rỗng.
 Trả về DUY NHẤT một đối tượng JSON với hai khóa "scene" và "steps", không markdown, không giải thích.
 ```
-Schema output thêm khóa **`scene`** (bắt buộc, đứng trước `steps`): `{"scene": "str", "steps": [...]}`.
+Schema output thêm khóa **`scene`** (bắt buộc, đứng trước `steps`): `{"scene": "str", "steps": [...]}`; mỗi bước có **`actor`** (bắt buộc trong schema, cho phép `null`).
 *Vì sao (thí nghiệm 28/9, Qwen3-VL-8B tự host, video demo LASI 20 đoạn × 4 fps):* prompt v1.0 ở trên
 trả `{"steps": []}` cho **mọi** đoạn, kể cả có/không `json_schema`; bỏ câu "Không có thao tác nào →
 trả {"steps": []}" hoặc dòng JSON mẫu vẫn rỗng; chỉ khi bắt model **mô tả cảnh trước rồi mới trích
@@ -103,7 +104,7 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - `truth` là danh sách bước do Đạt gán tay (`[{step, t_start, t_end, key_point?}]`); `key_point` là chi tiết kỹ thuật nhìn thấy được (hướng, góc, vị trí), tùy chọn. File truth có thể là danh sách đó hoặc một object `{"video": ..., "annotation": ..., "scenes": [...], "steps": [...]}`; mỗi bước có thể thêm `essential` (bước thuộc công đoạn chính, mặc định `true`). Mẫu: `data/video/groundtruth.json` (video LASI, 50 cảnh, 27 bước).
 - Chưa có `segments.json` của spec 03 thì sweep tự cắt đoạn `fixed_window` 10 s (spec 03 FR-03 fallback, ffmpeg, cache tại `data/work/video/<video_id>/clips/`); có rồi thì truyền `--segments`. Sweep ép cùng một fps cho mọi đoạn (bỏ qua `motion_score`) để so sánh các mức fps.
 - So khớp như lượt B. Chỉ số: `recall` (1 − tỷ lệ bỏ sót), `precision` (1 − tỷ lệ bịa), `order_accuracy` (Kendall tau chuẩn hóa), `key_point_recall` (tỷ lệ bước truth có `key_point` được khớp với `key_point_observed` của bước dự đoán tương ứng, `token_set_ratio ≥ 70`; không bước truth nào có `key_point` → để trống), `tokens_used`, `latency_s`.
-- Chỉ số phụ (cột thêm, không thay chỉ số chính): `recall_essential` (chỉ bước `essential`), `recall_time_only` (bước truth có ít nhất một dự đoán trùng thời gian, bất kể câu chữ — đo độ phủ khi luật khớp chữ ≥ 70 quá khắt khe với tiếng Việt tự do), `fps_effective`, `predicted`, `failed_segments`.
+- Chỉ số phụ (cột thêm, không thay chỉ số chính): `actor_accuracy` (trên bước truth có `actor` và có dự đoán có `actor` trùng thời gian: tỷ lệ dự đoán trùng nhiều nhất có cùng `actor`; truth `worker`/`engineer` tính là `human`), `recall_essential` (chỉ bước `essential`), `recall_time_only` (bước truth có ít nhất một dự đoán trùng thời gian, bất kể câu chữ — đo độ phủ khi luật khớp chữ ≥ 70 quá khắt khe với tiếng Việt tự do), `fps_effective`, `predicted`, `failed_segments`.
 - Xuất CSV + in bảng markdown để dán vào slide; chi tiết mỗi fps (raw answer, `predictions.json`, `profiles_draft.json`) tại `data/work/vlm/<video_id>/sweep-<provider>/fps<N>/`.
 
 ## 7. Functional Requirements
@@ -149,6 +150,8 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - **AC-15** (thủ công, cần GPU) `make vlm-server` rồi `uv run knowhow vlm ping --frames 48` → `PASS` (model nhận ra hình vuông đỏ đi từ trái sang phải vào hộp).
 - **AC-16** Provider cloud nhận prompt đã che PII (vd. số điện thoại → `[PHONE_1]`), câu trả lời được hoàn nguyên, audit ghi số lượng đã che; provider tự host nhận prompt nguyên bản; tắt che PII mà prompt còn PII → `SensitiveDataLeakError`, không có HTTP request nào.
 - **AC-17** Khung hình gửi provider cloud bị làm mờ vùng mặt (vùng khác giữ nguyên), audit ghi `faces_blurred`; khung gửi provider tự host giữ nguyên byte; không có model làm mờ mặt → từ chối gửi (fail closed).
+- **AC-18** Lượt A: mỗi bước có `actor` ∈ {`human`, `robot`, `machine`, `null`}; từ đồng nghĩa ("công nhân", "kỹ sư", "robot SCARA", "máy dựng thùng") được chuẩn hóa, từ không nhận ra → `null`, segment không bị loại; WorkProfile mang `actor`, hợp lệ contract; `actor` ngoài enum bị cả Pydantic lẫn contract từ chối.
+- **AC-19** Lượt B: hai lần chạy khác `actor` → `actor=null`. Lượt C: không gộp hai bước khác `actor`; bước gộp giữ `actor` của nguồn dù LLM trả gì.
 
 ## 9. Tasks
 - [x] T04-1 Provider protocol + `OpenAICompatVLM` + `FakeVLM` + factory + DataGuard (AC-03).
@@ -161,6 +164,7 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - [x] T04-8 Registry provider dùng chung (`core.providers`) + cloud `openrouter`/`siliconflow` + key từ `.env` + `knowhow vlm providers|ping` (AC-11, AC-12, AC-13).
 - [x] T04-9 Server tự host `3rdparty/vlm_server` (vLLM, Qwen3-VL-8B-Instruct, 1 GPU) + smoke test (AC-14, AC-15).
 - [x] T04-10 Outbound guard cho VLM cloud: che PII + LeakGuard + làm mờ mặt + audit (AC-16, AC-17).
+- [x] T04-11 Trường `actor` (human/robot/machine) qua lượt A → B → C → WorkProfile + `actor_accuracy` trong sweep (AC-18, AC-19).
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
@@ -174,3 +178,4 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - v1.8 (28/9, Phúc): lượt A nhận `objects` dạng chuỗi "a, b" (DashScope `json_object` không ép schema, gặp khi chạy cloud trên video LASI); AC-15 chạy thật trên MI250 (GCD 1, vLLM 0.23 ROCm): PASS.
 - v1.9 (28/9, Phúc): T04-4 lượt B, T04-5 lượt C (`pass_c_merge.md`, so khớp ngược), T04-7 `propose-reasons` (`propose_reason.md`, `partial_ratio ≥ 85`) xong; `processing.vlm.pipeline.describe_video` nối A → B → C → hậu xử lý; FR-05 `describe` nhận thêm `--video`/`--segments`; FR-06 lưu tạm `profiles.json` khi chưa có spec 08.
 - v1.10 (28/9, Phúc): pipeline là class `DescribePipeline` (`pass_a`/`pass_b`/`pass_c`/`postprocess`/`run`) thay cho hàm `describe_video`.
+- v1.11 (28/9, Phúc): T04-11 `actor` = ai làm bước (`human` gộp công nhân + kỹ sư, `robot`, `machine`, `null`); prompt lượt A v1.6: tên bước không ghi chủ thể, `hand_action` chỉ còn động tác; lượt B/C giữ và kiểm `actor`; sweep thêm `actor_accuracy`; contract WorkProfile thêm `actor` (AC-18, AC-19).

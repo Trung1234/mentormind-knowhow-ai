@@ -36,6 +36,8 @@ CONTRACT_PATH = (
 SCHEMA_VERSION: Literal["1.0"] = "1.0"
 
 GeneratedBy = Literal["vlm", "ocr", "human"]
+#: Who performs the step: a person (worker or engineer), an arm robot, or a fixed machine.
+Actor = Literal["human", "robot", "machine"]
 ProfileStatus = Literal["draft", "in_review", "approved", "rejected"]
 ReasonSource = Literal["expert_verbal", "expert_interview"]
 ErrorTag = Literal[
@@ -121,6 +123,8 @@ class WorkProfile(BaseModel):
     process_id: str
     step_order: int = Field(ge=1)
     step: str = Field(min_length=3)
+    #: ``None`` = could not tell who performs the step.
+    actor: Actor | None = None
     hand_action: str | None = None
     objects: list[str] = Field(default_factory=list)
     key_point: str | None = None

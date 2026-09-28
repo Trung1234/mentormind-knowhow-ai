@@ -5,12 +5,14 @@ report it in the same segment: ``token_set_ratio(step) >= 70`` and overlapping t
 rule of :mod:`passes.matching`), paired one-to-one, best score first. Small VLMs "see" plausible
 actions that are not in the video; an invented step rarely comes back the same way twice.
 
-The kept step is the first run's, with ``confidence = mean(c1, c2) x score / 100``. A segment that
-failed in either run is failed: its steps cannot be confirmed.
+The kept step is the first run's, with ``confidence = mean(c1, c2) x score / 100``. Its ``actor`` is
+the one both runs saw (one run's if the other could not tell, unknown if they disagree). A segment
+that failed in either run is failed: its steps cannot be confirmed.
 """
 
 from __future__ import annotations
 
+from mentormind.core.schemas import Actor
 from mentormind.processing.vlm.passes.matching import MATCH_THRESHOLD, overlaps, similarity
 from mentormind.processing.vlm.passes.models import PassAResult, TimedStep
 
@@ -58,5 +60,13 @@ def _agreed(ours: list[TimedStep], theirs: list[TimedStep], threshold: float) ->
         used_ours.add(i)
         used_theirs.add(j)
         confidence = (ours[i].confidence + theirs[j].confidence) / 2 * score / 100
-        kept.append(ours[i].model_copy(update={"confidence": round(confidence, 3)}))
+        update = {"confidence": round(confidence, 3), "actor": _actor(ours[i], theirs[j])}
+        kept.append(ours[i].model_copy(update=update))
     return kept
+
+
+def _actor(a: TimedStep, b: TimedStep) -> Actor | None:
+    """The actor both runs saw; one run's when the other could not tell; unknown if they differ."""
+    if a.actor is None or b.actor is None:
+        return a.actor or b.actor
+    return a.actor if a.actor == b.actor else None

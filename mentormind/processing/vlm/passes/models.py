@@ -6,6 +6,31 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from mentormind.core.schemas.work_profile import Actor
+
+#: Words a model (or an annotator) uses for each actor, checked in this order: "người vận hành
+#: máy" is a person, "máy robot" is a robot.
+_ACTOR_WORDS: tuple[tuple[Actor, tuple[str, ...]], ...] = (
+    ("robot", ("robot", "scara", "cobot")),
+    (
+        "human",
+        ("human", "worker", "engineer", "operator", "technician", "person", "người", "nhân",
+         "kỹ sư", "kỹ thuật", "chuyên gia", "thợ"),
+    ),
+    ("machine", ("machine", "máy", "băng tải", "băng chuyền", "conveyor")),
+)  # fmt: skip
+
+
+def normalize_actor(value: Any) -> Actor | None:
+    """``human`` / ``robot`` / ``machine`` from the model's wording; ``None`` when unclear."""
+    if not isinstance(value, str):
+        return None
+    text = value.strip().lower()
+    for actor, words in _ACTOR_WORDS:
+        if any(word in text for word in words):
+            return actor
+    return None
+
 
 class ObservedStep(BaseModel):
     """One step exactly as the VLM reported it (relative times). Unknown keys are dropped."""
@@ -13,6 +38,7 @@ class ObservedStep(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     step: str = Field(min_length=3)
+    actor: Actor | None = None
     hand_action: str | None = None
     objects: list[str] = Field(default_factory=list)
     key_point_observed: str | None = None
@@ -27,6 +53,12 @@ class ObservedStep(BaseModel):
         if isinstance(value, str):
             return [item.strip() for item in value.split(",") if item.strip()]
         return [] if value is None else value
+
+    @field_validator("actor", mode="before")
+    @classmethod
+    def _actor_from_words(cls, value: Any) -> Actor | None:
+        # An unexpected word ("công nhân", "robot SCARA") must not fail the whole segment.
+        return normalize_actor(value)
 
 
 class PassAOutput(BaseModel):
@@ -44,6 +76,7 @@ class TimedStep(BaseModel):
     t_start: float = Field(ge=0)
     t_end: float = Field(ge=0)
     step: str
+    actor: Actor | None = None
     hand_action: str | None = None
     objects: list[str] = Field(default_factory=list)
     key_point_observed: str | None = None

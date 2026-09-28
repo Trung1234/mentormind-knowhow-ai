@@ -3,6 +3,7 @@
 from mentormind.core.schemas.common import Citation, DataClassification
 from mentormind.core.schemas.work_profile import (
     SCHEMA_VERSION,
+    Actor,
     ContractValidationError,
     WorkProfile,
     validate_against_contract,
@@ -10,6 +11,7 @@ from mentormind.core.schemas.work_profile import (
 
 __all__ = [
     "SCHEMA_VERSION",
+    "Actor",
     "Citation",
     "ContractValidationError",
     "DataClassification",

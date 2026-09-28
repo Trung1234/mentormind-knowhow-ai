@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 
 from mentormind.core.guard import ConfidentialDataError
 from mentormind.core.llm.backends.fake import FakeLLM
+from mentormind.core.schemas import Actor
 from mentormind.core.schemas.common import DataClassification
 from mentormind.core.schemas.video import Segment
 from mentormind.processing.vlm.passes import PassAResult, TimedStep
@@ -32,10 +34,12 @@ def segment(i: int, label: DataClassification = DataClassification.SYNTHETIC) ->
 SEGMENTS = [segment(1), segment(2), segment(3)]
 
 
-def timed(name: str, start: float, end: float, seg: int) -> TimedStep:
+def timed(
+    name: str, start: float, end: float, seg: int, actor: Actor | None = "human"
+) -> TimedStep:
     return TimedStep(
         segment_id=f"S{seg}", t_start=start, t_end=end, step=name, confidence=0.8, fps=4.0,
-        keyframes=[f"kf{seg}.jpg"],
+        keyframes=[f"kf{seg}.jpg"], actor=actor,
     )  # fmt: skip
 
 
@@ -114,3 +118,35 @@ def test_factory_steps_never_reach_a_cloud_llm(tmp_path: Path) -> None:
         merge_steps(INPUT.model_copy(update={"steps": INPUT.steps[:3]}), factory, llm,
                     process_id="PACK01", work_dir=tmp_path)  # fmt: skip
     assert llm.calls == []
+
+
+def test_ac_19_steps_of_different_actors_are_never_merged(tmp_path: Path) -> None:
+    steps = PassAResult(
+        steps=[
+            timed("Đặt cốc vào thùng carton", 8, 10, seg=1, actor="human"),
+            timed("Đặt cốc vào thùng carton", 10, 11, seg=2, actor="robot"),
+        ]
+    )
+    answer = {"steps": [{"step": "Đặt cốc vào thùng carton", "source_ids": ["s1", "s2"]}]}
+    result, report = run(answer, tmp_path, steps=steps)
+    assert [s.actor for s in result.steps] == ["human", "robot"]
+    assert report.rejected == 1  # type: ignore[attr-defined]
+
+
+def test_ac_19_the_llm_cannot_change_who_performs_a_step(tmp_path: Path) -> None:
+    steps = PassAResult(
+        steps=[
+            timed("Đặt cốc vào thùng carton", 8, 10, seg=1, actor=None),
+            timed("Đặt cốc vào thùng", 10, 11, seg=2, actor="robot"),
+        ]
+    )
+    answer = {
+        "steps": [
+            {"step": "Đặt cốc vào thùng carton", "source_ids": ["s1", "s2"], "actor": "human"}
+        ]
+    }
+    result, _ = run(answer, tmp_path, steps=steps)
+    [merged] = result.steps
+    assert merged.actor == "robot"  # from the sources, whatever the LLM wrote
+    prompt = json.loads((tmp_path / "pass_c.json").read_text(encoding="utf-8"))["prompt"]
+    assert '"actor": "robot"' in prompt  # the LLM is told who did each step

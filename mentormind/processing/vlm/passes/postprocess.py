@@ -46,6 +46,7 @@ def to_work_profiles(
             process_id=process_id,
             step_order=order,
             step=step.step,
+            actor=step.actor,
             hand_action=step.hand_action,
             objects=step.objects,
             key_point=step.key_point_observed,

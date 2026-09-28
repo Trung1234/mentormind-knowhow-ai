@@ -12,6 +12,7 @@
     "process_id": { "type": "string", "description": "Mã công đoạn, khớp mã công đoạn bên Sigma.", "examples": ["PACK01"] },
     "step_order": { "type": "integer", "minimum": 1 },
     "step": { "type": "string", "minLength": 3, "description": "Tên bước ngắn gọn, động từ ở đầu." },
+    "actor": { "enum": ["human", "robot", "machine", null], "description": "Ai/cái gì thực hiện bước: human (người: công nhân, kỹ sư), robot (robot có cánh tay, vd. SCARA), machine (máy tự động cố định: băng tải, máy dựng thùng). null = không rõ." },
     "hand_action": { "type": ["string", "null"], "description": "Mô tả thao tác tay quan sát được." },
     "objects": { "type": "array", "items": { "type": "string" }, "default": [] },
     "key_point": { "type": ["string", "null"], "description": "Điểm then chốt quan sát được hoặc chuyên gia nêu." },
