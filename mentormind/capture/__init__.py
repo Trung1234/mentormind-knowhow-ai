@@ -1,1 +1,1 @@
-"""Thu thập đầu vào: ingest tài liệu/OCR (spec 02), video + transcript (spec 03) — Việt Hoàng."""
+"""Input capture: document ingest/OCR (spec 02), video + transcript (spec 03) — Việt Hoàng."""

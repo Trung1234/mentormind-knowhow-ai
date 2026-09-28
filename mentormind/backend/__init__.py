@@ -1,1 +1,1 @@
-"""REST API FastAPI (spec 08) — Vinh. Chạy: ``uvicorn mentormind.backend.app.main:app``."""
+"""FastAPI REST API (spec 08) — Vinh. Run: ``uvicorn mentormind.backend.app.main:app``."""

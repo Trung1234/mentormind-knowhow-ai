@@ -1,1 +1,1 @@
-"""Golden set, Ragas, báo cáo usefulness (spec 09) — Đạt, Phúc."""
+"""Golden set, Ragas, usefulness report (spec 09) — Đạt, Phúc."""
