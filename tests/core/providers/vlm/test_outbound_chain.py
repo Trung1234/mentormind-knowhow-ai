@@ -12,8 +12,8 @@ import pytest
 from pydantic import SecretStr
 
 from mentormind.core.config import Settings
-from mentormind.core.guard import GuardPolicy, SensitiveDataLeakError, image
-from mentormind.core.guard.image import FaceBlurError, FaceBlurrer, ImageGuardPolicy
+from mentormind.core.guard import GuardPolicy, SensitiveDataLeakError
+from mentormind.core.guard.image import FaceBlurError, FaceBlurrer, ImageGuardPolicy, face_blur
 from mentormind.core.providers.vlm import get_vlm_provider
 from mentormind.core.providers.vlm.backends.fake import FakeVLM
 from tests.core.providers.fakes import RecordingHttp
@@ -96,7 +96,7 @@ def test_ac_17_missing_face_model_fails_closed(
     def offline(*args: object, **kwargs: object) -> httpx.Response:
         raise httpx.ConnectError("offline")
 
-    monkeypatch.setattr(image.httpx, "get", offline)
+    monkeypatch.setattr(face_blur.httpx, "get", offline)
     vlm = FakeVLM(is_cloud=True, name="qwen_api")
     vlm.guard_policy = GuardPolicy(audit_dir=None)
     vlm.image_policy = ImageGuardPolicy(face_model=tmp_path / "missing.onnx")

@@ -6,7 +6,7 @@
 Từ các `Segment` (spec 03) sinh ra danh sách `WorkProfile` ở trạng thái `draft`, hợp lệ theo contract, không chứa `reason` bịa. Đổi provider (API cloud ↔ self-host) chỉ bằng config.
 
 ## 2. Provider abstraction — `core.providers.vlm` (registry, theo pattern omnia)
-Provider VLM nằm ở `core/providers/vlm/` (`base`, `models`, `registry`, `factory`, `catalog`, `backends/{openai_compat,fake}`), cạnh `core/providers/llm/` của spec 06; làm mờ mặt ở `core/guard/image.py`. `processing/vlm/` chỉ còn nghiệp vụ: `pipeline` (`DescribePipeline`), `frames/` (`sampler`, `dedup`), `passes/` (`describe` = lượt A, `consistency` = lượt B, `merge` = lượt C, `reasons` = propose-reasons, `matching`, `postprocess`, `models`, `prompting`), `sweep/` (`truth`, `matching`, `metrics`, `runner`, `report`, `windows`), `cli/` (`diagnostics`, `describe`, `sweep`), `prompts/*.md`.
+Provider VLM nằm ở `core/providers/vlm/` (`base`, `models`, `registry`, `factory`, `catalog`, `backends/{openai_compat,fake}`), cạnh `core/providers/llm/` của spec 06; làm mờ mặt ở `core/guard/image/face_blur.py`. `processing/vlm/` chỉ còn nghiệp vụ: `pipeline` (`DescribePipeline`), `frames/` (`sampler`, `dedup`), `passes/` (`describe` = lượt A, `consistency` = lượt B, `merge` = lượt C, `reasons` = propose-reasons, `matching`, `postprocess`, `models`, `prompting`), `sweep/` (`truth`, `matching`, `metrics`, `runner`, `report`, `windows`), `cli/` (`diagnostics`, `describe`, `sweep`), `prompts/*.md`.
 
 Phần dùng chung mọi loại provider nằm ở `core.providers` (spec 06 dùng lại cho LLM): `ProviderBase`,
 `ProviderConfig`, `ProviderRegistry` (tên → class), `HttpClient` + retry (FR-07), bảng endpoint
@@ -180,3 +180,4 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - v1.10 (28/9, Phúc): pipeline là class `DescribePipeline` (`pass_a`/`pass_b`/`pass_c`/`postprocess`/`run`) thay cho hàm `describe_video`.
 - v1.11 (28/9, Phúc): T04-11 `actor` = ai làm bước (`human` gộp công nhân + kỹ sư, `robot`, `machine`, `null`); prompt lượt A v1.6: tên bước không ghi chủ thể, `hand_action` chỉ còn động tác; lượt B/C giữ và kiểm `actor`; sweep thêm `actor_accuracy`; contract WorkProfile thêm `actor` (AC-18, AC-19).
 - v1.12 (28/9, Phúc): provider VLM chuyển `processing.vlm.providers` → `core.providers.vlm`, làm mờ mặt `processing.vlm.guard.face_blur` → `core.guard.image` (§2).
+- v1.13 (28/9, Phúc): guard ảnh thành package `core.guard.image` (`face_blur` là cách đầu tiên; chỗ để thêm cách khác).

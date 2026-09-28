@@ -29,7 +29,7 @@ mentormind-knowhow-ai/
 │   │   │   ├── data_guard.py   # chặn factory_confidential → cloud
 │   │   │   ├── pii/            # recognizers, vault, masker, leak_guard (FR-09b)
 │   │   │   ├── outbound/       # policy, session (chuỗi mask → leak → audit), audit
-│   │   │   └── image.py        # làm mờ mặt trong khung gửi cloud (spec 04 FR-02c)
+│   │   │   └── image/          # guard cho ảnh gửi cloud: face_blur.py (làm mờ mặt, spec 04 FR-02c)
 │   │   └── providers/          # MỌI provider model: phần chung + một thư mục mỗi loại
 │   │       ├── base.py, models.py, registry.py, errors.py
 │   │       ├── transport/      # HttpClient, retry (spec 04 FR-07)
