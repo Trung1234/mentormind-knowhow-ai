@@ -16,7 +16,7 @@ venv/
 .ruff_cache/
 
 # Frontend build
-frontend/dist/
+mentormind/frontend/dist/
 
 # Data — never commit (constitution / spec 01 FR-06)
 data/raw/
