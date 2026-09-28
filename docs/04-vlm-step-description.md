@@ -171,3 +171,4 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - v1.5 (28/9, Phúc): prompt lượt A thêm bước mô tả `scene` trước `steps` + mốc thời gian từng ảnh (§4, kèm số liệu thí nghiệm); FR-02c outbound guard cho cloud (che PII, LeakGuard, làm mờ mặt, audit) + AC-16, AC-17, T04-10; sweep nhận truth dạng object, fallback `fixed_window` khi chưa có spec 03, thêm cột phụ `recall_essential`/`recall_time_only`; T04-3, T04-6 xong; package `processing/vlm/` chia theo chức năng.
 - v1.6 (28/9, Phúc): FR-09b `DASHSCOPE_BASE_URL` cho host workspace Singapore (tài liệu Alibaba 28/9).
 - v1.7 (28/9, Phúc): FR-09 + AC-12 key đọc từ `.env` (không còn `.secrets/secrets.env`); `.secrets/README.md` chỉ là hướng dẫn lấy key.
+- v1.8 (28/9, Phúc): lượt A nhận `objects` dạng chuỗi "a, b" (DashScope `json_object` không ép schema, gặp khi chạy cloud trên video LASI); AC-15 chạy thật trên MI250 (GCD 1, vLLM 0.23 ROCm): PASS.

@@ -140,3 +140,10 @@ def test_relative_times_are_clamped_to_the_segment(tmp_path: Path) -> None:
 @pytest.fixture(autouse=True)
 def _isolated_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
+
+
+def test_objects_given_as_one_string_become_a_list(tmp_path: Path) -> None:
+    """DashScope's json_object mode returned "objects": "linh kiện, hộp" on the LASI video."""
+    vlm = FakeVLM([{"steps": [step("Đặt linh kiện vào hộp", 0, 2, objects="linh kiện, hộp")]}])
+    result = run(vlm, tmp_path)
+    assert result.failed == [] and result.steps[0].objects == ["linh kiện", "hộp"]

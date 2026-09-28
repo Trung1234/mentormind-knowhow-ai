@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ObservedStep(BaseModel):
@@ -17,6 +19,14 @@ class ObservedStep(BaseModel):
     t_start_rel: float = Field(ge=0)
     t_end_rel: float = Field(ge=0)
     confidence: float = Field(ge=0, le=1)
+
+    @field_validator("objects", mode="before")
+    @classmethod
+    def _objects_as_list(cls, value: Any) -> Any:
+        # json_object endpoints (DashScope) do not enforce the schema: "cốc, thùng" means a list.
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(",") if item.strip()]
+        return [] if value is None else value
 
 
 class PassAOutput(BaseModel):
