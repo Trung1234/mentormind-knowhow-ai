@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -13,11 +14,23 @@ from mentormind.core.providers.openai_compat import is_private_url
 
 LITE_STACK = ("mentormind", "postgres", "neo4j")
 UNITS = {"k": 1 / 1024 / 1024, "m": 1 / 1024, "g": 1.0}
+OVERRIDES_DIR = REPO_ROOT / "infra" / "docker"
+
+
+class ComposeLoader(yaml.SafeLoader):
+    """SafeLoader that tolerates Compose's own tags (``deploy: !reset {}`` in the overrides)."""
+
+
+ComposeLoader.add_multi_constructor("!", lambda loader, suffix, node: None)
+
+
+def load(path: Path) -> dict[str, Any]:
+    data: dict[str, Any] = yaml.load(path.read_text(), Loader=ComposeLoader)
+    return data
 
 
 def compose() -> dict[str, Any]:
-    data: dict[str, Any] = yaml.safe_load((REPO_ROOT / "docker-compose.yml").read_text())
-    return data
+    return load(REPO_ROOT / "docker-compose.yml")
 
 
 def services() -> dict[str, Any]:
@@ -93,3 +106,27 @@ def test_published_ports_bind_loopback_only() -> None:
     for name, service in services().items():
         for port in service.get("ports", []):
             assert str(port).startswith("127.0.0.1:"), (name, port)
+
+
+def test_overrides_live_in_infra_docker_and_merge_into_the_root_file() -> None:
+    """One compose file at the root; every machine-specific override under infra/docker/."""
+    root_files = sorted(p.name for p in REPO_ROOT.glob("docker-compose*.yml"))
+    assert root_files == ["docker-compose.yml"]
+    overrides = sorted(p.name for p in (REPO_ROOT / "infra" / "docker").glob("docker-compose*.yml"))
+    assert overrides == [
+        "docker-compose.cdi.yml",
+        "docker-compose.devbox.yml",
+        "docker-compose.rocm.yml",
+    ]
+    for name in overrides:
+        data = load(OVERRIDES_DIR / name)
+        # An override only patches services the base file defines; it never invents one.
+        assert set(data["services"]) <= set(services()), name
+
+
+def test_rocm_override_gives_the_vlm_server_one_amd_gcd() -> None:
+    """spec 04 FR-08 on AMD: device nodes instead of the nvidia driver, still exactly one GPU."""
+    vlm = load(OVERRIDES_DIR / "docker-compose.rocm.yml")["services"]["vlm-server"]
+    assert vlm["build"]["dockerfile"] == "docker/Dockerfile.rocm"
+    assert set(vlm["devices"]) == {"/dev/kfd", "/dev/dri"}
+    assert default(vlm["environment"]["VLM_SERVER_GPU"]) == "0"

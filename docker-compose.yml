@@ -6,9 +6,11 @@
 #   docker compose exec mentormind bash        then: uv run knowhow vlm ping
 #   docker compose exec vlm-server python -m vlm_server serve   start the VLM server on demand
 #
-# Overrides: -f docker-compose.cdi.yml    GPU through CDI instead of the nvidia runtime
-#            -f docker-compose.devbox.yml host network (rootless Docker whose bridge has no route out)
-#            -f docker-compose.rocm.yml   AMD GPU, e.g. one MI250 GCD
+# Overrides live in infra/docker/ and are added with -f (or `make up PLATFORM=<name>`):
+#   infra/docker/docker-compose.rocm.yml     AMD GPU, e.g. one MI250 GCD   (PLATFORM=rocm)
+#   infra/docker/docker-compose.cdi.yml      GPU through CDI instead of the nvidia runtime
+#   infra/docker/docker-compose.devbox.yml   host network, for a rootless Docker whose bridge
+#                                            has no route out (both together: PLATFORM=devbox)
 # Every service has a memory limit; the lite demo stack (mentormind + postgres + neo4j) stays
 # within 4 GB (spec 01 AC-07). All ports are published on the host's loopback only.
 name: mentormind

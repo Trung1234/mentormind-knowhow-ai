@@ -1,6 +1,7 @@
 # Rootless Docker (the shared GPU box): the bridge network has no route to the internet, so every
 # service joins the host network and they talk over 127.0.0.1. Combine with the CDI override:
-#   docker compose -f docker-compose.yml -f docker-compose.cdi.yml -f docker-compose.devbox.yml up -d
+#   make up PLATFORM=devbox   (= -f docker-compose.yml -f infra/docker/docker-compose.cdi.yml
+#                                 -f infra/docker/docker-compose.devbox.yml)
 services:
   mentormind:
     network_mode: host

@@ -1,8 +1,13 @@
 .PHONY: up down dev-up dev-shell check test demo fmt vlm-server-sync vlm-server vlm-server-smoke
 
-# spec 01 FR-05 / task D3. COMPOSE_FILES adds overrides, e.g. on the rootless GPU box:
-#   make up COMPOSE_FILES="-f docker-compose.yml -f docker-compose.cdi.yml -f docker-compose.devbox.yml"
-COMPOSE_FILES ?= -f docker-compose.yml
+# spec 01 FR-05 / task D3. docker-compose.yml stays at the repo root; every override lives in
+# infra/docker/ and is selected by PLATFORM (or by spelling COMPOSE_FILES out yourself):
+#   make up PLATFORM=rocm      AMD GPU box (MI250: one GCD)
+#   make up PLATFORM=devbox    rootless Docker: GPU through CDI + host network
+OVERRIDES_rocm   = -f infra/docker/docker-compose.rocm.yml
+OVERRIDES_devbox = -f infra/docker/docker-compose.cdi.yml -f infra/docker/docker-compose.devbox.yml
+OVERRIDES_cdi    = -f infra/docker/docker-compose.cdi.yml
+COMPOSE_FILES ?= -f docker-compose.yml $(OVERRIDES_$(PLATFORM))
 COMPOSE = docker compose $(COMPOSE_FILES)
 
 # Whole dev stack: mentormind + vlm-server + PostgreSQL/pgvector + Neo4j (profile lite).
