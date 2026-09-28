@@ -85,6 +85,8 @@ class Settings(BaseSettings):
 
     # --- Stores & adapters (spec 07, 08) ----------------------------------------------------
     profile_db: Path = Path("data/work/profiles.sqlite")
+    # Where `vlm describe` keeps drafts: auto = spec 08 store if present, else JSON file.
+    profile_sink: Literal["auto", "store", "file"] = "auto"
     sigma_adapter: str = "csv"
     sigma_csv_dir: Path = Path("data/mock_sigma")
 

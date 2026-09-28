@@ -2,9 +2,9 @@
 
 ``describe`` takes the segments of spec 03 (``<video_id>`` reads
 ``data/work/video/<id>/segments.json``, or ``--segments FILE``) or, until spec 03 lands, a raw
-``--video FILE`` cut into fixed 10 s windows (spec 03 FR-03 fallback, as ``sweep`` does). The
-profile store of spec 08 does not exist yet, so the profiles land in
-``data/work/vlm/<video_id>/profiles.json``; ``propose-reasons`` reads and updates that file.
+``--video FILE`` cut into fixed 10 s windows (spec 03 FR-03 fallback, as ``sweep`` does). Drafts
+go to the sink of ``KNOWHOW_PROFILE_SINK`` (spec 08's store when present, else
+``data/work/vlm/<video_id>/profiles.json``); ``propose-reasons`` reads and updates them there.
 """
 
 from __future__ import annotations
@@ -23,11 +23,6 @@ if TYPE_CHECKING:
     from mentormind.core.schemas.video import Segment
 
 WORK = Path("data/work")
-
-
-def profiles_path(video_id: str) -> Path:
-    """Stand-in for the spec 08 profile store: the latest profiles of one video."""
-    return WORK / "vlm" / video_id / "profiles.json"
 
 
 def describe_cmd(
@@ -69,7 +64,8 @@ def describe_cmd(
     from mentormind.core.providers.errors import ProviderError
     from mentormind.core.providers.llm.context import strictest
     from mentormind.core.providers.vlm import get_vlm_provider
-    from mentormind.processing.vlm.pipeline import DescribePipeline, write_profiles
+    from mentormind.processing.vlm.pipeline import DescribePipeline
+    from mentormind.processing.vlm.profiles import ProfileSinkError, get_profile_sink
 
     settings = get_settings()
     if provider:
@@ -77,6 +73,7 @@ def describe_cmd(
     if llm_provider:
         settings = settings.model_copy(update={"llm_provider": llm_provider})
     try:
+        sink = get_profile_sink(settings, work_dir=WORK)  # fail before any VLM call
         loaded = _segments(video_id, video, segments, classification, window)
         vid = loaded[0].video_id
         vlm = get_vlm_provider(settings)
@@ -104,11 +101,14 @@ def describe_cmd(
             err=True,
         )
         raise typer.Exit(1) from exc
-    except (ProviderError, PermissionError, ValueError, RuntimeError, FileNotFoundError) as exc:
+    except (
+        ProviderError, PermissionError, ValueError, RuntimeError, FileNotFoundError,
+        ProfileSinkError,
+    ) as exc:  # fmt: skip
         typer.secho(f"Lỗi: {exc}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1) from exc
-    store = profiles_path(vid)
-    write_profiles(result.profiles, store)
+    stored = sink.save(vid, result.profiles)
+    moved = sum(a.profile_id != b.profile_id for a, b in zip(result.profiles, stored, strict=True))
     kept = len(result.steps.steps)
     typer.echo(f"provider={vlm.name} model={vlm.model} | {len(loaded)} đoạn | chi tiết: {work_dir}")
     typer.echo(
@@ -124,7 +124,8 @@ def describe_cmd(
     if result.failed_segments:
         typer.secho(f"{len(result.failed_segments)} đoạn lỗi JSON: {work_dir}/failed_segments.json",
                     fg=typer.colors.YELLOW)  # fmt: skip
-    typer.echo(f"{len(result.profiles)} WorkProfile (draft) → {store}")
+    note = f" ({moved} đổi profile_id vì trùng profile của video khác)" if moved else ""
+    typer.echo(f"{len(stored)} WorkProfile (draft) → {sink.where}{note}")
 
 
 def propose_reasons_cmd(
@@ -135,20 +136,29 @@ def propose_reasons_cmd(
     from mentormind.core.guard import ConfidentialDataError
     from mentormind.core.providers.errors import ProviderError
     from mentormind.processing.vlm.passes.reasons import propose_reasons
-    from mentormind.processing.vlm.pipeline import read_profiles, write_profiles
+    from mentormind.processing.vlm.profiles import (
+        FileProfileSink,
+        ProfileSinkError,
+        get_profile_sink,
+    )
 
     settings = get_settings()
     if llm_provider:
         settings = settings.model_copy(update={"llm_provider": llm_provider})
-    store = profiles_path(video_id)
-    if not store.is_file():
+    try:
+        sink = get_profile_sink(settings, work_dir=WORK)
+        profiles = sink.load(video_id)
+    except ProfileSinkError as exc:
+        typer.secho(f"Lỗi: {exc}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1) from exc
+    if not profiles:
         typer.secho(
-            f"Lỗi: chưa có {store}; chạy `knowhow vlm describe` trước.",
+            f"Lỗi: {sink.where} chưa có profile nào của {video_id}; "
+            "chạy `knowhow vlm describe` trước.",
             fg=typer.colors.RED,
             err=True,
         )
         raise typer.Exit(1)
-    profiles = read_profiles(store)
     candidates = len([p for p in profiles if p.evidence.transcript_excerpt and p.reason is None])
     if candidates == 0:
         typer.echo(
@@ -161,10 +171,16 @@ def propose_reasons_cmd(
     except (ConfidentialDataError, ProviderError) as exc:
         typer.secho(f"Lỗi: {exc}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1) from exc
-    write_profiles(updated, store)
-    filled = sum(1 for old, new in zip(profiles, updated, strict=True) if old.reason != new.reason)
+    changed = [new for old, new in zip(profiles, updated, strict=True) if old.reason != new.reason]
+    if changed:
+        # Only the profiles now in_review: re-saving untouched ones would count as id clashes.
+        if isinstance(sink, FileProfileSink):
+            sink.save(video_id, updated)
+        else:
+            sink.save(video_id, changed)
     typer.echo(
-        f"{candidates} profile có transcript → điền lý do cho {filled} (in_review) → {store}"
+        f"{candidates} profile có transcript → điền lý do cho {len(changed)} (in_review) "
+        f"→ {sink.where}"
     )
 
 
