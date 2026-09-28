@@ -9,6 +9,7 @@ from mentormind.core.schemas.agents import (
     WhyStep,
 )
 from mentormind.core.schemas.common import Citation, DataClassification
+from mentormind.core.schemas.evaluation import GoldenQuestion, ReviewEvent
 from mentormind.core.schemas.retrieval import RetrievedContext
 from mentormind.core.schemas.sigma import DefectCatalogEntry, DefectRecord, LotNotFound, LotRecord
 from mentormind.core.schemas.work_profile import (
@@ -29,12 +30,14 @@ __all__ = [
     "DataClassification",
     "DefectCatalogEntry",
     "DefectRecord",
+    "GoldenQuestion",
     "Hypothesis",
     "LotNotFound",
     "LotRecord",
     "RcaReport",
     "RcaRequest",
     "RetrievedContext",
+    "ReviewEvent",
     "WhyStep",
     "WorkProfile",
     "validate_against_contract",
