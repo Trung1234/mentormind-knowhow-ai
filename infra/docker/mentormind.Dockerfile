@@ -22,7 +22,12 @@ WORKDIR /workspace
 COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --frozen --all-extras --no-install-project
 COPY mentormind ./mentormind
-RUN uv sync --frozen --all-extras
+# Rootful Docker runs the container as DEV_UID (docker-compose.yml): `uv run` re-syncs the editable
+# project into /opt/venv and needs a cache, so the venv is writable by any UID and the root-owned
+# build cache is dropped (uv recreates it under the world-writable /tmp).
+RUN uv sync --frozen --all-extras \
+    && chmod -R a+rwX /opt/venv \
+    && rm -rf /tmp/uv-cache
 
 # Work inside with:  docker compose exec mentormind bash
 CMD ["sleep", "infinity"]
