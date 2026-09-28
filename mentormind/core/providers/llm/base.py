@@ -14,8 +14,8 @@ from collections.abc import Mapping
 from typing import Any, ClassVar
 
 from mentormind.core.guard import GuardPolicy, OutboundSession
-from mentormind.core.llm.models import LLMResponse
 from mentormind.core.providers.base import ProviderBase
+from mentormind.core.providers.llm.models import LLMResponse
 from mentormind.core.providers.models import TokenUsage
 from mentormind.core.providers.parsing import parse_json_object
 from mentormind.core.schemas.common import DataClassification

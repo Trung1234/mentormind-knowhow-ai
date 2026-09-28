@@ -40,8 +40,8 @@ def sweep_cmd(
     import json
 
     from mentormind.core.providers.errors import ProviderError
+    from mentormind.core.providers.vlm import get_vlm_provider
     from mentormind.core.schemas.video import Segment
-    from mentormind.processing.vlm.providers import get_vlm_provider
     from mentormind.processing.vlm.sweep import load_truth, markdown_table, run_sweep, write_csv
     from mentormind.processing.vlm.sweep.windows import fixed_window_segments, video_id_for
 

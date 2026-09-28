@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from mentormind.core.providers.registry import ProviderRegistry
-from mentormind.processing.vlm.providers.base import VLMProvider
+from mentormind.core.providers.vlm.base import VLMProvider
 
 VLM_REGISTRY: ProviderRegistry[VLMProvider] = ProviderRegistry("VLM")
 

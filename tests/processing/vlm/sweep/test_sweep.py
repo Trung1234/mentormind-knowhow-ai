@@ -12,10 +12,10 @@ from PIL import Image
 
 from mentormind.core.config import REPO_ROOT
 from mentormind.core.guard import SupportsCloudFlag
+from mentormind.core.providers.vlm.backends.fake import FakeVLM
 from mentormind.core.schemas.common import DataClassification
 from mentormind.core.schemas.video import Segment
 from mentormind.processing.vlm.frames import SampledFrames
-from mentormind.processing.vlm.providers.backends.fake import FakeVLM
 from mentormind.processing.vlm.sweep import (
     CSV_COLUMNS,
     TruthStep,

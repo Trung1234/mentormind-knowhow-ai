@@ -18,8 +18,8 @@ from typing import Any
 from pydantic import ValidationError
 from rapidfuzz import fuzz
 
-from mentormind.core.llm import LLMProvider
 from mentormind.core.providers.errors import InvalidJSONError
+from mentormind.core.providers.llm import LLMProvider
 from mentormind.core.providers.parsing import parse_json_object
 from mentormind.core.schemas.work_profile import WorkProfile, validate_against_contract
 from mentormind.processing.vlm.passes.prompting import render_prompt

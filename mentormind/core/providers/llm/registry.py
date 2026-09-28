@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from mentormind.core.llm.base import LLMProvider
+from mentormind.core.providers.llm.base import LLMProvider
 from mentormind.core.providers.registry import ProviderRegistry
 
 LLM_REGISTRY: ProviderRegistry[LLMProvider] = ProviderRegistry("LLM")

@@ -11,10 +11,10 @@ from pydantic import SecretStr
 from mentormind.core.config import Settings
 from mentormind.core.providers.errors import ProviderConfigError
 from mentormind.core.providers.openai_compat import OPENAI_COMPAT_ENDPOINTS
-from mentormind.processing.vlm.providers import VLM_REGISTRY, get_vlm_provider
-from mentormind.processing.vlm.providers.backends.openai_compat import OpenAICompatVLM
-from mentormind.processing.vlm.providers.catalog import DEFAULT_VLM_MODELS
-from tests.processing.vlm.fakes import RecordingHttp
+from mentormind.core.providers.vlm import VLM_REGISTRY, get_vlm_provider
+from mentormind.core.providers.vlm.backends.openai_compat import OpenAICompatVLM
+from mentormind.core.providers.vlm.catalog import DEFAULT_VLM_MODELS
+from tests.core.providers.fakes import RecordingHttp
 
 
 def with_provider(settings: Settings, **update: Any) -> Settings:

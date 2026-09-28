@@ -28,13 +28,15 @@ mentormind-knowhow-ai/
 │   │   ├── guard/              # Constitution Điều 2
 │   │   │   ├── data_guard.py   # chặn factory_confidential → cloud
 │   │   │   ├── pii/            # recognizers, vault, masker, leak_guard (FR-09b)
-│   │   │   └── outbound/       # policy, session (chuỗi mask → leak → audit), audit
-│   │   ├── llm/                # LLM kind (spec 06 §2): base, registry, factory, context, backends/
-│   │   └── providers/          # dùng chung cho VLM (spec 04) và LLM (spec 06)
+│   │   │   ├── outbound/       # policy, session (chuỗi mask → leak → audit), audit
+│   │   │   └── image.py        # làm mờ mặt trong khung gửi cloud (spec 04 FR-02c)
+│   │   └── providers/          # MỌI provider model: phần chung + một thư mục mỗi loại
 │   │       ├── base.py, models.py, registry.py, errors.py
 │   │       ├── transport/      # HttpClient, retry (spec 04 FR-07)
 │   │       ├── openai_compat/  # bảng endpoint vendor, locality, resolve, chat client
-│   │       └── parsing/        # trích JSON từ câu trả lời model
+│   │       ├── parsing/        # trích JSON từ câu trả lời model
+│   │       ├── vlm/            # VLM (spec 04 §2): base, models, registry, factory, catalog, backends/
+│   │       └── llm/            # LLM (spec 06 §2): base, models, registry, factory, catalog, context, backends/
 │   ├── capture/                # Việt Hoàng
 │   │   ├── ingest/             # spec 02
 │   │   └── video/              # spec 03
@@ -67,7 +69,7 @@ mentormind-knowhow-ai/
 └── 3rdparty/vlm_server/        # submodule vlm-engine: server Qwen3-VL tự host (spec 04 FR-08) — Phúc
 ```
 
-> **Quy ước tên module trong các spec:** mọi đường dẫn module viết tắt, bỏ tiền tố package gốc — `core.schemas` nghĩa là `mentormind.core.schemas`, `processing.vlm.providers` là `mentormind.processing.vlm.providers`; đường dẫn file `core/guard/data_guard.py` là `mentormind/core/guard/data_guard.py`. Tên CLI (`knowhow`) và prefix biến môi trường (`KNOWHOW_`) không đổi.
+> **Quy ước tên module trong các spec:** mọi đường dẫn module viết tắt, bỏ tiền tố package gốc — `core.schemas` nghĩa là `mentormind.core.schemas`, `core.providers.vlm` là `mentormind.core.providers.vlm`; đường dẫn file `core/guard/data_guard.py` là `mentormind/core/guard/data_guard.py`. Tên CLI (`knowhow`) và prefix biến môi trường (`KNOWHOW_`) không đổi.
 
 ## 3. Functional Requirements
 - **FR-01** `pyproject.toml` ở gốc repo dùng `uv`, Python `>=3.11,<3.13`. Mã nguồn nằm trong **một package gốc `mentormind/`** (tách khỏi `tests/`, `infra/`, `docs/`, `data/`); các module `core`, `capture`, `processing`, `knowledge_base`, `agents`, `evaluation`, `backend` là sub-package của nó, import dạng `mentormind.core...`. Build config chỉ đóng gói `mentormind` (trừ `mentormind/frontend`). Entry point `knowhow = "mentormind.core.cli:app"`. `backend/` không có `requirements.txt` riêng — dependency của API nằm trong extra `api`.
@@ -151,3 +153,4 @@ KNOWHOW_SIGMA_CSV_DIR=data/mock_sigma
 - v1.8 (28/9, Phúc): API key nằm cùng trong `.env` (§4), `.secrets/` chỉ còn `README.md` hướng dẫn lấy key (FR-06, AC-06).
 - v1.9 (28/9, Phúc): FR-06 cho phép `data/video/*` (video demo public LASI) vào git qua **Git LFS** (`.gitattributes`); dữ liệu nhà máy vẫn bị chặn.
 - v1.10 (28/9, Phúc): contract WorkProfile thêm `actor` (`human` | `robot` | `machine` | `null`: ai làm bước; `human` gộp công nhân + kỹ sư), `schema_version` giữ `1.0` (FR-08; spec 04 AC-18).
+- v1.11 (28/9, Phúc): mọi provider model về `core/providers/` (`vlm/`, `llm/` cạnh phần dùng chung); làm mờ mặt ở `core/guard/image.py` (§2).

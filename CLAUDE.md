@@ -34,7 +34,7 @@ Cấu hình và API key đều nằm trong `.env` ở gốc repo (gitignored; m�
 `.secrets/README.md` chỉ là hướng dẫn cách lấy key của từng vendor, không chứa key.
 
 ## Quy ước
-- Python 3.11, quản lý bằng `uv`. Toàn bộ mã nguồn nằm trong package gốc `mentormind/` (`docs/architecture.md` §6): `mentormind/core/` (config, cli, schemas, guard), `capture/`, `processing/`, `knowledge_base/`, `agents/`, `evaluation/`, `backend/app/` (API), `frontend/`. Import luôn tuyệt đối từ gốc: `from mentormind.core.schemas import ...`. CLI vẫn tên `knowhow`.
+- Python 3.11, quản lý bằng `uv`. Toàn bộ mã nguồn nằm trong package gốc `mentormind/` (`docs/architecture.md` §6): `mentormind/core/` (config, cli, schemas, guard, providers — VLM + LLM), `capture/`, `processing/`, `knowledge_base/`, `agents/`, `evaluation/`, `backend/app/` (API), `frontend/`. Import luôn tuyệt đối từ gốc: `from mentormind.core.schemas import ...`. CLI vẫn tên `knowhow`.
 - `tests/` phản chiếu cấu trúc `mentormind/`; hạ tầng ở `infra/`; dữ liệu ở `data/`; tài liệu ở `docs/`. Spec viết tên module bỏ tiền tố `mentormind.` (`core.schemas` = `mentormind.core.schemas`).
 - Code, tên biến, docstring: tiếng Anh. Text hiển thị cho người dùng cuối: tiếng Việt.
 - Mọi I/O dữ liệu đi qua Pydantic model trong `mentormind.core.schemas`.

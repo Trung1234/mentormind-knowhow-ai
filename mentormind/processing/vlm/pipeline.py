@@ -19,7 +19,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from mentormind.core.llm import LLMProvider
+from mentormind.core.providers.llm import LLMProvider
+from mentormind.core.providers.vlm.base import VLMProvider
 from mentormind.core.schemas.video import Segment
 from mentormind.core.schemas.work_profile import WorkProfile
 from mentormind.processing.vlm.frames.sampler import SampledFrames, sample_frames
@@ -28,7 +29,6 @@ from mentormind.processing.vlm.passes.consistency import self_consistent
 from mentormind.processing.vlm.passes.describe import Sampler
 from mentormind.processing.vlm.passes.merge import MergeReport, merge_steps
 from mentormind.processing.vlm.passes.models import PassAResult
-from mentormind.processing.vlm.providers.base import VLMProvider
 
 
 class DescribeResult(BaseModel):

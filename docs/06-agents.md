@@ -10,7 +10,7 @@ Hai agent hẹp, mỗi agent một việc, luôn có căn cứ (Constitution Đi
 ## 2. LLM provider
 Dùng lại pattern của spec 04: `LLMProvider` protocol (`generate_text`, `generate_json`, `is_cloud`), factory `get_llm_provider(settings)`, `FakeLLM` cho test. Khi provider `is_cloud`, retriever **loại bỏ** mọi passage `factory_confidential` khỏi context và ghi log số passage bị loại.
 
-Vị trí: `core.llm` (dùng chung cho agents và các lượt text của spec 04 — lượt C, propose-reasons): `base` (`LLMProvider.generate` là template method: DataGuard → che PII/LeakGuard/audit khi gọi cloud (spec 01 FR-09b) → gọi model → hoàn nguyên token), `registry` + `factory` (cùng tên provider với VLM: `qwen_api`, `local_openai`, `openrouter`, `siliconflow`, `openai_compatible`, `fake`; key trong `.env`), `catalog` (model mặc định: `qwen_api` → `qwen-plus`, `openrouter` → `qwen/qwen-plus`, `local_openai` → server Qwen3-VL-8B tự host; kiểm tra 28/9), `context` (`ContextPassage`, `filter_passages` loại passage confidential khi đích là cloud, `strictest` cho nhãn của prompt). Biến môi trường `KNOWHOW_LLM_*` (spec 01 §4).
+Vị trí: `core.providers.llm` (cạnh `core.providers.vlm` của spec 04; dùng chung cho agents và các lượt text của spec 04 — lượt C, propose-reasons): `base` (`LLMProvider.generate` là template method: DataGuard → che PII/LeakGuard/audit khi gọi cloud (spec 01 FR-09b) → gọi model → hoàn nguyên token), `registry` + `factory` (cùng tên provider với VLM: `qwen_api`, `local_openai`, `openrouter`, `siliconflow`, `openai_compatible`, `fake`; key trong `.env`), `catalog` (model mặc định: `qwen_api` → `qwen-plus`, `openrouter` → `qwen/qwen-plus`, `local_openai` → server Qwen3-VL-8B tự host; kiểm tra 28/9), `context` (`ContextPassage`, `filter_passages` loại passage confidential khi đích là cloud, `strictest` cho nhãn của prompt). Biến môi trường `KNOWHOW_LLM_*` (spec 01 §4).
 
 ## 3. Work Assistant — `agents.work_assistant`
 ```python
@@ -94,3 +94,4 @@ Luồng:
 - v1.1 (24/9): RCA gọi template Cypher trực tiếp theo tên, không qua router; `lot_id` → `symptom_id` tất định từ Sigma (AC-08).
 - v1.2 (27/9): đường dẫn module theo layout mới (bỏ `knowhow.`/`src/knowhow/`, xem spec 01 v1.3).
 - v1.3 (28/9, Phúc): T06-1 xong — `core.llm` (registry, OpenAI-compatible + fake, outbound guard, lọc passage confidential); model mặc định kiểm tra ngày 28/9.
+- v1.4 (28/9, Phúc): LLM chuyển `core.llm` → `core.providers.llm` (§2), cùng chỗ với VLM `core.providers.vlm`.

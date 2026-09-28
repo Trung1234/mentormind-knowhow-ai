@@ -6,11 +6,11 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
+from mentormind.core.providers.vlm.base import VLMProvider
 from mentormind.core.schemas.video import Segment
 from mentormind.processing.vlm.frames.sampler import sample_frames
 from mentormind.processing.vlm.passes import describe_segments, to_work_profiles
 from mentormind.processing.vlm.passes.describe import Sampler
-from mentormind.processing.vlm.providers.base import VLMProvider
 from mentormind.processing.vlm.sweep.metrics import SweepRow, evaluate
 from mentormind.processing.vlm.sweep.truth import TruthStep
 

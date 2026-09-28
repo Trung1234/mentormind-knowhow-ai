@@ -12,8 +12,8 @@ from pydantic import SecretStr
 from mentormind.core.config import Settings
 from mentormind.core.providers.errors import InvalidJSONError
 from mentormind.core.providers.models import TokenUsage
-from mentormind.processing.vlm.providers import get_vlm_provider
-from tests.processing.vlm.fakes import RecordingHttp
+from mentormind.core.providers.vlm import get_vlm_provider
+from tests.core.providers.fakes import RecordingHttp
 
 
 def with_provider(settings: Settings, **update: Any) -> Settings:

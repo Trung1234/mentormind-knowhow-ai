@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from mentormind.core.guard import ConfidentialDataError
-from mentormind.core.llm.backends.fake import FakeLLM
+from mentormind.core.providers.llm.backends.fake import FakeLLM
 from mentormind.core.schemas import Actor
 from mentormind.core.schemas.common import DataClassification
 from mentormind.core.schemas.video import Segment

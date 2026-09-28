@@ -19,13 +19,13 @@ from pathlib import Path
 from typing import Any, ClassVar, Literal
 
 from mentormind.core.guard import GuardPolicy, OutboundSession
+from mentormind.core.guard.image import FaceBlurrer, ImageGuardPolicy
 from mentormind.core.providers.base import ProviderBase
 from mentormind.core.providers.errors import ProviderError
 from mentormind.core.providers.models import TokenUsage
 from mentormind.core.providers.parsing import parse_json_object
+from mentormind.core.providers.vlm.models import ImageInput, VLMResponse
 from mentormind.core.schemas.common import DataClassification
-from mentormind.processing.vlm.guard.face_blur import FaceBlurrer, ImageGuardPolicy
-from mentormind.processing.vlm.providers.models import ImageInput, VLMResponse
 
 _MIME_BY_SUFFIX: dict[str, Literal["image/jpeg", "image/png"]] = {
     ".jpg": "image/jpeg",

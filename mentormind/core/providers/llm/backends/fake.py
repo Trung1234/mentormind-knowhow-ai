@@ -8,8 +8,8 @@ from typing import Any, Self
 
 from pydantic import BaseModel, ConfigDict
 
-from mentormind.core.llm.base import LLMProvider
-from mentormind.core.llm.registry import register_llm
+from mentormind.core.providers.llm.base import LLMProvider
+from mentormind.core.providers.llm.registry import register_llm
 from mentormind.core.providers.models import ProviderConfig, TokenUsage
 from mentormind.core.providers.transport import HttpClient
 

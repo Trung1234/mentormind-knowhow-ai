@@ -9,8 +9,8 @@ import pytest
 from mentormind.core.config import REPO_ROOT, Settings
 from mentormind.core.providers.errors import InvalidJSONError
 from mentormind.core.providers.models import ProviderConfig
-from mentormind.processing.vlm.providers import VLM_REGISTRY
-from mentormind.processing.vlm.providers.backends.fake import FakeVLM
+from mentormind.core.providers.vlm import VLM_REGISTRY
+from mentormind.core.providers.vlm.backends.fake import FakeVLM
 
 FIXTURES = REPO_ROOT / "tests" / "fixtures" / "vlm"
 

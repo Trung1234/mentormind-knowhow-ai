@@ -17,9 +17,9 @@ from pydantic import BaseModel, ConfigDict
 
 from mentormind.core.providers.models import ProviderConfig, TokenUsage
 from mentormind.core.providers.transport import HttpClient
-from mentormind.processing.vlm.providers.base import VLMProvider
-from mentormind.processing.vlm.providers.models import ImageInput
-from mentormind.processing.vlm.providers.registry import register_vlm
+from mentormind.core.providers.vlm.base import VLMProvider
+from mentormind.core.providers.vlm.models import ImageInput
+from mentormind.core.providers.vlm.registry import register_vlm
 
 Scripted = str | Mapping[str, Any]
 

@@ -10,12 +10,12 @@ import pytest
 from PIL import Image
 
 from mentormind.core.guard import SupportsCloudFlag
+from mentormind.core.providers.vlm.backends.fake import FakeVLM
 from mentormind.core.schemas.common import DataClassification
 from mentormind.core.schemas.video import Segment
 from mentormind.core.schemas.work_profile import validate_against_contract
 from mentormind.processing.vlm.frames import SampledFrames
 from mentormind.processing.vlm.passes import describe_segments, to_work_profiles
-from mentormind.processing.vlm.providers.backends.fake import FakeVLM
 
 
 def segments(n: int = 3) -> list[Segment]:

@@ -10,11 +10,11 @@ from pydantic import SecretStr
 
 from mentormind.core.config import Settings
 from mentormind.core.guard import ConfidentialDataError
-from mentormind.processing.vlm import providers as vlm_providers
-from mentormind.processing.vlm.providers import get_vlm_provider
-from mentormind.processing.vlm.providers.backends.fake import FakeVLM
-from mentormind.processing.vlm.providers.models import ImageInput
-from tests.processing.vlm.fakes import RecordingHttp
+from mentormind.core.providers import vlm as vlm_providers
+from mentormind.core.providers.vlm import get_vlm_provider
+from mentormind.core.providers.vlm.backends.fake import FakeVLM
+from mentormind.core.providers.vlm.models import ImageInput
+from tests.core.providers.fakes import RecordingHttp
 
 
 def with_provider(settings: Settings, **update: Any) -> Settings:

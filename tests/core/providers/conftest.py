@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from mentormind.core.config import Settings
-from tests.processing.vlm.fakes import RecordingHttp
+from tests.core.providers.fakes import RecordingHttp
 
 
 @pytest.fixture

@@ -5,12 +5,12 @@ model ids), ``context`` (confidential passages never reach the cloud), ``backend
 (``openai_compat``, ``fake``). Importing this package registers every backend.
 """
 
-from mentormind.core.llm.backends import fake, openai_compat
-from mentormind.core.llm.base import LLMProvider
-from mentormind.core.llm.context import ContextPassage, filter_passages, strictest
-from mentormind.core.llm.factory import get_llm_provider, llm_config_from_settings
-from mentormind.core.llm.models import LLMResponse
-from mentormind.core.llm.registry import LLM_REGISTRY, register_llm
+from mentormind.core.providers.llm.backends import fake, openai_compat
+from mentormind.core.providers.llm.base import LLMProvider
+from mentormind.core.providers.llm.context import ContextPassage, filter_passages, strictest
+from mentormind.core.providers.llm.factory import get_llm_provider, llm_config_from_settings
+from mentormind.core.providers.llm.models import LLMResponse
+from mentormind.core.providers.llm.registry import LLM_REGISTRY, register_llm
 
 __all__ = [
     "LLM_REGISTRY",

@@ -12,10 +12,10 @@ import pytest
 from mentormind.core.providers.models import ProviderConfig, TokenUsage
 from mentormind.core.providers.registry import ProviderRegistry
 from mentormind.core.providers.transport import HttpClient
-from mentormind.processing.vlm.providers import VLMProvider
-from mentormind.processing.vlm.providers.backends.fake import FakeVLM
-from mentormind.processing.vlm.providers.backends.openai_compat import OpenAICompatVLM
-from mentormind.processing.vlm.providers.models import ImageInput
+from mentormind.core.providers.vlm import VLMProvider
+from mentormind.core.providers.vlm.backends.fake import FakeVLM
+from mentormind.core.providers.vlm.backends.openai_compat import OpenAICompatVLM
+from mentormind.core.providers.vlm.models import ImageInput
 
 
 def test_ac_11_new_provider_needs_only_a_class_and_a_name(frames: list[Path]) -> None:

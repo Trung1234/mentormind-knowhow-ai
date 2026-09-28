@@ -9,8 +9,8 @@ from pydantic import SecretStr
 
 from mentormind.core.config import Settings, get_settings, lookup_secret
 from mentormind.core.guard import GuardPolicy
-from mentormind.core.llm.base import LLMProvider
-from mentormind.core.llm.registry import LLM_REGISTRY
+from mentormind.core.providers.llm.base import LLMProvider
+from mentormind.core.providers.llm.registry import LLM_REGISTRY
 from mentormind.core.providers.models import ProviderConfig
 from mentormind.core.providers.transport import HttpClient
 

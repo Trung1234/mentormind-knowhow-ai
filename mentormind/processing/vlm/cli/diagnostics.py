@@ -16,7 +16,7 @@ from mentormind.core.config import Settings, get_settings
 from mentormind.core.schemas.common import DataClassification
 
 if TYPE_CHECKING:
-    from mentormind.processing.vlm.providers import VLMProvider
+    from mentormind.core.providers.vlm import VLMProvider
 PING_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
@@ -51,8 +51,8 @@ def providers_cmd() -> None:
     """List registered VLM providers, the selected one and whether each has its key."""
     from mentormind.core.config import lookup_secret
     from mentormind.core.providers.openai_compat import OPENAI_COMPAT_ENDPOINTS
-    from mentormind.processing.vlm.providers import VLM_REGISTRY
-    from mentormind.processing.vlm.providers.catalog import default_vlm_model
+    from mentormind.core.providers.vlm import VLM_REGISTRY
+    from mentormind.core.providers.vlm.catalog import default_vlm_model
 
     settings = get_settings()
     typer.echo(f"{'':2}{'provider':<20}{'nơi chạy':<10}{'model mặc định':<32}api key")
@@ -87,7 +87,7 @@ def ping_cmd(
 ) -> None:
     """Call the configured VLM with several frames; print answer, latency and tokens."""
     from mentormind.core.providers.errors import ProviderError
-    from mentormind.processing.vlm.providers import get_vlm_provider
+    from mentormind.core.providers.vlm import get_vlm_provider
 
     settings = get_settings()
     if provider:

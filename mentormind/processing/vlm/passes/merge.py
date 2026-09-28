@@ -29,8 +29,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from mentormind.core.llm import LLMProvider, strictest
 from mentormind.core.providers.errors import InvalidJSONError
+from mentormind.core.providers.llm import LLMProvider, strictest
 from mentormind.core.providers.parsing import parse_json_object
 from mentormind.core.schemas.video import Segment
 from mentormind.processing.vlm.passes.matching import MATCH_THRESHOLD, similarity

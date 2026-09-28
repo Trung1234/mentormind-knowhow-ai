@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from mentormind.core.llm.backends.fake import FakeLLM
+from mentormind.core.providers.llm.backends.fake import FakeLLM
 from mentormind.core.schemas.work_profile import WorkProfile, validate_against_contract
 from mentormind.processing.vlm.passes.reasons import propose_reasons
 

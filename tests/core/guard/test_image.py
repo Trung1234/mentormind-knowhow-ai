@@ -7,15 +7,15 @@ from pathlib import Path
 import httpx
 import pytest
 
-from mentormind.processing.vlm.guard import face_blur
-from mentormind.processing.vlm.guard.face_blur import FaceBlurError
+from mentormind.core.guard import image
+from mentormind.core.guard.image import FaceBlurError
 
 
 def test_face_model_download_is_checksum_verified(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     tampered = httpx.Response(200, content=b"not the model", request=httpx.Request("GET", "u"))
-    monkeypatch.setattr(face_blur.httpx, "get", lambda *a, **k: tampered)
+    monkeypatch.setattr(image.httpx, "get", lambda *a, **k: tampered)
     with pytest.raises(FaceBlurError, match="SHA-256"):
-        face_blur.ensure_face_model(tmp_path / "m.onnx")
+        image.ensure_face_model(tmp_path / "m.onnx")
     assert not (tmp_path / "m.onnx").exists()

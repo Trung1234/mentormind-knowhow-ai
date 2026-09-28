@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from mentormind.core.guard import SupportsCloudFlag
-from mentormind.core.llm.context import strictest
+from mentormind.core.providers.llm.context import strictest
 from mentormind.core.schemas.video import Segment
 from mentormind.core.schemas.work_profile import (
     SCHEMA_VERSION,

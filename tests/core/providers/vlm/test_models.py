@@ -5,9 +5,9 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
+from mentormind.core.guard.image import ImageGuardPolicy
 from mentormind.core.providers.models import TokenUsage
-from mentormind.processing.vlm.guard.face_blur import ImageGuardPolicy
-from mentormind.processing.vlm.providers.models import ImageInput
+from mentormind.core.providers.vlm.models import ImageInput
 
 
 def test_models_validate_their_fields() -> None:

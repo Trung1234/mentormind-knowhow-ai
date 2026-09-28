@@ -9,18 +9,18 @@ from pydantic import SecretStr
 
 from mentormind.core.config import Settings
 from mentormind.core.guard import ConfidentialDataError, GuardPolicy
-from mentormind.core.llm import (
+from mentormind.core.providers.errors import ProviderConfigError
+from mentormind.core.providers.llm import (
     LLM_REGISTRY,
     ContextPassage,
     filter_passages,
     get_llm_provider,
     strictest,
 )
-from mentormind.core.llm.backends.fake import FakeLLM
-from mentormind.core.providers.errors import ProviderConfigError
+from mentormind.core.providers.llm.backends.fake import FakeLLM
 from mentormind.core.providers.openai_compat import OPENAI_COMPAT_ENDPOINTS
 from mentormind.core.schemas.common import DataClassification
-from tests.processing.vlm.fakes import RecordingHttp
+from tests.core.providers.fakes import RecordingHttp
 
 PUBLIC = ContextPassage(ref_id="WP-PACK01-001", text="Đặt cốc vào thùng", classification="public")
 SECRET = ContextPassage(

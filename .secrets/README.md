@@ -110,12 +110,12 @@ set -a; source .env; set +a; cd 3rdparty/vlm_server && uv run hf download Qwen/Q
 Ví dụ một vendor khác có API tương thích OpenAI:
 1. Thêm một dòng vào `mentormind/core/providers/openai_compat/endpoints.py` (`OPENAI_COMPAT_ENDPOINTS`): `base_url`,
    `is_cloud=True`, tên biến key (vd. `NEWVENDOR_API_KEY`), `json_mode`.
-2. Thêm model id mặc định vào `mentormind/processing/vlm/providers/catalog.py`.
+2. Thêm model id mặc định vào `mentormind/core/providers/vlm/catalog.py`.
 3. Thêm dòng `NEWVENDOR_API_KEY=` vào `.env.example` (mục "API keys") và vào bảng ở mục 3.
 
 Vendor không tương thích OpenAI: viết subclass `VLMProvider` trong
-`mentormind/processing/vlm/providers/backends/`, gắn `@register_vlm("ten")` và import module trong
-`mentormind/processing/vlm/providers/__init__.py`. Code nghiệp vụ không phải sửa gì (constitution Điều 5).
+`mentormind/core/providers/vlm/backends/`, gắn `@register_vlm("ten")` và import module trong
+`mentormind/core/providers/vlm/__init__.py`. Code nghiệp vụ không phải sửa gì (constitution Điều 5).
 
 ## 6. Sự cố thường gặp
 

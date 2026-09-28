@@ -5,8 +5,8 @@
 ## 1. Mục tiêu
 Từ các `Segment` (spec 03) sinh ra danh sách `WorkProfile` ở trạng thái `draft`, hợp lệ theo contract, không chứa `reason` bịa. Đổi provider (API cloud ↔ self-host) chỉ bằng config.
 
-## 2. Provider abstraction — `processing.vlm.providers` (registry, theo pattern omnia)
-Bố cục package `processing/vlm/`: `pipeline` (`DescribePipeline`), `providers/` (`base`, `models`, `registry`, `factory`, `catalog`, `backends/{openai_compat,fake}`), `frames/` (`sampler`, `dedup`), `guard/face_blur`, `passes/` (`describe` = lượt A, `consistency` = lượt B, `merge` = lượt C, `reasons` = propose-reasons, `matching`, `postprocess`, `models`, `prompting`), `sweep/` (`truth`, `matching`, `metrics`, `runner`, `report`, `windows`), `cli/` (`diagnostics`, `describe`, `sweep`), `prompts/*.md`.
+## 2. Provider abstraction — `core.providers.vlm` (registry, theo pattern omnia)
+Provider VLM nằm ở `core/providers/vlm/` (`base`, `models`, `registry`, `factory`, `catalog`, `backends/{openai_compat,fake}`), cạnh `core/providers/llm/` của spec 06; làm mờ mặt ở `core/guard/image.py`. `processing/vlm/` chỉ còn nghiệp vụ: `pipeline` (`DescribePipeline`), `frames/` (`sampler`, `dedup`), `passes/` (`describe` = lượt A, `consistency` = lượt B, `merge` = lượt C, `reasons` = propose-reasons, `matching`, `postprocess`, `models`, `prompting`), `sweep/` (`truth`, `matching`, `metrics`, `runner`, `report`, `windows`), `cli/` (`diagnostics`, `describe`, `sweep`), `prompts/*.md`.
 
 Phần dùng chung mọi loại provider nằm ở `core.providers` (spec 06 dùng lại cho LLM): `ProviderBase`,
 `ProviderConfig`, `ProviderRegistry` (tên → class), `HttpClient` + retry (FR-07), bảng endpoint
@@ -179,3 +179,4 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - v1.9 (28/9, Phúc): T04-4 lượt B, T04-5 lượt C (`pass_c_merge.md`, so khớp ngược), T04-7 `propose-reasons` (`propose_reason.md`, `partial_ratio ≥ 85`) xong; `processing.vlm.pipeline.describe_video` nối A → B → C → hậu xử lý; FR-05 `describe` nhận thêm `--video`/`--segments`; FR-06 lưu tạm `profiles.json` khi chưa có spec 08.
 - v1.10 (28/9, Phúc): pipeline là class `DescribePipeline` (`pass_a`/`pass_b`/`pass_c`/`postprocess`/`run`) thay cho hàm `describe_video`.
 - v1.11 (28/9, Phúc): T04-11 `actor` = ai làm bước (`human` gộp công nhân + kỹ sư, `robot`, `machine`, `null`); prompt lượt A v1.6: tên bước không ghi chủ thể, `hand_action` chỉ còn động tác; lượt B/C giữ và kiểm `actor`; sweep thêm `actor_accuracy`; contract WorkProfile thêm `actor` (AC-18, AC-19).
+- v1.12 (28/9, Phúc): provider VLM chuyển `processing.vlm.providers` → `core.providers.vlm`, làm mờ mặt `processing.vlm.guard.face_blur` → `core.guard.image` (§2).

@@ -19,7 +19,7 @@ from mentormind.core.config import Settings, get_settings
 from mentormind.core.schemas.common import DataClassification
 
 if TYPE_CHECKING:
-    from mentormind.core.llm import LLMProvider
+    from mentormind.core.providers.llm import LLMProvider
     from mentormind.core.schemas.video import Segment
 
 WORK = Path("data/work")
@@ -66,10 +66,10 @@ def describe_cmd(
 ) -> None:
     """Describe a video: passes A, B, C, then draft WorkProfiles."""
     from mentormind.core.guard import ConfidentialDataError, DataGuard
-    from mentormind.core.llm.context import strictest
     from mentormind.core.providers.errors import ProviderError
+    from mentormind.core.providers.llm.context import strictest
+    from mentormind.core.providers.vlm import get_vlm_provider
     from mentormind.processing.vlm.pipeline import DescribePipeline, write_profiles
-    from mentormind.processing.vlm.providers import get_vlm_provider
 
     settings = get_settings()
     if provider:
@@ -169,7 +169,7 @@ def propose_reasons_cmd(
 
 
 def _llm(settings: Settings) -> LLMProvider:
-    from mentormind.core.llm import get_llm_provider
+    from mentormind.core.providers.llm import get_llm_provider
 
     return get_llm_provider(settings)
 

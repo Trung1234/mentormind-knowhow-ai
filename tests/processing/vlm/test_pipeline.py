@@ -8,10 +8,10 @@ from typing import Any
 
 import pytest
 
-from mentormind.core.llm.backends.fake import FakeLLM
+from mentormind.core.providers.llm.backends.fake import FakeLLM
+from mentormind.core.providers.vlm.backends.fake import FakeVLM
 from mentormind.core.schemas.work_profile import validate_against_contract
 from mentormind.processing.vlm.pipeline import DescribePipeline, read_profiles
-from mentormind.processing.vlm.providers.backends.fake import FakeVLM
 from tests.processing.vlm.passes.test_describe import fake_sampler, segments, step
 
 

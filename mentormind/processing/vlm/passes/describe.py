@@ -21,6 +21,8 @@ from pydantic import ValidationError
 from mentormind.core.providers.errors import InvalidJSONError
 from mentormind.core.providers.models import TokenUsage
 from mentormind.core.providers.parsing import parse_json_object
+from mentormind.core.providers.vlm.base import VLMProvider
+from mentormind.core.providers.vlm.models import VLMResponse
 from mentormind.core.schemas.video import Segment
 from mentormind.processing.vlm.frames.sampler import SampledFrames, sample_frames
 from mentormind.processing.vlm.passes.models import (
@@ -30,8 +32,6 @@ from mentormind.processing.vlm.passes.models import (
     TimedStep,
 )
 from mentormind.processing.vlm.passes.prompting import render_prompt
-from mentormind.processing.vlm.providers.base import VLMProvider
-from mentormind.processing.vlm.providers.models import VLMResponse
 
 PASS_A_TEMPERATURE = 0.2
 

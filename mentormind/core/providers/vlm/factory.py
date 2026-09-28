@@ -10,11 +10,11 @@ from pydantic import SecretStr
 
 from mentormind.core.config import Settings, get_settings, lookup_secret
 from mentormind.core.guard import GuardPolicy
+from mentormind.core.guard.image import ImageGuardPolicy
 from mentormind.core.providers.models import ProviderConfig
 from mentormind.core.providers.transport import HttpClient
-from mentormind.processing.vlm.guard.face_blur import ImageGuardPolicy
-from mentormind.processing.vlm.providers.base import VLMProvider
-from mentormind.processing.vlm.providers.registry import VLM_REGISTRY
+from mentormind.core.providers.vlm.base import VLMProvider
+from mentormind.core.providers.vlm.registry import VLM_REGISTRY
 
 
 def vlm_config_from_settings(settings: Settings) -> ProviderConfig:
