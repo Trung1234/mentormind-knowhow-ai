@@ -56,8 +56,9 @@ exclude = ["mentormind/frontend"]
 line-length = 100
 target-version = "py311"
 # 3rdparty/* are separate uv projects with their own config. Markdown is excluded because ruff
-# would otherwise reformat the illustrative code blocks inside the specs.
-extend-exclude = ["mentormind/frontend", "3rdparty", "data", "*.md"]
+# would otherwise reformat the illustrative code blocks inside the specs. docs/reports/results/
+# holds snapshots of one-off analysis scripts next to the results they produced.
+extend-exclude = ["mentormind/frontend", "3rdparty", "data", "docs/reports/results", "*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
