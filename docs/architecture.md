@@ -161,18 +161,19 @@ Ràng buộc chính (được contract kiểm tra qua `allOf`):
 
 ```
 mentormind-knowhow-ai/
-├── docs/                    # spec, contracts/, sơ đồ, evaluation plan (nguồn sự thật)
-├── core/                    # config, CLI, Pydantic schemas, DataGuard — dùng chung (Trung)
-├── capture/                 # ingest tài liệu/OCR, video: pose-tracking, phân đoạn thao tác (Hoàng)
-├── processing/              # VLM describe, task-graph (Phúc)
-├── knowledge_base/          # Neo4j, Postgres/pgvector, tích hợp Sigma, profile store (Vinh, Trung)
-├── agents/                  # Work Assistant, RCA Agent (Phúc)
-├── evaluation/              # golden set, Ragas (Đạt + Phúc)
-├── backend/app/             # REST API FastAPI (Vinh)
-├── frontend/                # UI tablet tại trạm
+├── mentormind/              # TOÀN BỘ mã nguồn ứng dụng (package Python `mentormind`)
+│   ├── core/                # config, CLI, Pydantic schemas, DataGuard — dùng chung (Trung)
+│   ├── capture/             # ingest tài liệu/OCR, video: pose-tracking, phân đoạn thao tác (Hoàng)
+│   ├── processing/          # VLM describe, task-graph (Phúc)
+│   ├── knowledge_base/      # Neo4j, Postgres/pgvector, tích hợp Sigma, profile store (Vinh, Trung)
+│   ├── agents/              # Work Assistant, RCA Agent (Phúc)
+│   ├── evaluation/          # golden set, Ragas (Đạt + Phúc)
+│   ├── backend/app/         # REST API FastAPI (Vinh)
+│   └── frontend/            # UI tablet tại trạm
+├── tests/                   # pytest, phản chiếu cấu trúc mentormind/
 ├── infra/                   # docker/ (gpu.Dockerfile, cpu.Dockerfile), postgres/init.sql
-├── data/samples/            # CHỈ dataset công khai — không chứa video thật
-└── tests/
+├── docs/                    # spec, contracts/, sơ đồ, evaluation plan (nguồn sự thật)
+└── data/samples/            # CHỈ dataset công khai — không chứa video thật
 ```
 
 ## 7. Lựa chọn công nghệ và lý do

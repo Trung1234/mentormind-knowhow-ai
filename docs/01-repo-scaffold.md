@@ -15,44 +15,50 @@ mentormind-knowhow-ai/
 ├── .env.example
 ├── .gitignore
 ├── docker-compose.yml
-├── infra/postgres/init.sql     # CREATE EXTENSION vector, unaccent
+├── mentormind/                 # TOÀN BỘ mã nguồn ứng dụng — Python package `mentormind`
+│   ├── __init__.py
+│   ├── core/                   # dùng chung, mọi module import — Trung
+│   │   ├── config.py           # Settings (pydantic-settings)
+│   │   ├── cli.py              # Typer app gốc, gắn sub-command từng module
+│   │   ├── schemas/            # Pydantic models sinh từ docs/contracts
+│   │   │   ├── work_profile.py
+│   │   │   └── common.py       # DataClassification, Citation, ...
+│   │   └── guard/data_guard.py # Constitution Điều 2
+│   ├── capture/                # Việt Hoàng
+│   │   ├── ingest/             # spec 02
+│   │   └── video/              # spec 03
+│   ├── processing/             # Phúc
+│   │   └── vlm/                # spec 04
+│   ├── knowledge_base/
+│   │   ├── kg/                 # spec 05 — Trung
+│   │   ├── retrieval/          # spec 05 — Trung
+│   │   ├── sigma/              # spec 07 — Vinh
+│   │   └── store/              # Vinh
+│   │       ├── profile_store.py    # lưu WorkProfile (SQLite)
+│   │       └── vector_store.py     # VectorStore: pgvector | memory (FR-05c)
+│   ├── agents/                 # spec 06 — Phúc
+│   ├── evaluation/             # spec 09 — Phúc
+│   ├── backend/app/            # spec 08 — FastAPI, `mentormind.backend.app.main:app` — Vinh
+│   ├── ui/streamlit_app.py     # spec 08 — Vinh
+│   └── frontend/               # UI tablet tại trạm (Vite/React, không phải Python)
+├── tests/                      # pytest, phản chiếu mentormind/: tests/<module>/.../test_*.py
+├── infra/
+│   ├── postgres/init.sql       # CREATE EXTENSION vector, unaccent
+│   └── docker/                 # Dockerfile môi trường chạy
 ├── docs/                       # spec-driven: nguồn sự thật
 │   └── contracts/              # JSON Schema — thắng mọi mô tả văn xuôi
-├── core/                       # dùng chung, mọi module import — Trung
-│   ├── __init__.py
-│   ├── config.py               # Settings (pydantic-settings)
-│   ├── cli.py                  # Typer app gốc, gắn sub-command từng module
-│   ├── schemas/                # Pydantic models sinh từ docs/contracts
-│   │   ├── work_profile.py
-│   │   └── common.py           # DataClassification, Citation, ...
-│   └── guard/data_guard.py     # Constitution Điều 2
-├── capture/                    # Việt Hoàng
-│   ├── ingest/                 # spec 02
-│   └── video/                  # spec 03
-├── processing/                 # Phúc
-│   └── vlm/                    # spec 04
-├── knowledge_base/
-│   ├── kg/                     # spec 05 — Trung
-│   ├── retrieval/              # spec 05 — Trung
-│   ├── sigma/                  # spec 07 — Vinh
-│   └── store/                  # Vinh
-│       ├── profile_store.py    # lưu WorkProfile (SQLite)
-│       └── vector_store.py     # VectorStore: pgvector | memory (FR-05c)
-├── agents/                     # spec 06 — Phúc
-├── evaluation/                 # spec 09 — Phúc
-├── backend/app/                # spec 08 — FastAPI, `backend.app.main:app` — Vinh
-├── ui/streamlit_app.py         # spec 08 — Vinh
-├── data/
+├── data/                       # KHÔNG phải code
 │   ├── samples/                # dữ liệu public/synthetic nhỏ, được commit
 │   ├── mock_sigma/             # CSV mock, được commit
 │   ├── golden_set/             # spec 09, được commit
 │   └── work/                   # output trung gian, KHÔNG commit
-├── scripts/demo.sh
-└── tests/                      # tests/<module>/test_*.py
+└── scripts/demo.sh
 ```
 
+> **Quy ước tên module trong các spec:** mọi đường dẫn module viết tắt, bỏ tiền tố package gốc — `core.schemas` nghĩa là `mentormind.core.schemas`, `processing.vlm.providers` là `mentormind.processing.vlm.providers`; đường dẫn file `core/guard/data_guard.py` là `mentormind/core/guard/data_guard.py`. Tên CLI (`knowhow`) và prefix biến môi trường (`KNOWHOW_`) không đổi.
+
 ## 3. Functional Requirements
-- **FR-01** `pyproject.toml` ở gốc repo dùng `uv`, Python `>=3.11,<3.13`, flat layout (không `src/`): các package `core`, `capture`, `processing`, `knowledge_base`, `agents`, `evaluation`, `backend` đều khai báo trong build config; entry point `knowhow = "core.cli:app"`. `backend/` không có `requirements.txt` riêng — dependency của API nằm trong extra `api`.
+- **FR-01** `pyproject.toml` ở gốc repo dùng `uv`, Python `>=3.11,<3.13`. Mã nguồn nằm trong **một package gốc `mentormind/`** (tách khỏi `tests/`, `infra/`, `docs/`, `data/`); các module `core`, `capture`, `processing`, `knowledge_base`, `agents`, `evaluation`, `backend` là sub-package của nó, import dạng `mentormind.core...`. Build config chỉ đóng gói `mentormind` (trừ `mentormind/frontend`). Entry point `knowhow = "mentormind.core.cli:app"`. `backend/` không có `requirements.txt` riêng — dependency của API nằm trong extra `api`.
 - **FR-02** Dependency nhóm theo extra: `ingest`, `video`, `vlm`, `kg`, `api`, `ui`, `eval`, `dev`. `uv sync --all-extras` cài đủ.
 - **FR-03** `config.py` định nghĩa `Settings` đọc từ env với prefix `KNOWHOW_`; mọi module lấy config qua `get_settings()` (cache).
 - **FR-04** `Makefile` có target: `up`, `down`, `check` (ruff check + ruff format --check + mypy + pytest), `test`, `demo`, `fmt`.
@@ -112,3 +118,4 @@ KNOWHOW_SIGMA_CSV_DIR=data/mock_sigma
 - v1.1 (24/9): FR-05b giới hạn bộ nhớ Neo4j/Milvus; FR-05c Milvus Lite cho dev/CI; thêm `KNOWHOW_VLM_MAX_FRAMES` (AC-07, AC-08, T01-7).
 - v1.2 (27/9): đổi Milvus → PostgreSQL 16 + pgvector (FR-05, FR-05b, env); FR-05c thay Milvus Lite bằng interface `VectorStore` + backend `memory`; AC-02, AC-07 (≤ 4 GB), AC-08, T01-7 cập nhật theo.
 - v1.3 (27/9): bỏ `src/knowhow/`, dùng layout theo architecture §6 (`core/`, `capture/`, `processing/`, `knowledge_base/`, `agents/`, `evaluation/`, `backend/app/`); `specs/` → `docs/`; entry point `core.cli:app` (FR-01, FR-05c, FR-08, FR-09).
+- v1.4 (28/9, Phúc): tách code khỏi test/hạ tầng/tài liệu — toàn bộ mã nguồn vào package gốc `mentormind/` (gồm `backend/`, `frontend/`), `tests/`, `infra/`, `docs/`, `data/` ở gốc; spec giữ tên module viết tắt (bỏ tiền tố `mentormind.`); entry point `mentormind.core.cli:app` (§2, FR-01).

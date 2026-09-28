@@ -24,3 +24,18 @@ Chi tiết kiến trúc: [`docs/architecture.md`](docs/architecture.md)
 
 ## Kiến trúc tóm tắt
 <img width="1280" height="698" alt="image" src="https://github.com/user-attachments/assets/be178b8a-7d39-45b3-9b9a-fe442c0bec6d" />
+
+## Cấu trúc thư mục
+
+```
+mentormind-knowhow-ai/
+├── mentormind/     # toàn bộ mã nguồn: core, capture, processing, knowledge_base, agents,
+│                   # evaluation, backend (FastAPI), frontend (Vite/React)
+├── tests/          # pytest, phản chiếu cấu trúc mentormind/
+├── infra/          # docker, postgres/init.sql
+├── docs/           # spec (nguồn sự thật), contracts/
+└── data/           # dữ liệu mẫu public/synthetic (không phải code)
+```
+
+Chi tiết từng module: [`docs/01-repo-scaffold.md`](docs/01-repo-scaffold.md) §2. Backend chạy bằng
+`uvicorn mentormind.backend.app.main:app` từ gốc repo.
