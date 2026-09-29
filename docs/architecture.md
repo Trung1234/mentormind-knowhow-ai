@@ -113,6 +113,7 @@ Nguồn sự thật là contract [`contracts/work_profile.schema.json`](contract
   "process_id": "PACK01",
   "step_order": 3,
   "step": "Đặt linh kiện A vào ngăn trái",
+  "actor": "human",
   "hand_action": "tay phải nhặt, xoay 90 độ, đặt nghiêng",
   "objects": ["linh kiện A", "khay chia ngăn"],
   "key_point": "chân linh kiện hướng ra ngoài",
@@ -152,6 +153,7 @@ Nguồn sự thật là contract [`contracts/work_profile.schema.json`](contract
 
 Ràng buộc chính (được contract kiểm tra qua `allOf`):
 
+- `actor` cho biết ai làm bước: `human` (người: công nhân, kỹ sư), `robot` (robot có cánh tay), `machine` (máy tự động cố định), `null` = không rõ. Tên bước không ghi chủ thể. Bí quyết cần truyền lại nằm chủ yếu ở bước `human`; bước `robot`/`machine` là bối cảnh.
 - `reason` là trường phân biệt dự án này với một SOP thông thường. Bản nháp VLM (`generated_by = "vlm"`, `status = "draft"`) **bắt buộc** có `reason = null` và `reason_source = null` — VLM không được tự điền lý do.
 - Khi `reason` có giá trị thì phải có `reason_source ∈ {expert_verbal, expert_interview}` — tức lý do chỉ đến từ lời chuyên gia (video-cued recall hoặc phỏng vấn).
 - `status = "approved"` bắt buộc có `review.reviewer` và `review.reviewed_at`.

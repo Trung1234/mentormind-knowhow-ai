@@ -41,9 +41,9 @@ Bản vẽ / SOP (PDF) ───┘                                             
 - S1. RCA agent dùng Sigma mock (spec 06, 07).
 - S2. Transcript lời chuyên gia gắn vào `reason` theo timestamp (spec 03, 04).
 - S3. MediaPipe hand-activity để cắt đoạn chính xác hơn (spec 03).
+- S4. Self-host Qwen3-VL-8B trên 1 GPU (spec 04 FR-08) — nâng từ C1 vì đã có GPU (A5000 24 GB) và chạy được từ 28/9; architecture §8 yêu cầu chứng minh self-host chạy thật. *(Phúc đề xuất, chờ Đạt xác nhận.)*
 
 **Could**
-- C1. Self-host Qwen3-VL trên GPU (chỉ khi có GPU trước 8/10).
 - C2. Nháp A3/8D xuất PDF.
 
 **Won't (sau 12/10)**
@@ -61,3 +61,4 @@ Bản vẽ / SOP (PDF) ───┘                                             
 ## Changelog
 - v1.0 (23/9): khởi tạo.
 - v1.1 (27/9): vector store đổi từ Milvus sang PostgreSQL + pgvector.
+- v1.2 (28/9, Phúc): C1 (self-host Qwen3-VL) → S4 do đã có GPU và server chạy được (spec 04 v1.4); chờ Đạt xác nhận.

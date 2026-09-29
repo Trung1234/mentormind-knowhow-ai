@@ -1,3 +1,8 @@
+
+-- spec 01 FR-05: extensions the vector store (spec 05) needs, created on first start.
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS unaccent;
+
 -- MentorMind / DENSO Factory Hacks
 -- PostgreSQL + pgvector schema v1.1
 -- Goal: Case -> Evidence -> Knowledge -> Expert Review -> Approved Knowledge -> RAG
@@ -600,3 +605,4 @@ where ku.status = 'approved';
 -- The assets table stores origin_url / storage_bucket / storage_path metadata.
 
 commit;
+
