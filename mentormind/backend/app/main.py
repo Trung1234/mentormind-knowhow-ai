@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from mentormind.backend.app.config import get_settings
 from mentormind.backend.app.routers import health
+from mentormind.core.config import get_settings
 
 settings = get_settings()
 

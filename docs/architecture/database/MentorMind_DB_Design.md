@@ -1,5 +1,7 @@
 # MentorMind Database Design v1
 
+> **Đã được thay thế một phần (29/9):** schema chạy thật là `infra/postgres/init.sql` v1.2 trên PostgreSQL tự host (không Supabase — architecture §8). Nơi hai bên lệch nhau, `init.sql` và `docs/contracts/` thắng: nhãn `public|synthetic|factory_confidential`, `knowledge_units` = WorkProfile, `reason_source` chỉ từ chuyên gia, một bảng vector `knowhow_chunks`.
+
 ## 1. Mục tiêu
 
 Thiết kế này dùng **Supabase PostgreSQL + Supabase Storage + pgvector** cho flow:

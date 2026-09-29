@@ -83,18 +83,28 @@ class StoreProfileSink:
         self.where = where
 
     def save(self, video_id: str, profiles: Sequence[WorkProfile]) -> list[WorkProfile]:
-        saved = []
+        saved: list[WorkProfile] = []
+        # Ids written by THIS call: a draft just saved here is never replaceable, or a renumbered
+        # profile would be overwritten by the next one of the same video.
+        written: set[str] = set()
         for profile in profiles:
-            profile = self._free_id(video_id, profile)
+            profile = self._free_id(video_id, profile, written)
+            written.add(profile.profile_id)
             saved.append(self.store.save_profile(profile))
         return saved
 
     def load(self, video_id: str) -> list[WorkProfile]:
         return [p for p in self.store.list_profiles() if p.evidence.video_id == video_id]
 
-    def _free_id(self, video_id: str, profile: WorkProfile) -> WorkProfile:
+    def _free_id(self, video_id: str, profile: WorkProfile, written: set[str]) -> WorkProfile:
         current = self.store.get_profile(profile.profile_id)
-        if current is None or (current.evidence.video_id == video_id and current.status == "draft"):
+        replaceable = (
+            current is not None
+            and current.evidence.video_id == video_id
+            and current.status == "draft"
+            and profile.profile_id not in written
+        )
+        if current is None or replaceable:
             return profile
         match = _NUMBER.match(profile.profile_id)
         if match is None:

@@ -85,9 +85,10 @@ Cấu hình: `layout="wide"`, cỡ chữ ≥ 16px, nút bấm lớn; UI chỉ g�
 - [ ] T08-3 API profiles + review + nối KG loader (AC-01..03).
 - [ ] T08-4 API assistant/rca/sigma/media (AC-04, AC-06).
 - [ ] T08-5 Streamlit 3 trang (AC-08).
-- [ ] T08-6 `scripts/demo.sh` + fixture offline (AC-07) — phối hợp Trung (S2-3).
+- [ ] T08-6 `scripts/demo.sh` + fixture offline (AC-07) — phối hợp Trung (S2-3). Khung đã có (preflight + luồng §4); còn thiếu các lệnh của spec 02/03/05/06/07, `data/samples/review_decisions.json` và fixture FakeVLM qua env.
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
 - v1.1 (27/9): `/health` báo `postgres` thay cho `milvus`.
 - v1.2 (27/9): đường dẫn module theo layout mới (bỏ `knowhow.`/`src/knowhow/`, xem spec 01 v1.3).
+- v1.3 (29/9, review): cấu hình API (`app_name`, `cors_origins`) nằm trong `core.config.Settings` (spec 01 FR-03); khung `scripts/demo.sh` (T08-6 chưa xong).

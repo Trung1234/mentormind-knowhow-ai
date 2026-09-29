@@ -98,6 +98,14 @@ def test_store_sink_keeps_a_reviewed_profile_of_the_same_video(tmp_path: Path) -
     assert saved[0].profile_id == "WP-PACK01-002" and store.rows["WP-PACK01-001"] == reviewed
 
 
+def test_store_sink_never_overwrites_a_draft_it_just_renumbered(tmp_path: Path) -> None:
+    # VID-B's 001 is moved to 002, then VID-B's own 002 must not land on it.
+    store = FakeStore(profile(1, video="VID-A", status="approved"))
+    saved = StoreProfileSink(store).save("VID-B", [profile(1, "VID-B"), profile(2, "VID-B")])
+    assert [p.profile_id for p in saved] == ["WP-PACK01-002", "WP-PACK01-003"]
+    assert [store.rows[p.profile_id].step for p in saved] == ["Bước số 1", "Bước số 2"]
+
+
 def test_auto_falls_back_to_the_file_until_spec08_lands(tmp_path: Path) -> None:
     sink = get_profile_sink(settings(tmp_path, "auto"), work_dir=tmp_path)
     assert isinstance(sink, FileProfileSink)

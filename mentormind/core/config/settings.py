@@ -83,6 +83,11 @@ class Settings(BaseSettings):
     # Site-specific codes to mask, entity -> regex, e.g. {"EQUIPMENT": "SIGMA-EQ-\\d+"}.
     guard_extra_patterns: dict[str, str] = {}
 
+    # --- REST API (spec 08) -----------------------------------------------------------------
+    app_name: str = "MentorMind Know-How API"
+    # Spec 08 FR-05: only the UI's origin (Vite dev server by default).
+    cors_origins: list[str] = ["http://localhost:5173"]
+
     # --- Stores & adapters (spec 07, 08) ----------------------------------------------------
     profile_db: Path = Path("data/work/profiles.sqlite")
     # Where `vlm describe` keeps drafts: auto = spec 08 store if present, else JSON file.
