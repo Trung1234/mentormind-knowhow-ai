@@ -1,19 +1,23 @@
 -- MentorMind / DENSO Factory Hacks
--- Supabase PostgreSQL schema v1.0
+-- PostgreSQL + pgvector schema v1.1
 -- Goal: Case -> Evidence -> Knowledge -> Expert Review -> Approved Knowledge -> RAG
 --
 -- IMPORTANT:
 -- 1) This migration assumes pgvector embedding dimension = 1024.
 --    If your embedding model uses another dimension, change vector(1024)
 --    BEFORE running this migration.
--- 2) Recommended runtime architecture:
---    Frontend -> FastAPI -> Supabase (service role on backend only).
---    Never expose SUPABASE_SERVICE_ROLE_KEY to the frontend.
+-- 2) Runtime architecture:
+--    Frontend -> FastAPI -> PostgreSQL.
+--    The frontend must not connect directly to PostgreSQL.
+-- 3) This file is intended for Docker/PostgreSQL bootstrap, e.g.
+--    /docker-entrypoint-initdb.d/init.sql. It runs automatically only when
+--    the PostgreSQL data directory is initialized for the first time.
 
 begin;
 
 create extension if not exists pgcrypto;
 create extension if not exists vector;
+create extension if not exists unaccent;
 
 -- =========================================================
 -- 0. Common updated_at trigger
@@ -32,7 +36,7 @@ $$;
 -- 1. User / Expert profile
 -- =========================================================
 create table if not exists public.profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
+  id uuid primary key default gen_random_uuid(),
   display_name text not null,
   employee_code text,
   role text not null default 'engineer'
@@ -116,7 +120,7 @@ create table if not exists public.knowledge_cases (
 
 -- =========================================================
 -- 4. Raw/derived assets: video/audio/PDF/XLSX/image/log/CSV...
---    A row may represent a public source not yet copied into Storage.
+--    A row may represent a public source not yet copied into project/object storage.
 -- =========================================================
 create table if not exists public.assets (
   id uuid primary key default gen_random_uuid(),
@@ -554,66 +558,11 @@ before update on public.evaluation_questions
 for each row execute function public.set_updated_at();
 
 -- =========================================================
--- 15. Baseline RLS
--- Recommended: all write operations go through FastAPI/service role.
--- Frontend authenticated users only get safe read paths.
+-- 15. Access-control boundary
 -- =========================================================
-alter table public.profiles enable row level security;
-alter table public.processes enable row level security;
-alter table public.knowledge_cases enable row level security;
-alter table public.assets enable row level security;
-alter table public.case_assets enable row level security;
-alter table public.transcript_segments enable row level security;
-alter table public.document_chunks enable row level security;
-alter table public.case_signals enable row level security;
-alter table public.case_outcomes enable row level security;
-alter table public.knowledge_units enable row level security;
-alter table public.knowledge_evidence enable row level security;
-alter table public.knowledge_reviews enable row level security;
-alter table public.knowledge_versions enable row level security;
-alter table public.evaluation_questions enable row level security;
-alter table public.evaluation_runs enable row level security;
-alter table public.evaluation_results enable row level security;
-
--- User can see/update their own profile.
-drop policy if exists "profiles_select_self" on public.profiles;
-create policy "profiles_select_self"
-on public.profiles
-for select
-to authenticated
-using (auth.uid() = id);
-
-drop policy if exists "profiles_update_self" on public.profiles;
-create policy "profiles_update_self"
-on public.profiles
-for update
-to authenticated
-using (auth.uid() = id)
-with check (auth.uid() = id);
-
--- Authenticated users may read active process metadata.
-drop policy if exists "processes_read_authenticated" on public.processes;
-create policy "processes_read_authenticated"
-on public.processes
-for select
-to authenticated
-using (status = 'active');
-
--- Only approved knowledge is directly readable from client.
-drop policy if exists "approved_knowledge_read_authenticated" on public.knowledge_units;
-create policy "approved_knowledge_read_authenticated"
-on public.knowledge_units
-for select
-to authenticated
-using (status = 'approved');
-
--- Evaluation questions can be read by authenticated users for a demo/evaluation screen.
-drop policy if exists "evaluation_questions_read_authenticated" on public.evaluation_questions;
-create policy "evaluation_questions_read_authenticated"
-on public.evaluation_questions
-for select
-to authenticated
-using (active = true);
+-- This bootstrap targets plain PostgreSQL, not Supabase.
+-- Authorization is enforced by the FastAPI application layer for the MVP.
+-- Do not expose PostgreSQL directly to the frontend.
 
 -- =========================================================
 -- 16. Convenience views
@@ -644,14 +593,10 @@ left join public.processes p on p.id = ku.process_id
 where ku.status = 'approved';
 
 -- =========================================================
--- 17. Minimal storage buckets
--- NOTE: Supabase may already contain these rows in storage.buckets.
+-- 17. File/object storage
 -- =========================================================
-insert into storage.buckets (id, name, public)
-values
-  ('public-samples', 'public-samples', false),
-  ('raw-evidence', 'raw-evidence', false),
-  ('derived-artifacts', 'derived-artifacts', false)
-on conflict (id) do nothing;
+-- Plain PostgreSQL does not provide Supabase Storage buckets.
+-- Binary files stay outside PostgreSQL (local/object storage).
+-- The assets table stores origin_url / storage_bucket / storage_path metadata.
 
 commit;
