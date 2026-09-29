@@ -328,7 +328,7 @@ Ground truth do BA gán tay và reviewer kiểm tra, dùng để benchmark extra
 ### PRD-FR-06 — Publish only verified knowledge
 
 **Input:** approved WorkProfile.  
-**System behavior:** index vào Milvus và load vào Knowledge Graph; reject/unapprove phải loại khỏi nguồn chính thức theo spec.  
+**System behavior:** index approved knowledge vào vector index của hệ thống (current implementation: PostgreSQL + pgvector) và đồng bộ vào Knowledge Graph. Rejected/unapproved knowledge không được đưa vào nguồn retrieval chính thức.
 **Output:** searchable verified knowledge.  
 **Mapped spec:** 05, 08.
 

@@ -287,7 +287,16 @@ Query
 → answer + citation
 ```
 
-Nếu team dùng MMORE + Milvus thì giữ Supabase là **source of truth** và Milvus là retrieval index. Khi đó `knowledge_unit.id` / `document_chunk.id` được lưu trong Milvus metadata.
+MMORE chịu trách nhiệm ingestion/normalization.
+
+Embedding sau khi tạo sẽ được lưu trực tiếp trong PostgreSQL
+thông qua pgvector.
+
+Supabase PostgreSQL là:
+- source of truth;
+- metadata store;
+- vector store;
+- retrieval index cho MVP.
 
 ---
 
