@@ -182,3 +182,4 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - v1.12 (28/9, Phúc): provider VLM chuyển `processing.vlm.providers` → `core.providers.vlm`, làm mờ mặt `processing.vlm.guard.face_blur` → `core.guard.image` (§2).
 - v1.13 (28/9, Phúc): guard ảnh thành package `core.guard.image` (`face_blur` là cách đầu tiên; chỗ để thêm cách khác).
 - v1.14 (29/9, Phúc): FR-06 lưu vào profile store của spec 08 khi có (`KNOWHOW_PROFILE_SINK=auto|store|file`), không ghi đè profile của video khác.
+- v1.15 (29/9, review): FR-06 sửa lỗi mất dữ liệu — profile vừa đổi `profile_id` trong cùng một lần lưu không còn bị profile sau của cùng video ghi đè.

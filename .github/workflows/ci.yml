@@ -1,0 +1,22 @@
+# spec 01 FR-07: every push / PR runs the same gate as `make check`. Tests need no Docker and no
+# network to model providers (fakes only, constitution art. 6).
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The LASI demo video (data/video/, Git LFS) is not needed by any test; skip the download.
+          lfs: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      # Python comes from .python-version (3.11, spec 01 FR-01).
+      - run: uv sync --all-extras --locked
+      - run: make check
