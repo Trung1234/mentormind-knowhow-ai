@@ -13,14 +13,17 @@ import {
   XCircle,
   Save,
   AlertTriangle,
-  Film,
   UserCheck,
   Filter,
   Video,
-  Hash,
   RefreshCw,
   Shield,
   Pencil,
+  Layers,
+  Eye,
+  Wrench,
+  ShieldCheck,
+  FileText,
 } from "lucide-react";
 
 // ── Status badge class helper ─────────────────────────────────
@@ -125,7 +128,7 @@ export function ReviewProfilesTab() {
         comment:  reviewComment || "Meets operation standard",
       };
       const updated = await api.reviewProfile(selectedProfile.profile_id, req);
-      setActionMsg({ type: "success", text: `APPROVED: ${updated.profile_id} promoted to VERIFIED KNOWLEDGE — synced to Neo4j Knowledge Graph.` });
+      setActionMsg({ type: "success", text: `APPROVED: ${updated.profile_id} verified & synced to Neo4j Knowledge Graph.` });
       selectProfile(updated);
       loadProfiles();
     } catch (err: any) {
@@ -173,49 +176,61 @@ export function ReviewProfilesTab() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
-      {/* ── Filter / Control Bar ── */}
-      <div className="card" style={{ padding: "1rem 1.5rem" }}>
+      {/* ── Production Line Filter Bar ── */}
+      <div className="card">
+        <div className="card-header">
+          <div className="card-title">
+            <div className="card-icon ci-red">
+              <Filter size={14} />
+            </div>
+            Line Inspection Filter
+          </div>
+          <span className="badge badge-red">DENSO PACK01 // ST-04</span>
+        </div>
         <div className="filter-bar">
-          <Filter size={15} color="var(--cyan)" />
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-dim)", letterSpacing: "0.08em" }}>
-            LINE:
-          </span>
-          <select
-            id="filter-process"
-            className="form-select"
-            style={{ width: 220, fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}
-            value={selectedProcess}
-            onChange={(e) => setSelectedProcess(e.target.value)}
-          >
-            <option value="PACK01">PACK01 - Packaging Line</option>
-            <option value="ASSY02">ASSY02 - Assembly Line</option>
-          </select>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <span style={{ fontFamily: "var(--font-display)", fontSize: "0.78rem", fontWeight: 700, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              Process Line:
+            </span>
+            <select
+              id="filter-process"
+              className="form-select"
+              style={{ width: 220, fontFamily: "var(--font-mono)", fontSize: "0.82rem" }}
+              value={selectedProcess}
+              onChange={(e) => setSelectedProcess(e.target.value)}
+            >
+              <option value="PACK01">PACK01 — Packaging Line</option>
+              <option value="ASSY02">ASSY02 — Assembly Line</option>
+            </select>
+          </div>
 
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-dim)", letterSpacing: "0.08em" }}>
-            STATUS:
-          </span>
-          <select
-            id="filter-status"
-            className="form-select"
-            style={{ width: 220, fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-          >
-            <option value="">All Statuses</option>
-            <option value="draft">Draft</option>
-            <option value="in_review">In Review</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-          </select>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <span style={{ fontFamily: "var(--font-display)", fontSize: "0.78rem", fontWeight: 700, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              Status:
+            </span>
+            <select
+              id="filter-status"
+              className="form-select"
+              style={{ width: 180, fontFamily: "var(--font-mono)", fontSize: "0.82rem" }}
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+            >
+              <option value="">All Statuses</option>
+              <option value="draft">Draft</option>
+              <option value="in_review">In Review</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
 
           <button id="btn-refresh" className="btn btn-ghost btn-sm" onClick={loadProfiles} style={{ marginLeft: "auto" }}>
             <RefreshCw size={13} />
-            Refresh
+            Refresh Queue
           </button>
         </div>
       </div>
 
-      {/* ── Action Message ── */}
+      {/* ── Action Notification Message ── */}
       {actionMsg && (
         <div className={`alert alert-${actionMsg.type === "success" ? "success" : actionMsg.type === "warning" ? "warning" : "error"}`}>
           <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
@@ -223,34 +238,34 @@ export function ReviewProfilesTab() {
         </div>
       )}
 
-      {/* ── Two-Panel Layout ── */}
+      {/* ── Two-Panel Industrial Layout ── */}
       <div className="review-layout">
 
-        {/* Left — Profile List */}
-        <div className="card " style={{ padding: "1.1rem" }}>
-          <div className="card-header" style={{ marginBottom: "0.85rem", paddingBottom: "0.75rem" }}>
+        {/* Left Column — Sticky Profile List */}
+        <div className="card profile-sidebar-card">
+          <div className="card-header">
             <div className="card-title">
               <div className="card-icon ci-cyan">
-                <Hash size={14} color="var(--cyan)" />
+                <Layers size={14} />
               </div>
               Work Profiles
-              <span className="badge badge-cyan" style={{ marginLeft: "0.25rem" }}>{profiles.length}</span>
+              <span className="badge badge-cyan" style={{ marginLeft: "0.3rem" }}>{profiles.length}</span>
             </div>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-muted)", letterSpacing: "0.08em" }}>
-              SELECT TO INSPECT
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--text-muted)", letterSpacing: "0.06em" }}>
+              QUEUE
             </span>
           </div>
 
-          <div className="profile-list scroll-panel" style={{ maxHeight: 720 }}>
+          <div className="profile-list" style={{ maxHeight: "calc(100vh - 250px)" }}>
             {loading ? (
-              <div className="loading-center" style={{ padding: "2rem" }}>
+              <div className="loading-center">
                 <div className="spinner" />
-                <span>Loading profiles…</span>
+                <span>Reading Station DB…</span>
               </div>
             ) : profiles.length === 0 ? (
               <div className="empty-state">
-                <Hash size={32} />
-                <p>No profiles found for the selected filters.</p>
+                <FileText size={32} />
+                <p>No profiles match current filter criteria.</p>
               </div>
             ) : (
               profiles.map((p) => {
@@ -261,12 +276,12 @@ export function ReviewProfilesTab() {
                     className={`profile-item ${isSel ? "selected" : ""}`}
                     onClick={() => selectProfile(p)}
                   >
-                    <div className="profile-step-num">{p.step_order}</div>
+                    <div className="profile-step-num">0{p.step_order}</div>
                     <div className="profile-info">
                       <div className="profile-step-text">{p.step}</div>
                       <div className="profile-meta">
                         {p.profile_id} · v{p.version} ·{" "}
-                        <span style={{ color: p.confidence >= 0.9 ? "var(--success)" : "var(--warning)" }}>
+                        <span style={{ color: p.confidence >= 0.9 ? "var(--status-success)" : "var(--status-warning)", fontWeight: 600 }}>
                           {(p.confidence * 100).toFixed(0)}%
                         </span>
                       </div>
@@ -279,37 +294,37 @@ export function ReviewProfilesTab() {
           </div>
         </div>
 
-        {/* Right — Detail / Audit Console */}
+        {/* Right Column — Detail Inspection & Sign-off Console */}
         {selectedProfile ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
-            {/* Profile Header Card */}
-            <div className="card ">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem" }}>
+            {/* Profile Overview & Telemetry Banner */}
+            <div className="card">
+              <div className="card-body" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem" }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.45rem", flexWrap: "wrap" }}>
-                    <h2 style={{ fontFamily: "var(--font-body)", fontSize: "1.55rem", fontWeight: 800, letterSpacing: "0.03em", color: "var(--text-pure)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", marginBottom: "0.45rem", flexWrap: "wrap" }}>
+                    <h2 style={{ fontFamily: "var(--font-display)", fontSize: "1.45rem", fontWeight: 700, color: "var(--text-pure)", letterSpacing: "0.02em" }}>
                       {selectedProfile.profile_id}
                     </h2>
                     <span className={statusBadge(selectedProfile.status)}>{selectedProfile.status.replace("_", " ")}</span>
-                    <span className="mono-tag">v{selectedProfile.version}</span>
+                    <span className="mono-tag">v{selectedProfile.version}.0</span>
                   </div>
-                  <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "var(--text-dim)", letterSpacing: "0.05em" }}>
-                    PROCESS: <strong style={{ color: "var(--text-high)" }}>{selectedProfile.process_id}</strong>
-                    {" · "} SOURCE: <strong style={{ color: "var(--cyan)" }}>{selectedProfile.generated_by.toUpperCase()}</strong>
-                    {" · "} CLASS: <strong style={{ color: "var(--text-medium)" }}>{selectedProfile.data_classification}</strong>
+                  <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.74rem", color: "var(--text-muted)", letterSpacing: "0.03em" }}>
+                    PROCESS: <strong style={{ color: "var(--text-pure)" }}>{selectedProfile.process_id}</strong>
+                    {" · "} PIPELINE: <strong style={{ color: "var(--accent-cyan)" }}>{selectedProfile.generated_by.toUpperCase()}</strong>
+                    {" · "} CLASSIFICATION: <strong style={{ color: "var(--text-secondary)" }}>{selectedProfile.data_classification}</strong>
                   </p>
                 </div>
 
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--text-dim)", letterSpacing: "0.08em", marginBottom: "0.2rem" }}>
-                    AI CONFIDENCE
+                  <div style={{ fontFamily: "var(--font-display)", fontSize: "0.68rem", fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: "0.2rem" }}>
+                    Vision AI Confidence
                   </div>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.5rem", fontWeight: 800, color: selectedProfile.confidence >= 0.9 ? "var(--success)" : "var(--warning)" }}>
+                  <div style={{ fontFamily: "var(--font-display)", fontSize: "1.45rem", fontWeight: 700, color: selectedProfile.confidence >= 0.9 ? "var(--status-success)" : "var(--status-warning)" }}>
                     {(selectedProfile.confidence * 100).toFixed(1)}%
                   </div>
-                  <div className="confidence-wrap" style={{ marginTop: "0.35rem" }}>
-                    <div className="confidence-track" style={{ width: 100 }}>
+                  <div className="confidence-wrap" style={{ marginTop: "0.25rem" }}>
+                    <div className="confidence-track" style={{ width: 110 }}>
                       <div className="confidence-fill" style={{ width: `${selectedProfile.confidence * 100}%` }} />
                     </div>
                   </div>
@@ -317,212 +332,250 @@ export function ReviewProfilesTab() {
               </div>
             </div>
 
-            {/* Video Keyframe Evidence Panel */}
+            {/* Visual Evidence — 3-Frame Machine Vision Viewfinder */}
             <div className="card">
               <div className="card-header">
                 <div className="card-title">
-                  <div className="card-icon ci-cyan"><Film size={14} color="var(--cyan)" /></div>
-                  Visual Evidence — Camera Viewfinder
+                  <div className="card-icon ci-cyan">
+                    <Video size={14} />
+                  </div>
+                  Visual Evidence — Machine Vision CCTV
                 </div>
                 <span className="mono-tag">
-                  {selectedProfile.evidence.video_id || "VID-PACK01"} · {selectedProfile.evidence.t_start?.toFixed(1)}s–{selectedProfile.evidence.t_end?.toFixed(1)}s
+                  FEED: {selectedProfile.evidence.video_id || "CAM-01-PACK"} · {selectedProfile.evidence.t_start?.toFixed(1)}s – {selectedProfile.evidence.t_end?.toFixed(1)}s
                 </span>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem" }}>
+              <div className="cctv-grid">
                 {[
-                  { label: "Frame 1 · Initial Entry",  ts: selectedProfile.evidence.t_start?.toFixed(1) + "s" },
-                  { label: "Frame 2 · Action Observed", ts: (((selectedProfile.evidence.t_start || 0) + (selectedProfile.evidence.t_end || 5)) / 2).toFixed(1) + "s" },
-                  { label: "Frame 3 · Tool Settle", ts: selectedProfile.evidence.t_end?.toFixed(1) + "s" },
+                  { label: "FRAME 1 // ENTRY",  ts: selectedProfile.evidence.t_start?.toFixed(1) + "s" },
+                  { label: "FRAME 2 // ACTION", ts: (((selectedProfile.evidence.t_start || 0) + (selectedProfile.evidence.t_end || 5)) / 2).toFixed(1) + "s" },
+                  { label: "FRAME 3 // SETTLE", ts: selectedProfile.evidence.t_end?.toFixed(1) + "s" },
                 ].map(({ label, ts }) => (
-                  <div
-                    key={label}
-                    style={{
-                      background: "var(--bg-input)",
-                      border: "1px solid var(--border-subtle)",
-                      borderRadius: "var(--r-md)",
-                      height: 100,
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "0.4rem",
-                      position: "relative",
-                      transition: "border-color var(--t-fast)",
-                      cursor: "default",
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(0,212,255,0.28)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border-subtle)")}
-                  >
-                    <Video size={24} color="var(--cyan)" style={{ opacity: 0.6 }} />
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", letterSpacing: "0.06em" }}>
-                      {label}
-                    </span>
-                    <span style={{
-                      position: "absolute", bottom: 8, right: 10,
-                      fontFamily: "var(--font-mono)", fontSize: "0.62rem",
-                      color: "var(--cyan)", background: "var(--cyan-dim)",
-                      padding: "0.1rem 0.4rem", borderRadius: 4,
-                    }}>
-                      {ts}
-                    </span>
+                  <div key={label} className="cctv-frame">
+                    <div className="cctv-rec-badge">
+                      <span className="cctv-rec-dot" />
+                      REC
+                    </div>
+                    <div className="cctv-crosshair" />
+                    <span className="cctv-label">{label}</span>
+                    <span className="cctv-timestamp">{ts}</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Editable Fields */}
+            {/* Knowledge Field Editor */}
             <div className="card">
               <div className="card-header">
                 <div className="card-title">
-                  <div className="card-icon ci-blue"><Pencil size={14} color="var(--blue)" /></div>
-                  Knowledge Field Editor
+                  <div className="card-icon ci-red">
+                    <Wrench size={14} />
+                  </div>
+                  Operational Know-How Editor
                 </div>
-              </div>
-
-              <div className="data-grid data-grid-2">
-                <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-                  <label className="form-label">Step Name (start with verb)</label>
-                  <input id="input-step" className="form-input" style={{ fontWeight: 600, fontSize: "1rem" }} value={step} onChange={(e) => setStep(e.target.value)} />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Hand Action Observed</label>
-                  <textarea id="input-hand-action" className="form-textarea" value={handAction} onChange={(e) => setHandAction(e.target.value)} />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Key Point (Critical Observation)</label>
-                  <textarea id="input-key-point" className="form-textarea" value={keyPoint} onChange={(e) => setKeyPoint(e.target.value)} />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">
-                    Expert Know-How Reason
-                    {reason.trim().length > 0 && <span style={{ color: "var(--danger)", marginLeft: "0.5rem" }}>* AC-08</span>}
-                  </label>
-                  <textarea
-                    id="input-reason"
-                    className="form-textarea"
-                    placeholder="Only from actual expert explanation…"
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">
-                    Reason Source
-                    {hasReasonWithoutSource && <span style={{ color: "var(--danger)", marginLeft: "0.5rem" }}>REQUIRED</span>}
-                  </label>
-                  <select
-                    id="select-reason-source"
-                    className="form-select"
-                    value={reasonSource}
-                    onChange={(e) => setReasonSource(e.target.value as ReasonSource)}
-                    style={{ borderColor: hasReasonWithoutSource ? "var(--danger)" : undefined, fontFamily: "var(--font-mono)" }}
-                  >
-                    <option value="">— SELECT SOURCE —</option>
-                    <option value="expert_verbal">EXPERT_VERBAL (spoken during task)</option>
-                    <option value="expert_interview">EXPERT_INTERVIEW (deep interview)</option>
-                  </select>
-                </div>
-
-                <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-                  <label className="form-label">Pass Criteria (Acceptance Standard)</label>
-                  <input id="input-pass-criteria" className="form-input" value={passCriteria} onChange={(e) => setPassCriteria(e.target.value)} />
-                </div>
-              </div>
-
-              {hasReasonWithoutSource && (
-                <div className="alert alert-warning" style={{ marginTop: "1rem" }}>
-                  <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 2 }} />
-                  <span><strong>AC-08 VIOLATION:</strong> reason_source is required when reason is filled. The Approve button is locked.</span>
-                </div>
-              )}
-            </div>
-
-            {/* Human-in-the-Loop Audit Console */}
-            <div className="card" >
-              <div className="card-header">
-                <div className="card-title">
-                  <div className="card-icon ci-green"><UserCheck size={14} color="var(--success)" /></div>
-                  Human-in-the-Loop Audit Console
-                </div>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--success)", letterSpacing: "0.08em" }}>
-                  STATION SIGN-OFF
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-muted)" }}>
+                  STANDARD SPEC 08
                 </span>
               </div>
 
-              <div className="data-grid data-grid-2" style={{ marginBottom: "1.1rem" }}>
-                <div className="form-group">
-                  <label className="form-label">Reviewer / QA Engineer</label>
-                  <input id="input-reviewer" className="form-input" value={reviewer} onChange={(e) => setReviewer(e.target.value)} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Comment / Rejection Reason (required for reject)</label>
-                  <input
-                    id="input-review-comment"
-                    className="form-input"
-                    placeholder="Engineer notes or rejection reason…"
-                    value={reviewComment}
-                    onChange={(e) => setReviewComment(e.target.value)}
-                  />
-                </div>
-              </div>
+              <div className="card-body">
+                <div className="data-grid data-grid-2">
+                  <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                    <label className="form-label">
+                      <Pencil size={12} color="var(--denso-red)" />
+                      Step Action Name (Must start with active verb)
+                    </label>
+                    <input
+                      id="input-step"
+                      className="form-input"
+                      style={{ fontWeight: 600, fontSize: "0.95rem" }}
+                      value={step}
+                      onChange={(e) => setStep(e.target.value)}
+                    />
+                  </div>
 
-              <div style={{ marginBottom: "1.1rem" }}>
-                <div className="section-label">
-                  <span className="section-label-text">Error Tagging Matrix</span>
-                </div>
-                <div className="chip-list">
-                  {ERROR_TAGS.map(({ id, label }) => {
-                    const sel = selectedErrorTags.includes(id);
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => toggleErrorTag(id)}
-                        style={{
-                          display: "inline-flex", alignItems: "center",
-                          padding: "0.35rem 0.8rem", borderRadius: 20,
-                          border: sel ? "1px solid rgba(244,63,94,0.5)" : "1px solid var(--border-subtle)",
-                          background: sel ? "var(--danger-dim)" : "var(--bg-glass)",
-                          color: sel ? "#fb7185" : "var(--text-dim)",
-                          fontFamily: "var(--font-mono)", fontSize: "0.68rem", fontWeight: 700,
-                          cursor: "pointer", letterSpacing: "0.06em",
-                          transition: "all var(--t-fast)",
-                        }}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+                  <div className="form-group">
+                    <label className="form-label">
+                      <Eye size={12} color="var(--accent-cyan)" />
+                      Hand Action Observed
+                    </label>
+                    <textarea
+                      id="input-hand-action"
+                      className="form-textarea"
+                      value={handAction}
+                      onChange={(e) => setHandAction(e.target.value)}
+                    />
+                  </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", gap: "0.75rem" }}>
-                <button id="btn-approve" className="btn btn-success btn-lg" onClick={handleApprove} disabled={hasReasonWithoutSource}>
-                  <CheckCircle size={16} />
-                  Approve &amp; Verify
-                </button>
-                <button id="btn-reject" className="btn btn-danger btn-lg" onClick={handleReject}>
-                  <XCircle size={16} />
-                  Reject
-                </button>
-                <button id="btn-save" className="btn btn-primary btn-lg" onClick={handleSavePatch}>
-                  <Save size={16} />
-                  Save v{selectedProfile.version + 1}
-                </button>
+                  <div className="form-group">
+                    <label className="form-label">
+                      <AlertTriangle size={12} color="var(--status-warning)" />
+                      Key Point / Critical Observation
+                    </label>
+                    <textarea
+                      id="input-key-point"
+                      className="form-textarea"
+                      value={keyPoint}
+                      onChange={(e) => setKeyPoint(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">
+                      Expert Know-How Reason
+                      {reason.trim().length > 0 && <span style={{ color: "var(--status-danger)", marginLeft: "0.35rem" }}>* AC-08</span>}
+                    </label>
+                    <textarea
+                      id="input-reason"
+                      className="form-textarea"
+                      placeholder="Explicit rationale from expert operator…"
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">
+                      Reason Source Classification
+                      {hasReasonWithoutSource && <span style={{ color: "var(--status-danger)", marginLeft: "0.35rem" }}>* MANDATORY</span>}
+                    </label>
+                    <select
+                      id="select-reason-source"
+                      className="form-select"
+                      value={reasonSource}
+                      onChange={(e) => setReasonSource(e.target.value as ReasonSource)}
+                      style={{ borderColor: hasReasonWithoutSource ? "var(--status-danger)" : undefined, fontFamily: "var(--font-mono)" }}
+                    >
+                      <option value="">— SELECT SOURCE —</option>
+                      <option value="expert_verbal">EXPERT_VERBAL (Recorded during run)</option>
+                      <option value="expert_interview">EXPERT_INTERVIEW (Structured post-shift Q&amp;A)</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                    <label className="form-label">
+                      <CheckCircle size={12} color="var(--status-success)" />
+                      Pass Criteria &amp; Acceptance Standard
+                    </label>
+                    <input
+                      id="input-pass-criteria"
+                      className="form-input"
+                      value={passCriteria}
+                      onChange={(e) => setPassCriteria(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {hasReasonWithoutSource && (
+                  <div className="alert alert-warning" style={{ marginTop: "1rem" }}>
+                    <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+                    <span><strong>AC-08 RULE:</strong> A valid Reason Source is mandatory when Reason is filled. Approval is locked until selected.</span>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
 
+            {/* QA Verification & Station Sign-Off Console */}
+            <div className="card">
+              <div className="card-header">
+                <div className="card-title">
+                  <div className="card-icon ci-green">
+                    <ShieldCheck size={14} />
+                  </div>
+                  QA Verification &amp; Station Sign-Off
+                </div>
+                <span className="badge badge-green">STATION SIGN-OFF</span>
+              </div>
+
+              <div className="card-body">
+                <div className="data-grid data-grid-2" style={{ marginBottom: "1.1rem" }}>
+                  <div className="form-group">
+                    <label className="form-label">
+                      <UserCheck size={12} />
+                      Lead Reviewer / QA Engineer
+                    </label>
+                    <input
+                      id="input-reviewer"
+                      className="form-input"
+                      value={reviewer}
+                      onChange={(e) => setReviewer(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">
+                      Review Comment / Audit Notes
+                    </label>
+                    <input
+                      id="input-review-comment"
+                      className="form-input"
+                      placeholder="Engineer notes or rejection cause…"
+                      value={reviewComment}
+                      onChange={(e) => setReviewComment(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: "1.25rem" }}>
+                  <div className="section-label">
+                    <span className="section-label-text">Defect &amp; Error Tagging Matrix</span>
+                  </div>
+                  <div className="chip-list">
+                    {ERROR_TAGS.map(({ id, label }) => {
+                      const sel = selectedErrorTags.includes(id);
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => toggleErrorTag(id)}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "0.4rem",
+                            padding: "0.38rem 0.85rem",
+                            borderRadius: "var(--r-xs)",
+                            border: sel ? "1px solid var(--status-danger)" : "1px solid var(--border-tech)",
+                            background: sel ? "var(--status-danger-bg)" : "var(--bg-surface)",
+                            color: sel ? "var(--status-danger-text)" : "var(--text-secondary)",
+                            fontFamily: "var(--font-display)",
+                            fontSize: "0.78rem",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            letterSpacing: "0.04em",
+                            textTransform: "uppercase",
+                            transition: "all 120ms ease",
+                          }}
+                        >
+                          {sel ? "✓" : "+"} {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr", gap: "0.85rem" }}>
+                  <button id="btn-approve" className="btn btn-success btn-lg" onClick={handleApprove} disabled={hasReasonWithoutSource}>
+                    <CheckCircle size={16} />
+                    Approve &amp; Verify
+                  </button>
+                  <button id="btn-reject" className="btn btn-danger btn-lg" onClick={handleReject}>
+                    <XCircle size={16} />
+                    Reject Step
+                  </button>
+                  <button id="btn-save" className="btn btn-primary btn-lg" onClick={handleSavePatch}>
+                    <Save size={16} />
+                    Save Draft v{selectedProfile.version + 1}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
         ) : (
           <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 450 }}>
             <div className="empty-state">
-              <Shield size={40} />
-              <p>Select a work profile from the list to begin the audit inspection.</p>
+              <Shield size={44} />
+              <p>Select an operational profile from the queue to start the verification audit.</p>
             </div>
           </div>
         )}

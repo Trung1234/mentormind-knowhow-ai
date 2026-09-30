@@ -57,7 +57,7 @@ export function RcaTab() {
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
       {/* ── Sigma Integration Control Panel ── */}
-      <div className="card ">
+      <div className="card">
         <div className="card-header">
           <div className="card-title">
             <div className="card-icon ci-danger">
@@ -68,6 +68,7 @@ export function RcaTab() {
           <span className="badge badge-red">DEFECT TRACEABILITY</span>
         </div>
 
+        <div className="card-body">
         <div className="data-grid data-grid-2" style={{ marginBottom: "1.1rem" }}>
           <div className="form-group">
             <label className="form-label">
@@ -115,6 +116,7 @@ export function RcaTab() {
           {loading ? <div className="spinner" /> : <Search size={16} />}
           {loading ? "Running 5-Why Analysis…" : "Investigate Root Cause"}
         </button>
+        </div>
       </div>
 
       {/* ── Error ── */}

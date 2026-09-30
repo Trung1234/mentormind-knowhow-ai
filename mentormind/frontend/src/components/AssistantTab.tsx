@@ -49,7 +49,7 @@ export function AssistantTab() {
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
       {/* ── Query Terminal Card ── */}
-      <div className="card ">
+      <div className="card">
         <div className="card-header">
           <div className="card-title">
             <div className="card-icon ci-cyan">
@@ -60,6 +60,7 @@ export function AssistantTab() {
           <span className="badge badge-green">RAG Verified</span>
         </div>
 
+        <div className="card-body">
         {/* Process selector */}
         <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.1rem" }}>
           <label className="form-label" style={{ whiteSpace: "nowrap", marginBottom: 0 }}>
@@ -121,8 +122,9 @@ export function AssistantTab() {
             style={{ flexShrink: 0, marginBottom: 2 }}
           >
             {loading ? <div className="spinner" /> : <Send size={16} />}
-            {loading ? "Querying…" : "Ask"}
+            {loading ? "Analyzing…" : "Ask Copilot"}
           </button>
+        </div>
         </div>
       </div>
 
