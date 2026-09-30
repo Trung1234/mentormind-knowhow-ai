@@ -4,14 +4,14 @@
    DESIGN TOKENS — DENSO MentorMind Premium UI System
    ============================================================ */
 :root {
-  --bg-void:    #010409;
-  --bg-deep:    #02070f;
-  --bg-surface: #080f1e;
-  --bg-elevated:#0f1a2e;
-  --bg-card:    rgba(10, 17, 32, 0.82);
-  --bg-glass:   rgba(255, 255, 255, 0.035);
-  --bg-glass-hover: rgba(255, 255, 255, 0.065);
-  --bg-input:   rgba(3, 8, 20, 0.9);
+  --bg-void:    #06101f;
+  --bg-deep:    #0d1520;
+  --bg-surface: #121e30;
+  --bg-elevated:#182436;
+  --bg-card:    rgba(16, 26, 44, 0.78);
+  --bg-glass:   rgba(255, 255, 255, 0.055);
+  --bg-glass-hover: rgba(255, 255, 255, 0.09);
+  --bg-input:   rgba(8, 14, 28, 0.88);
 
   --border-subtle: rgba(255, 255, 255, 0.06);
   --border-medium: rgba(255, 255, 255, 0.11);
@@ -66,6 +66,34 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 
+/* ── Animated background keyframes ── */
+@keyframes orb-drift-1 {
+  0%   { transform: translate(0, 0) scale(1); opacity: 0.7; }
+  33%  { transform: translate(5%, 8%) scale(1.08); opacity: 1; }
+  66%  { transform: translate(-4%, 4%) scale(0.94); opacity: 0.8; }
+  100% { transform: translate(0, 0) scale(1); opacity: 0.7; }
+}
+@keyframes orb-drift-2 {
+  0%   { transform: translate(0, 0) scale(1); opacity: 0.5; }
+  50%  { transform: translate(-6%, -5%) scale(1.12); opacity: 0.85; }
+  100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
+}
+@keyframes orb-drift-3 {
+  0%   { transform: translate(0, 0) scale(1); opacity: 0.4; }
+  40%  { transform: translate(4%, -6%) scale(1.06); opacity: 0.7; }
+  80%  { transform: translate(-3%, 3%) scale(0.96); opacity: 0.5; }
+  100% { transform: translate(0, 0) scale(1); opacity: 0.4; }
+}
+@keyframes grid-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%       { opacity: 0.9; }
+}
+@keyframes aurora-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 body {
   background-color: var(--bg-deep);
   color: var(--text-high);
@@ -78,26 +106,88 @@ body {
   position: relative;
 }
 
-body::before {
-  content: '';
+/* Layer 1 — Animated aurora gradient base */
+.animated-bg {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background:
-    radial-gradient(ellipse 70% 55% at 15% -5%, rgba(230, 0, 18, 0.11) 0%, transparent 65%),
-    radial-gradient(ellipse 55% 45% at 85% 105%, rgba(0, 212, 255, 0.07) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 70% at 50% 50%, rgba(67, 97, 238, 0.04) 0%, transparent 75%);
+  overflow: hidden;
 }
 
-body::after {
-  content: '';
-  position: fixed;
+/* Floating orb 1 — Red (DENSO brand) */
+.animated-bg .orb-1 {
+  position: absolute;
+  width: 75vw;
+  height: 65vh;
+  top: -20%;
+  left: -10%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(230, 0, 18, 0.16) 0%, rgba(230, 0, 18, 0.06) 45%, transparent 70%);
+  animation: orb-drift-1 14s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Floating orb 2 — Cyan accent */
+.animated-bg .orb-2 {
+  position: absolute;
+  width: 60vw;
+  height: 70vh;
+  bottom: -25%;
+  right: -10%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0, 212, 255, 0.12) 0%, rgba(0, 212, 255, 0.04) 50%, transparent 70%);
+  animation: orb-drift-2 18s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Floating orb 3 — Indigo blue center */
+.animated-bg .orb-3 {
+  position: absolute;
+  width: 55vw;
+  height: 55vh;
+  top: 25%;
+  left: 30%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(67, 97, 238, 0.09) 0%, rgba(67, 97, 238, 0.03) 55%, transparent 72%);
+  animation: orb-drift-3 22s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Floating orb 4 — subtle warm top-right */
+.animated-bg .orb-4 {
+  position: absolute;
+  width: 40vw;
+  height: 40vh;
+  top: 5%;
+  right: 5%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(245, 158, 11, 0.06) 0%, transparent 65%);
+  animation: orb-drift-1 26s ease-in-out infinite reverse;
+  will-change: transform;
+}
+
+/* Layer 2 — Animated dot-grid */
+.animated-bg .dot-grid {
+  position: absolute;
   inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background-image: radial-gradient(circle, rgba(255,255,255,0.028) 1px, transparent 1px);
+  background-image: radial-gradient(circle, rgba(255,255,255,0.055) 1px, transparent 1px);
   background-size: 40px 40px;
+  animation: grid-pulse 6s ease-in-out infinite;
+}
+
+/* Layer 3 — Scan-line shimmer (very subtle) */
+.animated-bg .scanline {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 212, 255, 0.012) 2px,
+    rgba(0, 212, 255, 0.012) 4px
+  );
+  pointer-events: none;
 }
 
 #root { position: relative; z-index: 1; }
@@ -106,7 +196,7 @@ body::after {
 
 /* === HEADER === */
 .app-header {
-  background: rgba(2, 6, 14, 0.88);
+  background: rgba(8, 14, 28, 0.82);
   backdrop-filter: blur(24px) saturate(160%);
   -webkit-backdrop-filter: blur(24px) saturate(160%);
   border-bottom: 1px solid rgba(230, 0, 18, 0.22);

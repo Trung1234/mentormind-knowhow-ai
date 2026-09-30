@@ -32,6 +32,16 @@ export default function App() {
 
   return (
     <div className="app-container">
+      {/* ── Animated Background Layer ── */}
+      <div className="animated-bg" aria-hidden="true">
+        <div className="orb-1" />
+        <div className="orb-2" />
+        <div className="orb-3" />
+        <div className="orb-4" />
+        <div className="dot-grid" />
+        <div className="scanline" />
+      </div>
+
       {/* ── Premium HUD Header ── */}
       <header className="app-header">
         <div className="header-left">
