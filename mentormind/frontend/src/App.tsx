@@ -3,6 +3,7 @@ import { api } from "./api";
 import { ReviewProfilesTab } from "./components/ReviewProfilesTab";
 import { AssistantTab } from "./components/AssistantTab";
 import { RcaTab } from "./components/RcaTab";
+import { LandingPage } from "./components/LandingPage";
 import {
   CheckSquare,
   Bot,
@@ -11,9 +12,11 @@ import {
   Radio,
   Sun,
   Moon,
+  Home,
 } from "lucide-react";
 
 export default function App() {
+  const [viewMode, setViewMode] = useState<"landing" | "workspace">("landing");
   const [activeTab, setActiveTab] = useState<"review" | "assistant" | "rca">("review");
   const [healthStatus, setHealthStatus] = useState<{ status: string; neo4j: string; postgres: string } | null>(null);
   const [apiError, setApiError] = useState(false);
@@ -50,23 +53,54 @@ export default function App() {
 
   const isOnline = !apiError;
 
+  const handleLaunchWorkspace = (tab?: "review" | "assistant" | "rca") => {
+    if (tab) setActiveTab(tab);
+    setViewMode("workspace");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  if (viewMode === "landing") {
+    return (
+      <LandingPage
+        onLaunchWorkspace={handleLaunchWorkspace}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
+    );
+  }
+
   return (
     <div className="app-container">
-      {/* ── Architectural Engineering Background (Calm, structured, 0% CPU waste) ── */}
+      {/* ── Architectural Engineering Background ── */}
       <div className="engineered-bg" aria-hidden="true" />
 
       {/* ── Enterprise Header ── */}
       <header className="app-header">
         <div className="header-left">
-          <div className="brand-badge">DENSO</div>
+          <div className="brand-badge" onClick={() => setViewMode("landing")} style={{ cursor: "pointer" }} title="Return to Landing Page">
+            DENSO
+          </div>
           <div className="brand-text">
-            <span className="brand-name">MentorMind</span>
-            <span className="brand-badge-version">v1.2</span>
+            <span className="brand-name" onClick={() => setViewMode("landing")} style={{ cursor: "pointer" }}>
+              MentorMind
+            </span>
+            <span className="brand-badge-version">v1.2 // Production</span>
           </div>
           <span className="brand-tagline">Quality Know-How &amp; RCA Platform</span>
         </div>
 
         <div className="header-right">
+          {/* Button to go back to Landing Page */}
+          <button
+            id="btn-back-landing"
+            className="btn btn-ghost btn-sm"
+            onClick={() => setViewMode("landing")}
+            title="Return to Landing Page Overview"
+          >
+            <Home size={13} />
+            <span>Overview</span>
+          </button>
+
           {/* Integrated System Health Status */}
           <div className="system-health-strip">
             <div className="health-item" title={isOnline ? "Backend API Operational" : "Backend API Offline"}>
