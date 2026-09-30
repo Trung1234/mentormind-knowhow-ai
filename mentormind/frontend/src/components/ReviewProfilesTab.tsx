@@ -16,32 +16,44 @@ import {
   Film,
   UserCheck,
   Filter,
-  ShieldCheck,
   Video,
-  CornerDownRight,
   Hash,
+  RefreshCw,
+  Shield,
+  Pencil,
 } from "lucide-react";
 
+// ── Status badge class helper ─────────────────────────────────
+function statusBadge(s: ProfileStatus) {
+  const map: Record<ProfileStatus, string> = {
+    draft:     "badge badge-draft",
+    in_review: "badge badge-review",
+    approved:  "badge badge-approved",
+    rejected:  "badge badge-rejected",
+  };
+  return map[s] || "badge badge-muted";
+}
+
 export function ReviewProfilesTab() {
-  const [profiles, setProfiles] = useState<WorkProfile[]>([]);
+  const [profiles,        setProfiles]        = useState<WorkProfile[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<WorkProfile | null>(null);
   const [selectedProcess, setSelectedProcess] = useState<string>("PACK01");
-  const [selectedStatus, setSelectedStatus] = useState<string>("");
-  const [loading, setLoading] = useState(false);
-  const [actionMsg, setActionMsg] = useState<{ type: "success" | "error" | "warning"; text: string } | null>(null);
+  const [selectedStatus,  setSelectedStatus]  = useState<string>("");
+  const [loading,         setLoading]         = useState(false);
+  const [actionMsg,       setActionMsg]       = useState<{ type: "success" | "error" | "warning"; text: string } | null>(null);
 
-  // Form edit state for selected profile
-  const [step, setStep] = useState("");
-  const [handAction, setHandAction] = useState("");
-  const [keyPoint, setKeyPoint] = useState("");
-  const [reason, setReason] = useState("");
+  // Editable form state
+  const [step,         setStep]         = useState("");
+  const [handAction,   setHandAction]   = useState("");
+  const [keyPoint,     setKeyPoint]     = useState("");
+  const [reason,       setReason]       = useState("");
   const [reasonSource, setReasonSource] = useState<ReasonSource | "">("");
   const [passCriteria, setPassCriteria] = useState("");
 
   // Review state
-  const [reviewer, setReviewer] = useState("Kỹ sư Trưởng (DENSO QA)");
-  const [reviewComment, setReviewComment] = useState("");
-  const [selectedErrorTags, setSelectedErrorTags] = useState<ErrorTag[]>([]);
+  const [reviewer,           setReviewer]           = useState("Lead Engineer (DENSO QA)");
+  const [reviewComment,      setReviewComment]      = useState("");
+  const [selectedErrorTags,  setSelectedErrorTags]  = useState<ErrorTag[]>([]);
 
   const loadProfiles = async () => {
     setLoading(true);
@@ -63,9 +75,7 @@ export function ReviewProfilesTab() {
     }
   };
 
-  useEffect(() => {
-    loadProfiles();
-  }, [selectedProcess, selectedStatus]);
+  useEffect(() => { loadProfiles(); }, [selectedProcess, selectedStatus]);
 
   const selectProfile = (p: WorkProfile) => {
     setSelectedProfile(p);
@@ -80,7 +90,6 @@ export function ReviewProfilesTab() {
     setActionMsg(null);
   };
 
-  // AC-08: Nếu có nhập reason mà không chọn reason_source -> nút Duyệt bị vô hiệu
   const hasReasonWithoutSource = reason.trim().length > 0 && !reasonSource;
 
   const handleSavePatch = async () => {
@@ -88,431 +97,433 @@ export function ReviewProfilesTab() {
     try {
       const patchData: ProfilePatchRequest = {
         step,
-        hand_action: handAction || undefined,
-        key_point: keyPoint || undefined,
-        reason: reason.trim() ? reason : undefined,
+        hand_action:   handAction || undefined,
+        key_point:     keyPoint || undefined,
+        reason:        reason.trim() ? reason : undefined,
         reason_source: reasonSource ? (reasonSource as ReasonSource) : null,
         pass_criteria: passCriteria || undefined,
       };
       const updated = await api.patchProfile(selectedProfile.profile_id, patchData);
-      setActionMsg({
-        type: "success",
-        text: `ĐÃ LƯU THÀNH CÔNG: Hồ sơ ${updated.profile_id} đã cập nhật lên phiên bản v${updated.version} (Trạng thái: IN_REVIEW).`,
-      });
+      setActionMsg({ type: "success", text: `SAVED: Profile ${updated.profile_id} updated to v${updated.version} — status IN_REVIEW.` });
       selectProfile(updated);
       loadProfiles();
     } catch (err: any) {
-      setActionMsg({ type: "error", text: `LỖI GHI DỮ LIỆU: ${err.message}` });
+      setActionMsg({ type: "error", text: `WRITE ERROR: ${err.message}` });
     }
   };
 
   const handleApprove = async () => {
     if (!selectedProfile) return;
     if (hasReasonWithoutSource) {
-      setActionMsg({
-        type: "warning",
-        text: "VI PHẠM QUY ĐỊNH AC-08: Phải chọn Nguồn lý do (expert_verbal / expert_interview) trước khi duyệt!",
-      });
+      setActionMsg({ type: "warning", text: "AC-08 VIOLATION: reason_source must be set before approving." });
       return;
     }
     try {
       const req: ReviewRequest = {
-        action: "approve",
-        reviewer: reviewer.trim() || "Chuyên gia kiểm duyệt",
-        comment: reviewComment || "Đạt chuẩn thao tác",
+        action:   "approve",
+        reviewer: reviewer.trim() || "QA Engineer",
+        comment:  reviewComment || "Meets operation standard",
       };
       const updated = await api.reviewProfile(selectedProfile.profile_id, req);
-      setActionMsg({
-        type: "success",
-        text: `ĐÃ PHÊ DUYỆT THÀNH CÔNG: Hồ sơ ${updated.profile_id} đã chuyển thành VERIFIED KNOWLEDGE và đồng bộ vào Neo4j Knowledge Graph.`,
-      });
+      setActionMsg({ type: "success", text: `APPROVED: ${updated.profile_id} promoted to VERIFIED KNOWLEDGE — synced to Neo4j Knowledge Graph.` });
       selectProfile(updated);
       loadProfiles();
     } catch (err: any) {
-      setActionMsg({ type: "error", text: `TỪ CHỐI DUYỆT: ${err.message}` });
+      setActionMsg({ type: "error", text: `APPROVE FAILED: ${err.message}` });
     }
   };
 
   const handleReject = async () => {
     if (!selectedProfile) return;
     if (!reviewComment.trim()) {
-      setActionMsg({
-        type: "error",
-        text: "YÊU CẦU BẮT BUỘC AC-03: Từ chối hồ sơ bắt buộc phải nhập lý do cụ thể vào ô Nhận xét/Lý do từ chối!",
-      });
+      setActionMsg({ type: "error", text: "AC-03 REQUIRED: A rejection comment is mandatory." });
       return;
     }
     try {
       const req: ReviewRequest = {
-        action: "reject",
-        reviewer: reviewer.trim() || "Chuyên gia kiểm duyệt",
-        comment: reviewComment.trim(),
+        action:     "reject",
+        reviewer:   reviewer.trim() || "QA Engineer",
+        comment:    reviewComment.trim(),
         error_tags: selectedErrorTags,
       };
       const updated = await api.reviewProfile(selectedProfile.profile_id, req);
-      setActionMsg({
-        type: "warning",
-        text: `ĐÃ TỪ CHỐI HỒ SƠ: ${updated.profile_id} đã chuyển trạng thái REJECTED.`,
-      });
+      setActionMsg({ type: "warning", text: `REJECTED: ${updated.profile_id} — status set to REJECTED.` });
       selectProfile(updated);
       loadProfiles();
     } catch (err: any) {
-      setActionMsg({ type: "error", text: `LỖI: ${err.message}` });
+      setActionMsg({ type: "error", text: `ERROR: ${err.message}` });
     }
   };
 
   const toggleErrorTag = (tag: ErrorTag) => {
-    if (selectedErrorTags.includes(tag)) {
-      setSelectedErrorTags(selectedErrorTags.filter((t) => t !== tag));
-    } else {
-      setSelectedErrorTags([...selectedErrorTags, tag]);
-    }
+    setSelectedErrorTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
   };
 
-  const ERROR_TAG_OPTIONS: { id: ErrorTag; label: string }[] = [
-    { id: "missed_step", label: "[E1] BỎ SÓT BƯỚC" },
-    { id: "hallucinated_step", label: "[E2] BỊA BƯỚC (HALLUCINATION)" },
-    { id: "wrong_order", label: "[E3] SAI THỨ TỰ THAO TÁC" },
-    { id: "wrong_object", label: "[E4] SAI VẬT THỂ / DỤNG CỤ" },
-    { id: "wrong_action", label: "[E5] SAI HƯỚNG / LỰC MIẾT" },
-    { id: "other", label: "[E6] LỖI KHÁC" },
+  const ERROR_TAGS: { id: ErrorTag; label: string }[] = [
+    { id: "missed_step",       label: "E1 MISSED STEP" },
+    { id: "hallucinated_step", label: "E2 HALLUCINATION" },
+    { id: "wrong_order",       label: "E3 WRONG ORDER" },
+    { id: "wrong_object",      label: "E4 WRONG OBJECT" },
+    { id: "wrong_action",      label: "E5 WRONG ACTION" },
+    { id: "other",             label: "E6 OTHER" },
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
-      {/* Precision Filter HUD */}
-      <div className="card" style={{ padding: "1.1rem 1.75rem", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "1.5rem", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-            <Filter size={18} color="#06b6d4" />
-            <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.95rem", color: "#94a3b8" }}>
-              CÔNG ĐOẠN (LINE):
-            </span>
-            <select
-              className="form-select"
-              style={{ width: "200px", minHeight: "44px", fontFamily: "var(--font-mono)", fontWeight: 600 }}
-              value={selectedProcess}
-              onChange={(e) => setSelectedProcess(e.target.value)}
-            >
-              <option value="PACK01">PACK01 // ĐÓNG GÓI</option>
-              <option value="ASSY02">ASSY02 // LẮP RÁP</option>
-            </select>
-          </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-            <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.95rem", color: "#94a3b8" }}>
-              TRẠNG THÁI:
-            </span>
-            <select
-              className="form-select"
-              style={{ width: "200px", minHeight: "44px", fontFamily: "var(--font-mono)", fontWeight: 600 }}
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-            >
-              <option value="">-- TẤT CẢ TRẠNG THÁI --</option>
-              <option value="draft">BẢN NHÁP (DRAFT)</option>
-              <option value="in_review">ĐANG DUYỆT (IN_REVIEW)</option>
-              <option value="approved">ĐÃ DUYỆT (APPROVED)</option>
-              <option value="rejected">TỪ CHỐI (REJECTED)</option>
-            </select>
-          </div>
+      {/* ── Filter / Control Bar ── */}
+      <div className="card" style={{ padding: "1rem 1.5rem" }}>
+        <div className="filter-bar">
+          <Filter size={15} color="var(--cyan)" />
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-dim)", letterSpacing: "0.08em" }}>
+            LINE:
+          </span>
+          <select
+            id="filter-process"
+            className="form-select"
+            style={{ width: 220, fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}
+            value={selectedProcess}
+            onChange={(e) => setSelectedProcess(e.target.value)}
+          >
+            <option value="PACK01">PACK01 // PACKAGING</option>
+            <option value="ASSY02">ASSY02 // ASSEMBLY</option>
+          </select>
+
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-dim)", letterSpacing: "0.08em" }}>
+            STATUS:
+          </span>
+          <select
+            id="filter-status"
+            className="form-select"
+            style={{ width: 220, fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+          >
+            <option value="">— ALL STATUSES —</option>
+            <option value="draft">DRAFT</option>
+            <option value="in_review">IN REVIEW</option>
+            <option value="approved">APPROVED</option>
+            <option value="rejected">REJECTED</option>
+          </select>
+
+          <button id="btn-refresh" className="btn btn-ghost btn-sm" onClick={loadProfiles} style={{ marginLeft: "auto" }}>
+            <RefreshCw size={13} />
+            Refresh
+          </button>
         </div>
-
-        <button className="btn btn-secondary" onClick={loadProfiles} style={{ minHeight: "44px" }}>
-          LÀM MỚI DANH SÁCH
-        </button>
       </div>
 
+      {/* ── Action Message ── */}
       {actionMsg && (
-        <div className={`alert-box alert-${actionMsg.type}`}>
-          <AlertTriangle size={24} style={{ flexShrink: 0 }} />
-          <span style={{ fontWeight: 600 }}>{actionMsg.text}</span>
+        <div className={`alert alert-${actionMsg.type === "success" ? "success" : actionMsg.type === "warning" ? "warning" : "error"}`}>
+          <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+          <span>{actionMsg.text}</span>
         </div>
       )}
 
-      {/* Main Inspection Grid */}
-      <div className="grid-2">
-        {/* Left Column: Tactical Profile Selector */}
-        <div className="card" style={{ padding: "1.25rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #334155", paddingBottom: "0.75rem", marginBottom: "1rem" }}>
-            <h2 className="card-title" style={{ fontSize: "1.1rem", marginBottom: 0 }}>
-              <Hash size={18} color="#06b6d4" />
-              <span>HỒ SƠ THAO TÁC ({profiles.length})</span>
-            </h2>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "#94a3b8" }}>SELECT TO AUDIT</span>
+      {/* ── Two-Panel Layout ── */}
+      <div className="review-layout">
+
+        {/* Left — Profile List */}
+        <div className="card card-glow-cyan" style={{ padding: "1.1rem" }}>
+          <div className="card-header" style={{ marginBottom: "0.85rem", paddingBottom: "0.75rem" }}>
+            <div className="card-title">
+              <div className="card-icon ci-cyan">
+                <Hash size={14} color="var(--cyan)" />
+              </div>
+              Work Profiles
+              <span className="badge badge-cyan" style={{ marginLeft: "0.25rem" }}>{profiles.length}</span>
+            </div>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-muted)", letterSpacing: "0.08em" }}>
+              SELECT TO AUDIT
+            </span>
           </div>
 
-          {loading ? (
-            <p style={{ color: "#94a3b8", padding: "1.5rem", textAlign: "center", fontFamily: "var(--font-mono)" }}>
-              ĐANG ĐỐI SOÁT CƠ SỞ DỮ LIỆU...
-            </p>
-          ) : profiles.length === 0 ? (
-            <p style={{ color: "#94a3b8", padding: "1.5rem", textAlign: "center" }}>
-              Không tìm thấy hồ sơ thao tác nào.
-            </p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", maxHeight: "780px", overflowY: "auto", paddingRight: "4px" }}>
-              {profiles.map((p) => {
-                const isSelected = selectedProfile?.profile_id === p.profile_id;
+          <div className="profile-list scroll-panel" style={{ maxHeight: 720 }}>
+            {loading ? (
+              <div className="loading-center" style={{ padding: "2rem" }}>
+                <div className="spinner" />
+                <span>SCANNING DATABASE…</span>
+              </div>
+            ) : profiles.length === 0 ? (
+              <div className="empty-state">
+                <Hash size={32} />
+                <p>No profiles found for the selected filters.</p>
+              </div>
+            ) : (
+              profiles.map((p) => {
+                const isSel = selectedProfile?.profile_id === p.profile_id;
                 return (
                   <div
                     key={p.profile_id}
+                    className={`profile-item ${isSel ? "selected" : ""}`}
                     onClick={() => selectProfile(p)}
-                    style={{
-                      padding: "1rem 1.15rem",
-                      borderRadius: "4px",
-                      background: isSelected ? "rgba(6, 182, 212, 0.12)" : "#0b101c",
-                      border: isSelected ? "1px solid #06b6d4" : "1px solid #1e293b",
-                      borderLeft: isSelected ? "4px solid #06b6d4" : "4px solid transparent",
-                      cursor: "pointer",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "0.5rem",
-                      transition: "all 0.15s ease",
-                      position: "relative",
-                    }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: "0.95rem", color: isSelected ? "#38bdf8" : "#cbd5e1" }}>
-                        {p.profile_id} <span style={{ opacity: 0.6, fontSize: "0.8rem" }}>v{p.version}</span>
-                      </span>
-                      <span className={`badge badge-${p.status}`}>{p.status}</span>
+                    <div className="profile-step-num">{p.step_order}</div>
+                    <div className="profile-info">
+                      <div className="profile-step-text">{p.step}</div>
+                      <div className="profile-meta">
+                        {p.profile_id} · v{p.version} ·{" "}
+                        <span style={{ color: p.confidence >= 0.9 ? "var(--success)" : "var(--warning)" }}>
+                          {(p.confidence * 100).toFixed(0)}%
+                        </span>
+                      </div>
                     </div>
-
-                    <div style={{ fontWeight: 600, fontSize: "0.975rem", color: "#f8fafc", lineHeight: 1.4 }}>
-                      [BƯỚC {p.step_order}] {p.step}
-                    </div>
-
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.8rem", color: "#94a3b8", fontFamily: "var(--font-mono)" }}>
-                      <span>TIMELINE: {p.evidence.t_start?.toFixed(1)}s - {p.evidence.t_end?.toFixed(1)}s</span>
-                      <span style={{ color: p.confidence >= 0.9 ? "#10b981" : "#f59e0b" }}>CONF: {(p.confidence * 100).toFixed(0)}%</span>
-                    </div>
+                    <span className={statusBadge(p.status)}>{p.status.replace("_", " ")}</span>
                   </div>
                 );
-              })}
-            </div>
-          )}
+              })
+            )}
+          </div>
         </div>
 
-        {/* Right Column: High-End Inspection Console */}
+        {/* Right — Detail / Audit Console */}
         {selectedProfile ? (
-          <div className="card" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-            {/* Header Telemetry */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid #334155", paddingBottom: "1rem" }}>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.85rem", marginBottom: "0.45rem" }}>
-                  <h2 style={{ fontFamily: "var(--font-display)", fontSize: "1.6rem", fontWeight: 800, letterSpacing: "0.03em" }}>
-                    {selectedProfile.profile_id}
-                  </h2>
-                  <span className={`badge badge-${selectedProfile.status}`}>{selectedProfile.status}</span>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem", color: "#06b6d4", background: "rgba(6,182,212,0.1)", padding: "0.2rem 0.5rem", borderRadius: "3px" }}>
-                    REVISION v{selectedProfile.version}
-                  </span>
-                </div>
-                <p style={{ color: "#94a3b8", fontSize: "0.9rem", fontFamily: "var(--font-mono)" }}>
-                  PROCESS: <strong style={{ color: "#f8fafc" }}>{selectedProfile.process_id}</strong> · PROVENANCE: <strong style={{ color: "#38bdf8" }}>{selectedProfile.generated_by.toUpperCase()}</strong> · CLASSIFICATION: <strong style={{ color: "#f8fafc" }}>{selectedProfile.data_classification}</strong>
-                </p>
-              </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
-              <div style={{ textAlign: "right" }}>
-                <span style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "#94a3b8" }}>ĐỘ TIN CẬY THUẬT TOÁN</span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "1.25rem", fontWeight: 800, color: "#10b981" }}>
-                  {(selectedProfile.confidence * 100).toFixed(1)}%
-                </span>
-              </div>
-            </div>
-
-            {/* Viewfinder & Video Keyframe Telemetry */}
-            <div>
-              <label className="form-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <Film size={18} color="#06b6d4" />
-                  <span>BẰNG CHỨNG THỊ GIÁC (CAMERA VIEWFINDER — {selectedProfile.evidence.t_start?.toFixed(1)}s - {selectedProfile.evidence.t_end?.toFixed(1)}s)</span>
-                </span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "#38bdf8" }}>
-                  CLIP: {selectedProfile.evidence.video_id || "VID-PACK01"}
-                </span>
-              </label>
-
-              <div className="keyframe-gallery">
-                <div className="keyframe-box">
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", color: "#94a3b8", gap: "0.4rem" }}>
-                    <Video size={32} color="#06b6d4" />
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem" }}>FRAME 01 // ENTRY</span>
+            {/* Profile Header Card */}
+            <div className="card card-glow-red">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem" }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.45rem", flexWrap: "wrap" }}>
+                    <h2 style={{ fontFamily: "var(--font-display)", fontSize: "1.55rem", fontWeight: 800, letterSpacing: "0.03em", color: "var(--text-pure)" }}>
+                      {selectedProfile.profile_id}
+                    </h2>
+                    <span className={statusBadge(selectedProfile.status)}>{selectedProfile.status.replace("_", " ")}</span>
+                    <span className="mono-tag">v{selectedProfile.version}</span>
                   </div>
-                  <span className="timestamp-badge">{selectedProfile.evidence.t_start?.toFixed(1)}s</span>
+                  <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "var(--text-dim)", letterSpacing: "0.05em" }}>
+                    PROCESS: <strong style={{ color: "var(--text-high)" }}>{selectedProfile.process_id}</strong>
+                    {" · "} SOURCE: <strong style={{ color: "var(--cyan)" }}>{selectedProfile.generated_by.toUpperCase()}</strong>
+                    {" · "} CLASS: <strong style={{ color: "var(--text-medium)" }}>{selectedProfile.data_classification}</strong>
+                  </p>
                 </div>
 
-                <div className="keyframe-box">
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", color: "#94a3b8", gap: "0.4rem" }}>
-                    <Video size={32} color="#06b6d4" />
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem" }}>FRAME 02 // ACTION</span>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--text-dim)", letterSpacing: "0.08em", marginBottom: "0.2rem" }}>
+                    AI CONFIDENCE
                   </div>
-                  <span className="timestamp-badge">{(((selectedProfile.evidence.t_start || 0) + (selectedProfile.evidence.t_end || 5)) / 2).toFixed(1)}s</span>
-                </div>
-
-                <div className="keyframe-box">
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", color: "#94a3b8", gap: "0.4rem" }}>
-                    <Video size={32} color="#06b6d4" />
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem" }}>FRAME 03 // SETTLE</span>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.5rem", fontWeight: 800, color: selectedProfile.confidence >= 0.9 ? "var(--success)" : "var(--warning)" }}>
+                    {(selectedProfile.confidence * 100).toFixed(1)}%
                   </div>
-                  <span className="timestamp-badge">{selectedProfile.evidence.t_end?.toFixed(1)}s</span>
+                  <div className="confidence-wrap" style={{ marginTop: "0.35rem" }}>
+                    <div className="confidence-track" style={{ width: 100 }}>
+                      <div className="confidence-fill" style={{ width: `${selectedProfile.confidence * 100}%` }} />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Editable Inspection Fields */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
-              <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-                <label className="form-label">TÊN BƯỚC THAO TÁC (ĐỘNG TỪ Ở ĐẦU)</label>
-                <input className="form-input" style={{ fontWeight: 600, fontSize: "1.05rem" }} value={step} onChange={(e) => setStep(e.target.value)} />
+            {/* Video Keyframe Evidence Panel */}
+            <div className="card">
+              <div className="card-header">
+                <div className="card-title">
+                  <div className="card-icon ci-cyan"><Film size={14} color="var(--cyan)" /></div>
+                  Visual Evidence — Camera Viewfinder
+                </div>
+                <span className="mono-tag">
+                  {selectedProfile.evidence.video_id || "VID-PACK01"} · {selectedProfile.evidence.t_start?.toFixed(1)}s–{selectedProfile.evidence.t_end?.toFixed(1)}s
+                </span>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">THAO TÁC TAY QUAN SÁT ĐƯỢC (HAND ACTION)</label>
-                <textarea className="form-textarea" value={handAction} onChange={(e) => setHandAction(e.target.value)} />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">ĐIỂM THEN CHỐT QUAN SÁT (KEY POINT)</label>
-                <textarea className="form-textarea" value={keyPoint} onChange={(e) => setKeyPoint(e.target.value)} />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">
-                  LÝ DO ĐẰNG SAU THAO TÁC (REASON — BÍ QUYẾT CHUYÊN GIA)
-                </label>
-                <textarea
-                  className="form-textarea"
-                  placeholder="Chỉ điền từ lời giải thích thực tế của chuyên gia..."
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">
-                  NGUỒN LÝ DO (REASON SOURCE)
-                  {reason.trim().length > 0 && <span style={{ color: "#f43f5e" }}> * BẮT BUỘC THEO AC-08</span>}
-                </label>
-                <select
-                  className="form-select"
-                  value={reasonSource}
-                  onChange={(e) => setReasonSource(e.target.value as ReasonSource)}
-                  style={{ borderColor: hasReasonWithoutSource ? "#f43f5e" : undefined, fontFamily: "var(--font-mono)" }}
-                >
-                  <option value="">-- CHƯA CHỌN NGUỒN --</option>
-                  <option value="expert_verbal">LỜI NÓI KHI THAO TÁC (EXPERT_VERBAL)</option>
-                  <option value="expert_interview">PHỎNG VẤN CHUYÊN SÂU (EXPERT_INTERVIEW)</option>
-                </select>
-              </div>
-
-              <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-                <label className="form-label">TIÊU CHUẨN NGHIỆM THU (PASS CRITERIA)</label>
-                <input className="form-input" value={passCriteria} onChange={(e) => setPassCriteria(e.target.value)} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem" }}>
+                {[
+                  { label: "FRAME 01 // ENTRY",  ts: selectedProfile.evidence.t_start?.toFixed(1) + "s" },
+                  { label: "FRAME 02 // ACTION", ts: (((selectedProfile.evidence.t_start || 0) + (selectedProfile.evidence.t_end || 5)) / 2).toFixed(1) + "s" },
+                  { label: "FRAME 03 // SETTLE", ts: selectedProfile.evidence.t_end?.toFixed(1) + "s" },
+                ].map(({ label, ts }) => (
+                  <div
+                    key={label}
+                    style={{
+                      background: "var(--bg-input)",
+                      border: "1px solid var(--border-subtle)",
+                      borderRadius: "var(--r-md)",
+                      height: 100,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "0.4rem",
+                      position: "relative",
+                      transition: "border-color var(--t-fast)",
+                      cursor: "default",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(0,212,255,0.28)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border-subtle)")}
+                  >
+                    <Video size={24} color="var(--cyan)" style={{ opacity: 0.6 }} />
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", letterSpacing: "0.06em" }}>
+                      {label}
+                    </span>
+                    <span style={{
+                      position: "absolute", bottom: 8, right: 10,
+                      fontFamily: "var(--font-mono)", fontSize: "0.62rem",
+                      color: "var(--cyan)", background: "var(--cyan-dim)",
+                      padding: "0.1rem 0.4rem", borderRadius: 4,
+                    }}>
+                      {ts}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* AC-08 Tactical Alert */}
-            {hasReasonWithoutSource && (
-              <div className="alert-box alert-warning">
-                <AlertTriangle size={24} style={{ flexShrink: 0 }} />
-                <span>
-                  <strong>CẢNH BÁO VI PHẠM AC-08:</strong> Đã nhập nội dung ô Lý do nhưng chưa chọn Nguồn lý do (reason_source). Nút Duyệt thao tác bị khóa theo quy chuẩn Constitution Điều 3!
+            {/* Editable Fields */}
+            <div className="card">
+              <div className="card-header">
+                <div className="card-title">
+                  <div className="card-icon ci-blue"><Pencil size={14} color="var(--blue)" /></div>
+                  Knowledge Field Editor
+                </div>
+              </div>
+
+              <div className="data-grid data-grid-2">
+                <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                  <label className="form-label">Step Name (start with verb)</label>
+                  <input id="input-step" className="form-input" style={{ fontWeight: 600, fontSize: "1rem" }} value={step} onChange={(e) => setStep(e.target.value)} />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Hand Action Observed</label>
+                  <textarea id="input-hand-action" className="form-textarea" value={handAction} onChange={(e) => setHandAction(e.target.value)} />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Key Point (Critical Observation)</label>
+                  <textarea id="input-key-point" className="form-textarea" value={keyPoint} onChange={(e) => setKeyPoint(e.target.value)} />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">
+                    Expert Know-How Reason
+                    {reason.trim().length > 0 && <span style={{ color: "var(--danger)", marginLeft: "0.5rem" }}>* AC-08</span>}
+                  </label>
+                  <textarea
+                    id="input-reason"
+                    className="form-textarea"
+                    placeholder="Only from actual expert explanation…"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">
+                    Reason Source
+                    {hasReasonWithoutSource && <span style={{ color: "var(--danger)", marginLeft: "0.5rem" }}>REQUIRED</span>}
+                  </label>
+                  <select
+                    id="select-reason-source"
+                    className="form-select"
+                    value={reasonSource}
+                    onChange={(e) => setReasonSource(e.target.value as ReasonSource)}
+                    style={{ borderColor: hasReasonWithoutSource ? "var(--danger)" : undefined, fontFamily: "var(--font-mono)" }}
+                  >
+                    <option value="">— SELECT SOURCE —</option>
+                    <option value="expert_verbal">EXPERT_VERBAL (spoken during task)</option>
+                    <option value="expert_interview">EXPERT_INTERVIEW (deep interview)</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                  <label className="form-label">Pass Criteria (Acceptance Standard)</label>
+                  <input id="input-pass-criteria" className="form-input" value={passCriteria} onChange={(e) => setPassCriteria(e.target.value)} />
+                </div>
+              </div>
+
+              {hasReasonWithoutSource && (
+                <div className="alert alert-warning" style={{ marginTop: "1rem" }}>
+                  <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 2 }} />
+                  <span><strong>AC-08 VIOLATION:</strong> reason_source is required when reason is filled. The Approve button is locked.</span>
+                </div>
+              )}
+            </div>
+
+            {/* Human-in-the-Loop Audit Console */}
+            <div className="card" style={{ background: "rgba(5,10,22,0.9)", border: "1px solid rgba(16,185,129,0.2)" }}>
+              <div className="card-header">
+                <div className="card-title">
+                  <div className="card-icon ci-green"><UserCheck size={14} color="var(--success)" /></div>
+                  Human-in-the-Loop Audit Console
+                </div>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--success)", letterSpacing: "0.08em" }}>
+                  STATION SIGN-OFF
                 </span>
               </div>
-            )}
 
-            {/* Tactile Review Audit Console */}
-            <div style={{ background: "#0a0e1a", border: "1px solid #334155", borderRadius: "4px", padding: "1.25rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                <h3 style={{ fontFamily: "var(--font-display)", fontSize: "1.05rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <UserCheck size={18} color="#10b981" />
-                  <span>THẨM ĐỊNH CHẤT LƯỢNG (HUMAN-IN-THE-LOOP AUDIT)</span>
-                </h3>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "#10b981" }}>STATION SIGN-OFF</span>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
-                <div>
-                  <label className="form-label">KỸ SƯ KIỂM DUYỆT (REVIEWER)</label>
-                  <input className="form-input" value={reviewer} onChange={(e) => setReviewer(e.target.value)} />
+              <div className="data-grid data-grid-2" style={{ marginBottom: "1.1rem" }}>
+                <div className="form-group">
+                  <label className="form-label">Reviewer / QA Engineer</label>
+                  <input id="input-reviewer" className="form-input" value={reviewer} onChange={(e) => setReviewer(e.target.value)} />
                 </div>
-                <div>
-                  <label className="form-label">NHẬN XÉT / LÝ DO TỪ CHỐI (BẮT BUỘC KHI REJECT)</label>
+                <div className="form-group">
+                  <label className="form-label">Comment / Rejection Reason (required for reject)</label>
                   <input
+                    id="input-review-comment"
                     className="form-input"
-                    placeholder="Ghi chú ý kiến chuyên gia hoặc lý do từ chối..."
+                    placeholder="Engineer notes or rejection reason…"
                     value={reviewComment}
                     onChange={(e) => setReviewComment(e.target.value)}
                   />
                 </div>
               </div>
 
-              <div style={{ marginBottom: "1.25rem" }}>
-                <label className="form-label">GẮN NHÃN LỖI PHÁT HIỆN (ERROR TAGGING MATRIX)</label>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-                  {ERROR_TAG_OPTIONS.map((tag) => {
-                    const isSelected = selectedErrorTags.includes(tag.id);
+              <div style={{ marginBottom: "1.1rem" }}>
+                <div className="section-label">
+                  <span className="section-label-text">Error Tagging Matrix</span>
+                </div>
+                <div className="chip-list">
+                  {ERROR_TAGS.map(({ id, label }) => {
+                    const sel = selectedErrorTags.includes(id);
                     return (
                       <button
-                        key={tag.id}
+                        key={id}
                         type="button"
-                        onClick={() => toggleErrorTag(tag.id)}
+                        onClick={() => toggleErrorTag(id)}
                         style={{
-                          padding: "0.45rem 0.85rem",
-                          borderRadius: "4px",
-                          border: isSelected ? "1px solid #f43f5e" : "1px solid #334155",
-                          background: isSelected ? "rgba(244, 63, 94, 0.2)" : "#131a2c",
-                          color: isSelected ? "#fca5a5" : "#94a3b8",
-                          fontFamily: "var(--font-mono)",
-                          fontSize: "0.8rem",
-                          fontWeight: 600,
-                          cursor: "pointer",
-                          transition: "all 0.15s ease",
+                          display: "inline-flex", alignItems: "center",
+                          padding: "0.35rem 0.8rem", borderRadius: 20,
+                          border: sel ? "1px solid rgba(244,63,94,0.5)" : "1px solid var(--border-subtle)",
+                          background: sel ? "var(--danger-dim)" : "var(--bg-glass)",
+                          color: sel ? "#fb7185" : "var(--text-dim)",
+                          fontFamily: "var(--font-mono)", fontSize: "0.68rem", fontWeight: 700,
+                          cursor: "pointer", letterSpacing: "0.06em",
+                          transition: "all var(--t-fast)",
                         }}
                       >
-                        {tag.label}
+                        {label}
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", gap: "1rem" }}>
-                <button
-                  className="btn btn-success"
-                  onClick={handleApprove}
-                  disabled={hasReasonWithoutSource}
-                >
-                  <CheckCircle size={20} />
-                  <span>DUYỆT THAO TÁC (APPROVE)</span>
+              <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", gap: "0.75rem" }}>
+                <button id="btn-approve" className="btn btn-success btn-lg" onClick={handleApprove} disabled={hasReasonWithoutSource}>
+                  <CheckCircle size={16} />
+                  Approve &amp; Verify
                 </button>
-
-                <button
-                  className="btn btn-danger"
-                  onClick={handleReject}
-                >
-                  <XCircle size={20} />
-                  <span>TỪ CHỐI (REJECT)</span>
+                <button id="btn-reject" className="btn btn-danger btn-lg" onClick={handleReject}>
+                  <XCircle size={16} />
+                  Reject
                 </button>
-
-                <button
-                  className="btn btn-primary"
-                  onClick={handleSavePatch}
-                >
-                  <Save size={20} />
-                  <span>LƯU SỬA (v{selectedProfile.version + 1})</span>
+                <button id="btn-save" className="btn btn-primary btn-lg" onClick={handleSavePatch}>
+                  <Save size={16} />
+                  Save v{selectedProfile.version + 1}
                 </button>
               </div>
             </div>
           </div>
+
         ) : (
-          <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "450px" }}>
-            <p style={{ color: "#94a3b8", fontFamily: "var(--font-mono)" }}>
-              CHỌN MỘT HỒ SƠ TỪ DANH SÁCH BÊN TRÁI ĐỂ TIẾN HÀNH THẨM ĐỊNH
-            </p>
+          <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 450 }}>
+            <div className="empty-state">
+              <Shield size={40} />
+              <p>Select a work profile from the list to begin the audit inspection.</p>
+            </div>
           </div>
         )}
       </div>

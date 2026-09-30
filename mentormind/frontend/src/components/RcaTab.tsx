@@ -5,30 +5,37 @@ import {
   Search,
   CheckCircle2,
   AlertOctagon,
-  Layers,
   ArrowRight,
   ShieldCheck,
   FileSpreadsheet,
   Cpu,
   Info,
+  Zap,
+  AlertTriangle,
+  TrendingDown,
 } from "lucide-react";
 
+// ── Likelihood badge ──────────────────────────────────────────
+function LikelihoodBadge({ l }: { l: string }) {
+  if (l === "high")   return <span className="badge badge-rejected">HIGH LIKELIHOOD</span>;
+  if (l === "medium") return <span className="badge badge-review">MEDIUM</span>;
+  return                     <span className="badge badge-muted">LOW</span>;
+}
+
 export function RcaTab() {
-  const [lots, setLots] = useState<LotRecord[]>([]);
+  const [lots,          setLots]          = useState<LotRecord[]>([]);
   const [selectedLotId, setSelectedLotId] = useState<string>("");
   const [customSymptom, setCustomSymptom] = useState<string>("");
-  const [loading, setLoading] = useState(false);
-  const [report, setReport] = useState<RcaReport | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [loading,       setLoading]       = useState(false);
+  const [report,        setReport]        = useState<RcaReport | null>(null);
+  const [errorMsg,      setErrorMsg]      = useState<string | null>(null);
 
   useEffect(() => {
     api
       .getSigmaLots()
       .then((data) => {
         setLots(data);
-        if (data.length > 0) {
-          setSelectedLotId(data[0].lot_id);
-        }
+        if (data.length > 0) setSelectedLotId(data[0].lot_id);
       })
       .catch((err) => console.error(err));
   }, []);
@@ -46,59 +53,53 @@ export function RcaTab() {
     }
   };
 
-  const getLikelihoodBadge = (likelihood: string) => {
-    switch (likelihood) {
-      case "high":
-        return <span className="badge" style={{ background: "rgba(244,63,94,0.15)", color: "#fb7185", border: "1px solid #e11d48" }}>XÁC SUẤT CAO [HIGH]</span>;
-      case "medium":
-        return <span className="badge" style={{ background: "rgba(245,158,11,0.15)", color: "#fbbf24", border: "1px solid #d97706" }}>TRUNG BÌNH [MED]</span>;
-      default:
-        return <span className="badge" style={{ background: "rgba(100,116,139,0.15)", color: "#94a3b8", border: "1px solid #475569" }}>THẤP [LOW]</span>;
-    }
-  };
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
-      {/* MES Sigma Integration Control */}
-      <div className="card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", borderBottom: "1px solid #334155", paddingBottom: "0.75rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <AlertOctagon size={24} color="#f43f5e" />
-            <h2 className="card-title" style={{ marginBottom: 0 }}>
-              TRUY NGUYÊN NGUYÊN NHÂN GỐC RỄ (SIGMA MES RCA & 5-WHY)
-            </h2>
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+
+      {/* ── Sigma Integration Control Panel ── */}
+      <div className="card card-glow-red">
+        <div className="card-header">
+          <div className="card-title">
+            <div className="card-icon ci-danger">
+              <AlertOctagon size={14} color="var(--danger)" />
+            </div>
+            Root Cause Analysis — Sigma MES 5-Why Engine
           </div>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "#f43f5e", background: "rgba(244,63,94,0.1)", padding: "0.2rem 0.6rem", borderRadius: "3px" }}>
-            DEFECT TRACEABILITY SYSTEM
-          </span>
+          <span className="badge badge-red">DEFECT TRACEABILITY</span>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem", marginBottom: "1.25rem" }}>
-          <div>
-            <label className="form-label" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <FileSpreadsheet size={16} color="#06b6d4" />
-              <span>CHỌN LÔ SẢN XUẤT PHÁT SINH LỖI (MES FEED):</span>
+        <div className="data-grid data-grid-2" style={{ marginBottom: "1.1rem" }}>
+          <div className="form-group">
+            <label className="form-label">
+              <FileSpreadsheet size={12} color="var(--cyan)" />
+              Select Defective Production Lot (MES Feed)
             </label>
             <select
+              id="select-lot"
               className="form-select"
-              style={{ fontFamily: "var(--font-mono)", fontWeight: 600 }}
+              style={{ fontFamily: "var(--font-mono)", fontSize: "0.82rem" }}
               value={selectedLotId}
               onChange={(e) => setSelectedLotId(e.target.value)}
             >
-              <option value="">-- NHẬP TRIỆU CHỨNG TÙY BIẾN --</option>
-              {lots.map((l) => (
-                <option key={l.lot_id} value={l.lot_id}>
-                  {l.lot_id} // {l.part_number} // [{l.status}] {l.defect_type ? `- ${l.defect_type}` : ""}
+              {lots.length === 0 && <option value="">— No sigma lots available —</option>}
+              {lots.map((lot) => (
+                <option key={lot.lot_id} value={lot.lot_id}>
+                  {lot.lot_id} · {lot.part_number} · {lot.defect_type || "DEFECT"}
                 </option>
               ))}
             </select>
           </div>
 
-          <div>
-            <label className="form-label">MÔ TẢ TRIỆU CHỨNG LỖI QUAN SÁT (SYMPTOM OVERRIDE):</label>
+          <div className="form-group">
+            <label className="form-label">
+              <Cpu size={12} color="var(--blue)" />
+              Custom Symptom Description (overrides lot)
+            </label>
             <input
+              id="input-custom-symptom"
               className="form-input"
-              placeholder="Ví dụ: Nắp hộp bị lệch mép >2mm, rách gập mép..."
+              style={{ fontFamily: "var(--font-body)" }}
+              placeholder="e.g. Carton bottom staple misalignment > 3mm at ST-04…"
               value={customSymptom}
               onChange={(e) => setCustomSymptom(e.target.value)}
             />
@@ -106,187 +107,201 @@ export function RcaTab() {
         </div>
 
         <button
-          className="btn btn-primary"
+          id="btn-investigate"
+          className="btn btn-primary btn-lg"
           onClick={handleInvestigate}
-          disabled={loading || (!selectedLotId && !customSymptom)}
-          style={{ width: "100%", maxWidth: "340px" }}
+          disabled={loading || (!selectedLotId && !customSymptom.trim())}
         >
-          <Search size={20} />
-          <span>{loading ? "ĐANG TỔNG HỢP NGUYÊN NHÂN..." : "KHỞI CHẠY ĐIỀU TRA RCA"}</span>
+          {loading ? <div className="spinner" /> : <Search size={16} />}
+          {loading ? "Running 5-Why Analysis…" : "Investigate Root Cause"}
         </button>
       </div>
 
+      {/* ── Error ── */}
       {errorMsg && (
-        <div className="alert-box alert-danger">
+        <div className="alert alert-error">
+          <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 2 }} />
           <span>{errorMsg}</span>
         </div>
       )}
 
-      {/* Investigation Dashboard */}
-      {report && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
-          {/* Header Summary HUD */}
-          <div className="card" style={{ background: "#080c14", border: "1px solid #334155", borderLeft: "4px solid #06b6d4" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
+      {/* ── Loading ── */}
+      {loading && (
+        <div className="card">
+          <div className="loading-center">
+            <div className="spinner spinner-lg" />
+            <span>Running cross-reference analysis against Knowledge Graph &amp; MES logs…</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── RCA Report ── */}
+      {!loading && report && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+
+          {/* Report Header */}
+          <div className="card" style={{ background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.2)" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
               <div>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "#94a3b8" }}>MÃ LÔ ĐƯỢC PHÂN TÍCH:</span>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.4rem", fontWeight: 800, color: "#38bdf8" }}>
-                  {report.lot_id || "TRIỆU CHỨNG THỦ CÔNG"}
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-dim)", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>
+                  DEFECT TRACEABILITY REPORT
                 </div>
+                <h2 style={{ fontFamily: "var(--font-display)", fontSize: "1.35rem", fontWeight: 800, color: "var(--text-pure)", marginBottom: "0.4rem" }}>
+                  {report.lot_id ? `LOT: ${report.lot_id}` : "Custom Symptom Analysis"}
+                </h2>
+                <p style={{ fontSize: "0.875rem", color: "var(--text-medium)", lineHeight: 1.6, maxWidth: 600 }}>
+                  <strong style={{ color: "var(--danger)" }}>Symptom:</strong> {report.symptom}
+                </p>
               </div>
-              <div style={{ textAlign: "right" }}>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "#94a3b8" }}>TRIỆU CHỨNG PHÁT HIỆN:</span>
-                <div style={{ fontFamily: "var(--font-display)", fontSize: "1.2rem", fontWeight: 700, color: "#f8fafc" }}>
-                  {report.symptom}
-                </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", flexShrink: 0 }}>
+                <span className="badge badge-rejected" style={{ justifyContent: "center" }}>
+                  <TrendingDown size={10} /> DEFECT DETECTED
+                </span>
+                <span className="badge badge-cyan" style={{ justifyContent: "center" }}>
+                  {report.hypotheses.length} HYPOTHESES
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Hypotheses Matrix */}
-          <div className="card">
-            <h3 className="card-title">
-              <Layers size={22} color="#f59e0b" />
-              <span>MA TRẬN GIẢ THUYẾT NGUYÊN NHÂN (HYPOTHESES MATRIX)</span>
-            </h3>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-                <thead>
-                  <tr style={{ borderBottom: "2px solid #334155", color: "#94a3b8", fontFamily: "var(--font-display)", fontSize: "0.95rem" }}>
-                    <th style={{ padding: "0.9rem 1.2rem", width: "220px" }}>MỨC ĐỘ XÁC SUẤT</th>
-                    <th style={{ padding: "0.9rem 1.2rem" }}>GIẢ THUYẾT KỸ THUẬT</th>
-                    <th style={{ padding: "0.9rem 1.2rem", width: "300px" }}>CĂN CỨ ĐỐI SOÁT</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.hypotheses.map((h, i) => (
-                    <tr key={i} style={{ borderBottom: "1px solid #1e293b", background: i % 2 === 0 ? "rgba(255,255,255,0.01)" : "transparent" }}>
-                      <td style={{ padding: "1rem 1.2rem" }}>{getLikelihoodBadge(h.likelihood)}</td>
-                      <td style={{ padding: "1rem 1.2rem", fontWeight: 600, fontSize: "1.05rem" }}>{h.hypothesis}</td>
-                      <td style={{ padding: "1rem 1.2rem", color: "#06b6d4", fontFamily: "var(--font-mono)", fontSize: "0.9rem" }}>
-                        {h.evidence_refs.join(", ") || "Chưa có bằng chứng trực tiếp"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {/* Hypotheses */}
+          {report.hypotheses.length > 0 && (
+            <div className="card">
+              <div className="card-header">
+                <div className="card-title">
+                  <div className="card-icon ci-danger"><Zap size={14} color="var(--danger)" /></div>
+                  Failure Hypotheses
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+                {report.hypotheses.map((h, idx) => (
+                  <div key={idx} className="hypothesis-card">
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "0.75rem", marginBottom: "0.5rem" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.55rem", flex: 1 }}>
+                        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "var(--text-muted)", flexShrink: 0, marginTop: 2 }}>
+                          H{idx + 1}
+                        </span>
+                        <span style={{ fontSize: "0.875rem", color: "var(--text-high)", lineHeight: 1.6 }}>
+                          {h.hypothesis}
+                        </span>
+                      </div>
+                      <LikelihoodBadge l={h.likelihood} />
+                    </div>
+                    {h.evidence_refs.length > 0 && (
+                      <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", paddingLeft: "1.3rem" }}>
+                        {h.evidence_refs.map((ref, ri) => (
+                          <span key={ri} className="mono-tag" style={{ fontSize: "0.62rem" }}>{ref}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* 5-Why Analysis Chain */}
-          <div className="card">
-            <h3 className="card-title">
-              <ArrowRight size={22} color="#06b6d4" />
-              <span>CHUỖI PHÂN TÍCH 5-WHY (ROOT CAUSE TELEMETRY CHAIN)</span>
-            </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
-              {report.five_whys.map((step) => (
-                <div
-                  key={step.order}
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: "1.25rem",
-                    padding: "1.2rem",
-                    borderRadius: "4px",
-                    background: "#080c14",
-                    border: "1px solid #1e293b",
-                    borderLeft: "4px solid #06b6d4",
-                  }}
-                >
+          {/* 5-Why Chain */}
+          {report.five_whys.length > 0 && (
+            <div className="card">
+              <div className="card-header">
+                <div className="card-title">
+                  <div className="card-icon ci-cyan"><ArrowRight size={14} color="var(--cyan)" /></div>
+                  5-Why Causal Chain
+                </div>
+                <span className="badge badge-cyan">{report.five_whys.length} STEPS</span>
+              </div>
+              <div className="why-chain">
+                {report.five_whys.map((w) => (
+                  <div key={w.order} className="why-step">
+                    <div className="why-node">W{w.order}</div>
+                    <div className="why-content">
+                      <div className="why-q">Why #{w.order}</div>
+                      <div className="why-a">
+                        <strong style={{ color: "var(--text-medium)" }}>Q: </strong>{w.question}
+                        <br />
+                        <strong style={{ color: "var(--success)" }}>A: </strong>{w.answer}
+                        {w.verified && (
+                          <span className="badge badge-green" style={{ marginLeft: "0.6rem" }}>
+                            <CheckCircle2 size={9} /> VERIFIED
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Preventive Actions */}
+          {report.preventive_actions.length > 0 && (
+            <div className="card" style={{ border: "1px solid rgba(16,185,129,0.2)" }}>
+              <div className="card-header">
+                <div className="card-title">
+                  <div className="card-icon ci-green"><ShieldCheck size={14} color="var(--success)" /></div>
+                  Preventive Actions &amp; Countermeasures
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
+                {report.preventive_actions.map((action, idx) => (
                   <div
+                    key={idx}
                     style={{
-                      background: "#151d30",
-                      border: "1px solid #06b6d4",
-                      borderRadius: "4px",
-                      width: "42px",
-                      height: "42px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontFamily: "var(--font-mono)",
-                      fontWeight: 800,
-                      fontSize: "1.1rem",
-                      color: "#38bdf8",
-                      flexShrink: 0,
+                      display: "flex", alignItems: "flex-start", gap: "0.75rem",
+                      padding: "0.75rem 1rem",
+                      background: "var(--success-dim)",
+                      border: "1px solid rgba(16,185,129,0.2)",
+                      borderRadius: "var(--r-md)",
                     }}
                   >
-                    W{step.order}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, color: "#94a3b8", fontSize: "0.95rem", marginBottom: "0.35rem" }}>
-                      [WHY {step.order}]: {step.question}
+                    <div style={{
+                      width: 22, height: 22, borderRadius: 11,
+                      background: "var(--success)", display: "flex",
+                      alignItems: "center", justifyContent: "center",
+                      flexShrink: 0, marginTop: 1,
+                    }}>
+                      <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", fontWeight: 700, color: "#fff" }}>
+                        {idx + 1}
+                      </span>
                     </div>
-                    <div style={{ color: "#f8fafc", fontSize: "1.05rem", lineHeight: "1.5" }}>{step.answer}</div>
+                    <span style={{ fontSize: "0.875rem", color: "var(--text-high)", lineHeight: 1.6 }}>{action}</span>
                   </div>
-                  {step.verified && (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.4rem",
-                        color: "#10b981",
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.85rem",
-                        fontWeight: 700,
-                        background: "rgba(16,185,129,0.1)",
-                        padding: "0.3rem 0.6rem",
-                        borderRadius: "3px",
-                      }}
-                    >
-                      <CheckCircle2 size={16} />
-                      <span>VERIFIED</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Preventive Roadmap & Related Lots */}
-          <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: "1.75rem" }}>
-            <div className="card">
-              <h3 className="card-title" style={{ fontSize: "1.15rem" }}>
-                <ShieldCheck size={22} color="#10b981" />
-                <span>BIỆN PHÁP PHÒNG NGỪA (PREVENTIVE ACTIONS)</span>
-              </h3>
-              <ul style={{ paddingLeft: "1.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                {report.preventive_actions.map((act, i) => (
-                  <li key={i} style={{ color: "#f8fafc", fontSize: "1.025rem", lineHeight: "1.6" }}>{act}</li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="card">
-              <h3 className="card-title" style={{ fontSize: "1.15rem" }}>
-                <span>CÁC LÔ CÙNG NGUY CƠ (AFFECTED LOTS)</span>
-              </h3>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.6rem" }}>
-                {report.related_lots.map((lot, i) => (
-                  <span
-                    key={i}
-                    style={{
-                      background: "rgba(244, 63, 94, 0.12)",
-                      border: "1px solid #f43f5e",
-                      color: "#fca5a5",
-                      padding: "0.5rem 0.9rem",
-                      borderRadius: "4px",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.95rem",
-                      fontWeight: 700,
-                    }}
-                  >
-                    {lot}
-                  </span>
                 ))}
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Official Disclaimer */}
-          <div style={{ padding: "0.9rem 1.25rem", background: "#0a0e1a", borderRadius: "4px", border: "1px solid #334155", color: "#94a3b8", fontSize: "0.9rem", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
-            <Info size={16} color="#94a3b8" />
-            <span>{report.disclaimer}</span>
+          {/* Related Lots */}
+          {report.related_lots.length > 0 && (
+            <div className="card">
+              <div className="card-header">
+                <div className="card-title">
+                  <div className="card-icon ci-warning"><Info size={14} color="var(--warning)" /></div>
+                  Related Lots (Pattern Match)
+                </div>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
+                {report.related_lots.map((lot, idx) => (
+                  <span key={idx} className="mono-tag">{lot}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Disclaimer */}
+          <div className="alert alert-info">
+            <Info size={15} style={{ flexShrink: 0, marginTop: 2 }} />
+            <span style={{ fontSize: "0.82rem" }}>{report.disclaimer}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Empty state ── */}
+      {!loading && !report && !errorMsg && (
+        <div className="card">
+          <div className="empty-state">
+            <AlertOctagon size={40} />
+            <p>Select a sigma defect lot or enter a custom symptom to start the 5-Why root cause analysis.</p>
           </div>
         </div>
       )}

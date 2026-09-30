@@ -3,15 +3,7 @@ import { api } from "./api";
 import { ReviewProfilesTab } from "./components/ReviewProfilesTab";
 import { AssistantTab } from "./components/AssistantTab";
 import { RcaTab } from "./components/RcaTab";
-import {
-  CheckSquare,
-  Bot,
-  Activity,
-  Database,
-  Radio,
-  Cpu,
-  Layers,
-} from "lucide-react";
+import { CheckSquare, Bot, Activity, Database, Radio, Cpu, Wifi, WifiOff } from "lucide-react";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<"review" | "assistant" | "rca">("review");
@@ -30,82 +22,98 @@ export default function App() {
           setApiError(true);
         });
     };
-
     checkHealth();
     const timer = setInterval(checkHealth, 15000);
     return () => clearInterval(timer);
   }, []);
 
+  const neo4jStatus  = healthStatus?.neo4j?.toLowerCase() || "ready";
+  const pgStatus     = healthStatus?.postgres?.toLowerCase() || "ready";
+
   return (
     <div className="app-container">
-      {/* Industrial Telemetry Header */}
+      {/* ── Premium HUD Header ── */}
       <header className="app-header">
-        <div className="brand-section">
-          <div className="brand-logo-badge">DENSO</div>
-          <div className="brand-titles">
-            <h1>
-              <span>MENTORMIND</span>
-              <span className="factory-tag">FACTORY HACKS 2026</span>
+        <div className="header-left">
+          {/* DENSO red emblem */}
+          <div className="denso-badge">DENSO</div>
+
+          <div className="header-brand">
+            <h1 className="header-title">
+              MentorMind
+              <span className="header-event-tag">FACTORY HACKS 2026</span>
             </h1>
-            <p>Hệ Thống Trích Xuất & Thẩm Định Bí Quyết Chuyên Gia Sản Xuất (Know-How Engine)</p>
+            <p className="header-subtitle">
+              Know-How Extraction &amp; Validation Engine // Industrial AI
+            </p>
           </div>
         </div>
 
-        <div className="system-status">
-          <div className="status-indicator">
-            <span className={`status-dot ${apiError ? "error" : ""}`} />
-            <span>API: {apiError ? "MẤT KẾT NỐI" : "ONLINE"}</span>
+        {/* System telemetry pills */}
+        <div className="header-status">
+          <div className="status-pill">
+            <span className={`status-dot ${apiError ? "offline" : ""}`} />
+            {apiError
+              ? <><WifiOff size={11} /><span>API OFFLINE</span></>
+              : <><Wifi size={11} /><span>API ONLINE</span></>
+            }
           </div>
 
-          <div className="status-indicator">
-            <Database size={14} color="#06b6d4" />
-            <span>GRAPH: {healthStatus?.neo4j?.toUpperCase() || "READY"}</span>
+          <div className="status-pill">
+            <Database size={11} color="#00d4ff" />
+            <span>GRAPH: {neo4jStatus.toUpperCase()}</span>
           </div>
 
-          <div className="status-indicator">
-            <Radio size={14} color="#10b981" />
-            <span>VECTOR: {healthStatus?.postgres?.toUpperCase() || "READY"}</span>
+          <div className="status-pill">
+            <Radio size={11} color="#10b981" />
+            <span>VECTOR: {pgStatus.toUpperCase()}</span>
           </div>
 
-          <div className="status-indicator" style={{ borderLeft: "2px solid #e60012" }}>
-            <Cpu size={14} color="#e60012" />
+          <div className="status-pill" style={{ borderColor: "rgba(230,0,18,0.28)", color: "rgba(255,80,90,0.9)" }}>
+            <Cpu size={11} color="#e60012" />
             <span>LINE: PACK01 // ST-04</span>
           </div>
         </div>
       </header>
 
-      {/* Mechanical Tactical Navigation Tabs */}
+      {/* ── Navigation Tabs ── */}
       <nav className="tabs-nav">
         <button
+          id="tab-review"
           className={`tab-btn ${activeTab === "review" ? "active" : ""}`}
           onClick={() => setActiveTab("review")}
         >
-          <CheckSquare size={19} />
-          <span>01 // DUYỆT THAO TÁC (HUMAN-IN-THE-LOOP)</span>
+          <CheckSquare size={15} />
+          <span className="tab-num">01 //</span>
+          <span>Human-in-the-Loop Review</span>
         </button>
 
         <button
+          id="tab-assistant"
           className={`tab-btn ${activeTab === "assistant" ? "active" : ""}`}
           onClick={() => setActiveTab("assistant")}
         >
-          <Bot size={19} />
-          <span>02 // TRỢ LÝ TRUY VẤN (VERIFIED RAG)</span>
+          <Bot size={15} />
+          <span className="tab-num">02 //</span>
+          <span>Verified RAG Assistant</span>
         </button>
 
         <button
+          id="tab-rca"
           className={`tab-btn ${activeTab === "rca" ? "active" : ""}`}
           onClick={() => setActiveTab("rca")}
         >
-          <Activity size={19} />
-          <span>03 // TRUY NGUYÊN LỖI (5-WHY & RCA)</span>
+          <Activity size={15} />
+          <span className="tab-num">03 //</span>
+          <span>5-Why &amp; RCA Engine</span>
         </button>
       </nav>
 
-      {/* Main Content Workspace */}
+      {/* ── Main Content ── */}
       <main className="main-content">
-        {activeTab === "review" && <ReviewProfilesTab />}
+        {activeTab === "review"    && <ReviewProfilesTab />}
         {activeTab === "assistant" && <AssistantTab />}
-        {activeTab === "rca" && <RcaTab />}
+        {activeTab === "rca"       && <RcaTab />}
       </main>
     </div>
   );
