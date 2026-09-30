@@ -52,8 +52,8 @@ def validate_against_contract(data: dict) -> None:
 
 
 class ProfileStore:
-    def __init__(self, db_path: str = "data/work/profiles.sqlite"):
-        self.db_path = db_path
+    def __init__(self, db_path: str | Path = "data/work/profiles.sqlite"):
+        self.db_path = str(db_path)
         self._ensure_dir()
         self.init_db()
 

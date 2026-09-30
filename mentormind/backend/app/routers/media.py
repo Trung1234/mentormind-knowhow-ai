@@ -3,7 +3,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import FileResponse
 
-from mentormind.backend.app.config import get_settings
+from mentormind.core.config import get_settings
 
 router = APIRouter(prefix="/media", tags=["media"])
 

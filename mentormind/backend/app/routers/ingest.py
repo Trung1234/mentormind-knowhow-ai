@@ -4,8 +4,8 @@ from pathlib import Path
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, UploadFile
 from pydantic import BaseModel
 
-from mentormind.backend.app.config import get_settings
 from mentormind.backend.app.deps import get_profile_store
+from mentormind.core.config import get_settings
 from mentormind.core.schemas import DataClassification, JobStatus
 from mentormind.knowledge_base.store.profile_store import ProfileStore
 

@@ -1,5 +1,7 @@
 # MentorMind Database Design v1
 
+> **Đã được thay thế một phần (29/9):** schema chạy thật là `infra/postgres/init.sql` v1.2 trên PostgreSQL tự host (không Supabase — architecture §8). Nơi hai bên lệch nhau, `init.sql` và `docs/contracts/` thắng: nhãn `public|synthetic|factory_confidential`, `knowledge_units` = WorkProfile, `reason_source` chỉ từ chuyên gia, một bảng vector `knowhow_chunks`.
+
 ## 1. Mục tiêu
 
 Thiết kế này dùng **Supabase PostgreSQL + Supabase Storage + pgvector** cho flow:
@@ -287,7 +289,16 @@ Query
 → answer + citation
 ```
 
-Nếu team dùng MMORE + Milvus thì giữ Supabase là **source of truth** và Milvus là retrieval index. Khi đó `knowledge_unit.id` / `document_chunk.id` được lưu trong Milvus metadata.
+MMORE chịu trách nhiệm ingestion/normalization.
+
+Embedding sau khi tạo sẽ được lưu trực tiếp trong PostgreSQL
+thông qua pgvector.
+
+Supabase PostgreSQL là:
+- source of truth;
+- metadata store;
+- vector store;
+- retrieval index cho MVP.
 
 ---
 
