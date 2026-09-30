@@ -16,9 +16,7 @@ FIXTURES = REPO_ROOT / "tests" / "fixtures" / "vlm"
 
 
 def test_fake_vlm_replays_fixture_and_records_calls(settings: Settings, frames: list[Path]) -> None:
-    config = ProviderConfig(
-        provider="fake", options={"fixture": str(FIXTURES / "pass_a_two_steps.json")}
-    )
+    config = ProviderConfig(provider="fake", options={"fixture": str(FIXTURES / "pass_a_two_steps.json")})
     fake = VLM_REGISTRY.create(config)
     assert isinstance(fake, FakeVLM) and not fake.is_cloud
     data = fake.generate_json(frames, "p", {}, classification="factory_confidential")

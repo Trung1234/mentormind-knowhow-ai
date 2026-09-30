@@ -17,9 +17,7 @@ from mentormind.processing.vlm.passes.matching import MATCH_THRESHOLD, overlaps,
 from mentormind.processing.vlm.passes.models import PassAResult, TimedStep
 
 
-def self_consistent(
-    first: PassAResult, second: PassAResult, threshold: float = MATCH_THRESHOLD
-) -> PassAResult:
+def self_consistent(first: PassAResult, second: PassAResult, threshold: float = MATCH_THRESHOLD) -> PassAResult:
     """Steps both runs agree on, plus both runs' failures, scenes and costs (AC-04)."""
     failed = {f.segment_id: f for f in [*first.failed, *second.failed]}
     kept: list[TimedStep] = []
@@ -46,8 +44,7 @@ def _agreed(ours: list[TimedStep], theirs: list[TimedStep], threshold: float) ->
             (score, i, j)
             for i, a in enumerate(ours)
             for j, b in enumerate(theirs)
-            if overlaps(a.t_start, a.t_end, b.t_start, b.t_end)
-            and (score := similarity(a.step, b.step)) >= threshold
+            if overlaps(a.t_start, a.t_end, b.t_start, b.t_end) and (score := similarity(a.step, b.step)) >= threshold
         ),
         reverse=True,
     )

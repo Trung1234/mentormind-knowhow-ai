@@ -16,9 +16,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def is_ignored(path: str) -> bool:
-    result = subprocess.run(
-        ["git", "check-ignore", "--no-index", "-q", path], cwd=REPO_ROOT, check=False
-    )
+    result = subprocess.run(["git", "check-ignore", "--no-index", "-q", path], cwd=REPO_ROOT, check=False)
     return result.returncode == 0
 
 

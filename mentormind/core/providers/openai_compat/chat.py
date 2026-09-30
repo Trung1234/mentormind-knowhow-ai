@@ -31,12 +31,8 @@ class ChatClient:
         self._extra_body = dict(extra_body or {})
 
     @classmethod
-    def from_config(
-        cls, endpoint: ResolvedEndpoint, config: ProviderConfig, http: HttpClient | None
-    ) -> ChatClient:
-        transport = http or HttpxClient(
-            timeout_s=config.timeout_s, retry=RetryPolicy(max_retries=config.max_retries)
-        )
+    def from_config(cls, endpoint: ResolvedEndpoint, config: ProviderConfig, http: HttpClient | None) -> ChatClient:
+        transport = http or HttpxClient(timeout_s=config.timeout_s, retry=RetryPolicy(max_retries=config.max_retries))
         return cls(endpoint, transport, max_tokens=config.max_tokens, extra_body=config.extra_body)
 
     def complete(
@@ -51,9 +47,7 @@ class ChatClient:
         messages: list[dict[str, Any]] = []
         if system:
             messages.append({"role": "system", "content": system})
-        messages.append(
-            {"role": "user", "content": content if isinstance(content, str) else list(content)}
-        )
+        messages.append({"role": "user", "content": content if isinstance(content, str) else list(content)})
         # Configured extras first, so the call's own fields always win over them.
         payload: dict[str, Any] = {
             **self._extra_body,
@@ -67,9 +61,7 @@ class ChatClient:
         response_format = self.response_format(json_schema)
         if response_format is not None:
             payload["response_format"] = response_format
-        body = self._http.post_json(
-            f"{self.endpoint.base_url}/chat/completions", payload, headers=self._headers()
-        )
+        body = self._http.post_json(f"{self.endpoint.base_url}/chat/completions", payload, headers=self._headers())
         return message_text(body), usage_from(body)
 
     def response_format(self, json_schema: Mapping[str, Any] | None) -> dict[str, Any] | None:

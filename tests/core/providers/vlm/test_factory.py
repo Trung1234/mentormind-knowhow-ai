@@ -41,9 +41,7 @@ def test_ac_12_cloud_provider_without_key_explains_where_to_put_it(settings: Set
         get_vlm_provider(with_provider(settings, vlm_provider="openrouter"))
 
 
-def test_ac_12_vendor_key_found_in_secrets_file(
-    settings: Settings, http: RecordingHttp, frames: list[Path]
-) -> None:
+def test_ac_12_vendor_key_found_in_secrets_file(settings: Settings, http: RecordingHttp, frames: list[Path]) -> None:
     settings.secrets_file.write_text("SILICONFLOW_API_KEY=sk-sf-42\n", encoding="utf-8")
     vlm = get_vlm_provider(with_provider(settings, vlm_provider="siliconflow"), http=http)
     vlm.generate(frames, "p", classification="public")
@@ -58,9 +56,7 @@ def test_ac_12_explicit_knowhow_key_wins(settings: Settings, http: RecordingHttp
     assert http.posts[0][2]["Authorization"] == "Bearer mine"
 
 
-def test_local_server_needs_no_key(
-    settings: Settings, http: RecordingHttp, frames: list[Path]
-) -> None:
+def test_local_server_needs_no_key(settings: Settings, http: RecordingHttp, frames: list[Path]) -> None:
     vlm = get_vlm_provider(settings, http=http)
     vlm.generate(frames, "p", classification="synthetic")
     assert "Authorization" not in http.posts[0][2]
@@ -72,9 +68,7 @@ def test_generic_openai_compatible_needs_base_url(settings: Settings) -> None:
         get_vlm_provider(generic)
 
 
-def test_extra_body_is_merged_but_never_overrides_the_call(
-    settings: Settings, http: RecordingHttp
-) -> None:
+def test_extra_body_is_merged_but_never_overrides_the_call(settings: Settings, http: RecordingHttp) -> None:
     extra = {"presence_penalty": 1.5, "temperature": 0.9, "model": "hijack"}
     vlm = get_vlm_provider(with_provider(settings, vlm_extra_body=extra), http=http)
     vlm.generate([], "p", classification="public", temperature=0.2)
@@ -84,22 +78,16 @@ def test_extra_body_is_merged_but_never_overrides_the_call(
     assert payload["model"] == "Qwen/Qwen3-VL-8B-Instruct"
 
 
-def test_ac_12_blank_knowhow_key_falls_back_to_vendor_key(
-    settings: Settings, http: RecordingHttp
-) -> None:
+def test_ac_12_blank_knowhow_key_falls_back_to_vendor_key(settings: Settings, http: RecordingHttp) -> None:
     settings.secrets_file.write_text("OPENROUTER_API_KEY=sk-or-file\n", encoding="utf-8")
     blank = with_provider(settings, vlm_provider="openrouter", vlm_api_key=SecretStr(""))
     get_vlm_provider(blank, http=http).generate([], "p", classification="public")
     assert http.posts[0][2]["Authorization"] == "Bearer sk-or-file"
 
 
-def test_dashscope_workspace_host_comes_from_the_secrets_file(
-    settings: Settings, http: RecordingHttp
-) -> None:
+def test_dashscope_workspace_host_comes_from_the_secrets_file(settings: Settings, http: RecordingHttp) -> None:
     host = "https://ws-123.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
-    settings.secrets_file.write_text(
-        f"DASHSCOPE_API_KEY=sk-ws-1\nDASHSCOPE_BASE_URL={host}\n", encoding="utf-8"
-    )
+    settings.secrets_file.write_text(f"DASHSCOPE_API_KEY=sk-ws-1\nDASHSCOPE_BASE_URL={host}\n", encoding="utf-8")
     vlm = get_vlm_provider(settings.model_copy(update={"vlm_provider": "qwen_api"}), http=http)
     vlm.generate([], "p", classification="public")
     assert http.posts[0][0] == f"{host}/chat/completions"

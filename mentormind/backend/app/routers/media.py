@@ -9,7 +9,7 @@ router = APIRouter(prefix="/media", tags=["media"])
 
 
 @router.get("/{relpath:path}")
-def get_media(relpath: str):
+def get_media(relpath: str) -> FileResponse:
     # AC-04: chặn path traversal, chặn `..`
     if ".." in relpath or relpath.startswith("/") or relpath.startswith("\\"):
         raise HTTPException(

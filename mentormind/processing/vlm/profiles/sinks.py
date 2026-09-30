@@ -52,9 +52,7 @@ class Store(Protocol):
 
     def get_profile(self, profile_id: str) -> WorkProfile | None: ...
 
-    def list_profiles(
-        self, process_id: str | None = None, status: str | None = None
-    ) -> list[WorkProfile]: ...
+    def list_profiles(self, process_id: str | None = None, status: str | None = None) -> list[WorkProfile]: ...
 
 
 class FileProfileSink:
@@ -129,8 +127,7 @@ def get_profile_sink(settings: Settings, *, work_dir: Path = Path("data/work")) 
     if store_class is None:
         if settings.profile_sink == "store":
             raise ProfileSinkError(
-                f"Chưa có {STORE_MODULE} (profile store của spec 08, PR #4). "
-                "Đặt KNOWHOW_PROFILE_SINK=file hoặc auto."
+                f"Chưa có {STORE_MODULE} (profile store của spec 08, PR #4). Đặt KNOWHOW_PROFILE_SINK=file hoặc auto."
             )
         return FileProfileSink(work_dir)
     store = store_class(db_path=str(settings.profile_db))

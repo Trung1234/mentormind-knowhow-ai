@@ -44,9 +44,7 @@ def base_url_env_for(name: str) -> str | None:
     return endpoint.base_url_env if endpoint else None
 
 
-def resolve_endpoint(
-    config: ProviderConfig, *, default_model: str | None, env_prefix: str
-) -> ResolvedEndpoint:
+def resolve_endpoint(config: ProviderConfig, *, default_model: str | None, env_prefix: str) -> ResolvedEndpoint:
     """Resolve ``config`` or raise :class:`ProviderConfigError` saying which variable to set.
 
     Args:
@@ -59,14 +57,11 @@ def resolve_endpoint(
     base_url = config.base_url or (endpoint.base_url if endpoint else None)
     if not base_url:
         raise ProviderConfigError(
-            f"Provider '{name}' cần địa chỉ server: đặt KNOWHOW_{env_prefix}_BASE_URL "
-            "(vd. http://gpu-box:8100/v1)."
+            f"Provider '{name}' cần địa chỉ server: đặt KNOWHOW_{env_prefix}_BASE_URL (vd. http://gpu-box:8100/v1)."
         )
     model = config.model or default_model
     if not model:
-        raise ProviderConfigError(
-            f"Provider '{name}' cần tên model: đặt KNOWHOW_{env_prefix}_MODEL."
-        )
+        raise ProviderConfigError(f"Provider '{name}' cần tên model: đặt KNOWHOW_{env_prefix}_MODEL.")
     api_key = config.api_key.get_secret_value() if config.api_key else None
     if endpoint and endpoint.is_cloud and not api_key:
         raise ProviderConfigError(

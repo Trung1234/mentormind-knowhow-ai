@@ -187,9 +187,7 @@ class ProfileStore:
             "reviews": reviews,
         }
 
-    def list_profiles(
-        self, process_id: str | None = None, status: str | None = None
-    ) -> list[WorkProfile]:
+    def list_profiles(self, process_id: str | None = None, status: str | None = None) -> list[WorkProfile]:
         query = "SELECT data_json FROM profiles WHERE 1=1"
         params: list[Any] = []
 
@@ -307,11 +305,7 @@ class ProfileStore:
         result: Any | None = None,
         error: str | None = None,
     ) -> JobResponse | None:
-        finished_at = (
-            datetime.now(timezone.utc).isoformat()
-            if status in (JobStatus.DONE, JobStatus.FAILED)
-            else None
-        )
+        finished_at = datetime.now(timezone.utc).isoformat() if status in (JobStatus.DONE, JobStatus.FAILED) else None
         result_json = json.dumps(result, ensure_ascii=False) if result is not None else None
 
         with self._get_connection() as conn:

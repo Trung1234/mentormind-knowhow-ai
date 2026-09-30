@@ -34,9 +34,7 @@ def segment(i: int, label: DataClassification = DataClassification.SYNTHETIC) ->
 SEGMENTS = [segment(1), segment(2), segment(3)]
 
 
-def timed(
-    name: str, start: float, end: float, seg: int, actor: Actor | None = "human"
-) -> TimedStep:
+def timed(name: str, start: float, end: float, seg: int, actor: Actor | None = "human") -> TimedStep:
     return TimedStep(
         segment_id=f"S{seg}", t_start=start, t_end=end, step=name, confidence=0.8, fps=4.0,
         keyframes=[f"kf{seg}.jpg"], actor=actor,
@@ -140,11 +138,7 @@ def test_ac_19_the_llm_cannot_change_who_performs_a_step(tmp_path: Path) -> None
             timed("Đặt cốc vào thùng", 10, 11, seg=2, actor="robot"),
         ]
     )
-    answer = {
-        "steps": [
-            {"step": "Đặt cốc vào thùng carton", "source_ids": ["s1", "s2"], "actor": "human"}
-        ]
-    }
+    answer = {"steps": [{"step": "Đặt cốc vào thùng carton", "source_ids": ["s1", "s2"], "actor": "human"}]}
     result, _ = run(answer, tmp_path, steps=steps)
     [merged] = result.steps
     assert merged.actor == "robot"  # from the sources, whatever the LLM wrote

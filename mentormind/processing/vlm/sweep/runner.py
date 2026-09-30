@@ -42,9 +42,7 @@ def run_sweep(
             max_frames=max_frames,
             sampler=sampler or sample_frames,
         )
-        (run_dir / "predictions.json").write_text(
-            result.model_dump_json(indent=2), encoding="utf-8"
-        )
+        (run_dir / "predictions.json").write_text(result.model_dump_json(indent=2), encoding="utf-8")
         profiles = to_work_profiles(
             result, segments=fixed, process_id=process_id, provider=provider, model=provider.model
         )

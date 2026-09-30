@@ -129,11 +129,7 @@ def _describe_one(
     error = ""
     raw_text = ""
     for attempt in range(2):  # the answer, then at most ONE repair (spec 04 §3)
-        text_prompt = (
-            prompt
-            if attempt == 0
-            else render_prompt("repair_json.md", original_prompt=prompt, error=error)
-        )
+        text_prompt = prompt if attempt == 0 else render_prompt("repair_json.md", original_prompt=prompt, error=error)
         response = provider.generate(
             sampled.paths,
             text_prompt,
@@ -150,9 +146,7 @@ def _describe_one(
         except (InvalidJSONError, ValidationError) as exc:
             error = _short_error(exc)
     if output is None:
-        result.failed.append(
-            FailedSegment(segment_id=segment.segment_id, error=error, raw_text=raw_text)
-        )
+        result.failed.append(FailedSegment(segment_id=segment.segment_id, error=error, raw_text=raw_text))
         return
     if output.scene:
         result.scenes[segment.segment_id] = output.scene

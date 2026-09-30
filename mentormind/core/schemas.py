@@ -135,9 +135,7 @@ class WorkProfile(BaseModel):
             and self.status == ProfileStatus.DRAFT
             and (self.reason is not None or self.reason_source is not None)
         ):
-            raise ValueError(
-                "Constitution Điều 3: Bản nháp do VLM sinh không được có reason hoặc reason_source."
-            )
+            raise ValueError("Constitution Điều 3: Bản nháp do VLM sinh không được có reason hoặc reason_source.")
 
         # Rule 2: Có reason thì bắt buộc phải có reason_source
         if self.reason and not self.reason_source:
@@ -149,9 +147,7 @@ class WorkProfile(BaseModel):
         if self.status == ProfileStatus.APPROVED and (
             not self.review or not self.review.reviewer or not self.review.reviewed_at
         ):
-            raise ValueError(
-                "Trạng thái 'approved' bắt buộc phải có thông tin review (reviewer và reviewed_at)."
-            )
+            raise ValueError("Trạng thái 'approved' bắt buộc phải có thông tin review (reviewer và reviewed_at).")
 
         return self
 
@@ -159,6 +155,7 @@ class WorkProfile(BaseModel):
 # ==========================================
 # REST API Request & Response Schemas
 # ==========================================
+
 
 class ReviewAction(str, Enum):
     APPROVE = "approve"

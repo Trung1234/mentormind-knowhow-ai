@@ -16,14 +16,16 @@ class LotRecord(BaseModel):
     operator_id: str
     qty: int
 
+
 class DefectRecord(BaseModel):
     defect_id: str
     lot_id: str
     process_id: str
-    defect_code: str        # map sang Symptom.symptom_id
+    defect_code: str  # map sang Symptom.symptom_id
     description: str
     qty: int
     detected_at: datetime
+
 
 class DefectCatalogEntry(BaseModel):
     defect_code: str
@@ -32,10 +34,12 @@ class DefectCatalogEntry(BaseModel):
     known_root_cause: str | None
     prevention_profile_id: str | None
 
+
 class SigmaAdapter(Protocol):
-    def get_lot(self, lot_id: str) -> LotRecord: ...              # raise LotNotFound
-    def list_lots(self, process_id: str | None = None,
-                  date_from: date | None = None, date_to: date | None = None) -> list[LotRecord]: ...
+    def get_lot(self, lot_id: str) -> LotRecord: ...  # raise LotNotFound
+    def list_lots(
+        self, process_id: str | None = None, date_from: date | None = None, date_to: date | None = None
+    ) -> list[LotRecord]: ...
     def get_defects(self, lot_id: str) -> list[DefectRecord]: ...
     def list_defects(self, defect_code: str | None = None) -> list[DefectRecord]: ...
     def defect_catalog(self) -> list[DefectCatalogEntry]: ...

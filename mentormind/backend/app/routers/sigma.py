@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Query
 
 from mentormind.core.schemas import LotRecord

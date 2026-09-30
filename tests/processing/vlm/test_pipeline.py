@@ -57,9 +57,7 @@ def test_passes_a_b_c_end_in_valid_drafts(tmp_path: Path) -> None:
     work = tmp_path / "run"
     for artefact in ("pass_a", "pass_b/pass_a", "pass_c.json", "predictions.json"):
         assert (work / artefact).exists(), artefact  # FR-06: every pass kept for debugging
-    assert [p.step for p in read_profiles(work / "profiles.json")] == [
-        p.step for p in result.profiles
-    ]
+    assert [p.step for p in read_profiles(work / "profiles.json")] == [p.step for p in result.profiles]
 
 
 def test_without_b_and_c_it_is_pass_a_alone(tmp_path: Path) -> None:

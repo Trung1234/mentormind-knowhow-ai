@@ -53,9 +53,7 @@ class VectorStore(Protocol):
         """Insert or replace by ``chunk_id``; returns how many chunks were written."""
         ...
 
-    def search(
-        self, query: str, k: int = 8, filters: Mapping[str, Any] | None = None
-    ) -> list[VectorHit]:
+    def search(self, query: str, k: int = 8, filters: Mapping[str, Any] | None = None) -> list[VectorHit]:
         """Top ``k`` chunks for ``query`` that pass ``filters``, best first."""
         ...
 
@@ -120,16 +118,12 @@ class MemoryVectorStore:
             self._chunks[chunk.chunk_id] = chunk
         return len(batch)
 
-    def search(
-        self, query: str, k: int = 8, filters: Mapping[str, Any] | None = None
-    ) -> list[VectorHit]:
+    def search(self, query: str, k: int = 8, filters: Mapping[str, Any] | None = None) -> list[VectorHit]:
         candidates = [c for c in self._chunks.values() if _passes(c, filters or {})]
         if not candidates or k <= 0:
             return []
         query_vector = self._embedder.embed([query])[0]
-        dense = sorted(
-            candidates, key=lambda c: _cosine(query_vector, c.embedding or []), reverse=True
-        )
+        dense = sorted(candidates, key=lambda c: _cosine(query_vector, c.embedding or []), reverse=True)
         lexical_scores = _bm25(tokens(query), candidates)
         lexical = sorted(
             (c for c in candidates if lexical_scores[c.chunk_id] > 0),
@@ -147,9 +141,7 @@ class MemoryVectorStore:
         return sum(self._chunks.pop(i, None) is not None for i in ids)
 
 
-def get_vector_store(
-    settings: Settings | None = None, *, embedder: Embedder | None = None
-) -> VectorStore:
+def get_vector_store(settings: Settings | None = None, *, embedder: Embedder | None = None) -> VectorStore:
     """The backend selected by ``KNOWHOW_VECTOR_BACKEND`` (only config changes, art. 5).
 
     Raises:
@@ -159,8 +151,7 @@ def get_vector_store(
     if settings.vector_backend == "memory":
         return MemoryVectorStore(embedder)
     raise VectorStoreError(
-        "Backend pgvector chưa có (spec 02 T02-6). Đặt KNOWHOW_VECTOR_BACKEND=memory để chạy "
-        "không cần Docker."
+        "Backend pgvector chưa có (spec 02 T02-6). Đặt KNOWHOW_VECTOR_BACKEND=memory để chạy không cần Docker."
     )
 
 

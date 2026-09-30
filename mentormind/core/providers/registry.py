@@ -50,9 +50,7 @@ class ProviderRegistry(Mapping[str, type[P]], Generic[P]):
             for name in names:
                 existing = self._classes.get(name)
                 if existing is not None and existing is not cls:
-                    raise ValueError(
-                        f"{self._kind} provider {name!r} already registered to {existing.__name__}"
-                    )
+                    raise ValueError(f"{self._kind} provider {name!r} already registered to {existing.__name__}")
                 self._classes[name] = cls
             return cls
 

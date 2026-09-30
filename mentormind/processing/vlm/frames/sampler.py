@@ -119,9 +119,7 @@ def _to_image(bgr: cv2.typing.MatLike) -> Image.Image:
     height, width = bgr.shape[:2]
     scale = LONG_SIDE_PX / max(height, width)
     if scale < 1.0:
-        bgr = cv2.resize(
-            bgr, (round(width * scale), round(height * scale)), interpolation=cv2.INTER_AREA
-        )
+        bgr = cv2.resize(bgr, (round(width * scale), round(height * scale)), interpolation=cv2.INTER_AREA)
     return Image.fromarray(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
 
 

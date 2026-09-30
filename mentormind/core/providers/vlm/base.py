@@ -74,9 +74,7 @@ class VLMProvider(ProviderBase):
             FaceBlurError: faces could not be checked for a cloud call (fail closed).
             ProviderError: transport/HTTP failure or unexpected response shape.
         """
-        session = OutboundSession(
-            self.guard_policy, self, classification, kind=self.kind, model=self.model
-        )
+        session = OutboundSession(self.guard_policy, self, classification, kind=self.kind, model=self.model)
         images = [read_image(Path(p)) for p in frames]
         outgoing_prompt = session.mask(prompt) or ""
         outgoing_system = session.mask(system)

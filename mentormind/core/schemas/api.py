@@ -103,9 +103,7 @@ class RcaReport(BaseModel):
     five_whys: list[WhyStep] = Field(default_factory=list)
     related_lots: list[str] = Field(default_factory=list)
     preventive_actions: list[str] = Field(default_factory=list)
-    disclaimer: str = (
-        "Kết quả phân tích dựa trên AI và dữ liệu mẫu, cần chuyên gia xác nhận trước khi áp dụng."
-    )
+    disclaimer: str = "Kết quả phân tích dựa trên AI và dữ liệu mẫu, cần chuyên gia xác nhận trước khi áp dụng."
 
 
 class LotRecord(BaseModel):

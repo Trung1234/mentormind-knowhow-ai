@@ -108,9 +108,7 @@ def test_ac_07_sweep_writes_every_required_column(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    answer = {
-        "steps": [step("Nhặt cốc", 0, 2, key_point_observed="cầm thân cốc"), step("Lau bàn", 3, 4)]
-    }
+    answer = {"steps": [step("Nhặt cốc", 0, 2, key_point_observed="cầm thân cốc"), step("Lau bàn", 3, 4)]}
     vlm = FakeVLM([answer])
     rows = run_sweep(
         segments(1),
@@ -144,9 +142,7 @@ def test_repo_groundtruth_file_loads() -> None:
 def _timed(name: str, start: float, end: float, actor: str | None = None) -> Any:
     from mentormind.processing.vlm.passes import TimedStep
 
-    return TimedStep(
-        segment_id="S", t_start=start, t_end=end, step=name, confidence=0.9, fps=4.0, actor=actor
-    )
+    return TimedStep(segment_id="S", t_start=start, t_end=end, step=name, confidence=0.9, fps=4.0, actor=actor)
 
 
 def test_truth_workers_and_engineers_count_as_human() -> None:

@@ -59,6 +59,7 @@
 
    ```python
    from knowhow.ingest.pipeline import run_ingest
+
    result = await run_ingest(file_path=..., classification=...)
    ```
 

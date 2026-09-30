@@ -73,12 +73,8 @@ def providers_cmd() -> None:
 
 
 def ping_cmd(
-    provider: Annotated[
-        str | None, typer.Option(help="Ghi đè KNOWHOW_VLM_PROVIDER cho lần chạy này.")
-    ] = None,
-    video: Annotated[
-        Path | None, typer.Option(exists=True, dir_okay=False, help="Mô tả video thật này.")
-    ] = None,
+    provider: Annotated[str | None, typer.Option(help="Ghi đè KNOWHOW_VLM_PROVIDER cho lần chạy này.")] = None,
+    video: Annotated[Path | None, typer.Option(exists=True, dir_okay=False, help="Mô tả video thật này.")] = None,
     classification: Annotated[
         DataClassification,
         typer.Option(help="Nhãn dữ liệu của --video; mặc định coi là dữ liệu nhà máy."),
@@ -104,9 +100,7 @@ def ping_cmd(
                 paths, prompt = _video_frames(video, classification, vlm, Path(tmp), settings)
                 schema, label = VIDEO_SCHEMA, classification
                 temperature = 0.2  # greedy decoding makes Qwen3-VL loop long step lists
-            response = vlm.generate(
-                paths, prompt, classification=label, json_schema=schema, temperature=temperature
-            )
+            response = vlm.generate(paths, prompt, classification=label, json_schema=schema, temperature=temperature)
     except (ProviderError, PermissionError, ValueError) as exc:
         typer.secho(f"Lỗi: {exc}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1) from exc

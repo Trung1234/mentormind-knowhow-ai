@@ -47,9 +47,7 @@ class OpenAICompatVLM(VLMProvider):
 
     @classmethod
     def from_config(cls, config: ProviderConfig, http: HttpClient | None = None) -> Self:
-        endpoint = resolve_endpoint(
-            config, default_model=default_vlm_model(config.provider), env_prefix="VLM"
-        )
+        endpoint = resolve_endpoint(config, default_model=default_vlm_model(config.provider), env_prefix="VLM")
         return cls(ChatClient.from_config(endpoint, config, http))
 
     def _complete(
@@ -66,10 +64,7 @@ class OpenAICompatVLM(VLMProvider):
         content += [
             {
                 "type": "image_url",
-                "image_url": {
-                    "url": f"data:{image.mime_type};base64,"
-                    + base64.b64encode(image.data).decode("ascii")
-                },
+                "image_url": {"url": f"data:{image.mime_type};base64," + base64.b64encode(image.data).decode("ascii")},
             }
             for image in images
         ]

@@ -78,9 +78,7 @@ def actor_accuracy(truth: Sequence[TruthStep], predicted: Sequence[TimedStep]) -
     for t in truth:
         if t.actor is None:
             continue
-        candidates = [
-            p for p in predicted if p.actor and overlaps(t.t_start, t.t_end, p.t_start, p.t_end)
-        ]
+        candidates = [p for p in predicted if p.actor and overlaps(t.t_start, t.t_end, p.t_start, p.t_end)]
         if not candidates:
             continue
         best = max(candidates, key=lambda p: min(t.t_end, p.t_end) - max(t.t_start, p.t_start))
@@ -113,9 +111,7 @@ def evaluate(
         fps_effective=round(sum(effective) / len(effective), 2),
         predicted=len(predicted),
         truth=len(truth),
-        recall_essential=_round(
-            len(matched_truth.intersection(essential)) / len(essential) if essential else None
-        ),
+        recall_essential=_round(len(matched_truth.intersection(essential)) / len(essential) if essential else None),
         recall_time_only=_round(_time_coverage(truth, predicted)),
         actor_accuracy=_round(actor_accuracy(truth, predicted)),
         failed_segments=len(result.failed),
@@ -131,7 +127,5 @@ def _round(value: float | None) -> float | None:
 def _time_coverage(truth: Sequence[TruthStep], predicted: Sequence[TimedStep]) -> float | None:
     if not truth:
         return None
-    covered = sum(
-        any(overlaps(t.t_start, t.t_end, p.t_start, p.t_end) for p in predicted) for t in truth
-    )
+    covered = sum(any(overlaps(t.t_start, t.t_end, p.t_start, p.t_end) for p in predicted) for t in truth)
     return covered / len(truth)

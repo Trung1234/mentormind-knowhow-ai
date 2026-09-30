@@ -43,9 +43,7 @@ def llm_config_from_settings(settings: Settings) -> ProviderConfig:
     )
 
 
-def get_llm_provider(
-    settings: Settings | None = None, *, http: HttpClient | None = None
-) -> LLMProvider:
+def get_llm_provider(settings: Settings | None = None, *, http: HttpClient | None = None) -> LLMProvider:
     """Build the LLM provider selected by ``KNOWHOW_LLM_PROVIDER``.
 
     Raises:

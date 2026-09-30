@@ -75,9 +75,7 @@ class Settings(BaseSettings):
     guard_mask_text: bool = True
     # Pixelate faces in frames sent to cloud VLMs (YuNet model fetched once, SHA-256 pinned).
     guard_blur_faces: bool = True
-    guard_face_model: Path = (
-        REPO_ROOT / "data" / "work" / "models" / "face_detection_yunet_2023mar.onnx"
-    )
+    guard_face_model: Path = REPO_ROOT / "data" / "work" / "models" / "face_detection_yunet_2023mar.onnx"
     # One JSON line per cloud call, counts only. Empty = no audit log.
     guard_audit_dir: Path | None = REPO_ROOT / "data" / "work" / "audit"
     # Site-specific codes to mask, entity -> regex, e.g. {"EQUIPMENT": "SIGMA-EQ-\\d+"}.
