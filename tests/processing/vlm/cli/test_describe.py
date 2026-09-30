@@ -26,6 +26,7 @@ def _hermetic(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]
         "KNOWHOW_VLM_PROVIDER": "fake",
         "KNOWHOW_LLM_PROVIDER": "fake",
         "KNOWHOW_GUARD_AUDIT_DIR": str(tmp_path / "audit"),
+        "KNOWHOW_PROFILE_SINK": "file",
         "DASHSCOPE_API_KEY": "sk-test",
     }.items():
         monkeypatch.setenv(name, value)

@@ -11,7 +11,6 @@ import pytest
 
 from mentormind.core.schemas import (
     ProfilePatchRequest,
-    ProfileStatus,
     ReviewAction,
     ReviewRequest,
     WorkProfile,
@@ -83,7 +82,7 @@ def test_save_and_get_profile(temp_store, valid_profile_data):
     fetched = temp_store.get_profile("WP-PACK01-001")
     assert fetched is not None
     assert fetched.profile_id == "WP-PACK01-001"
-    assert fetched.status == ProfileStatus.DRAFT
+    assert fetched.status == "draft"
     assert fetched.version == 1
 
 
@@ -99,7 +98,7 @@ def test_ac_02_review_approve(temp_store, valid_profile_data):
     )
     approved = temp_store.record_review("WP-PACK01-001", req)
 
-    assert approved.status == ProfileStatus.APPROVED
+    assert approved.status == "approved"
     assert approved.review is not None
     assert approved.review.reviewer == "expert_01"
 
@@ -130,14 +129,14 @@ def test_ac_01_patch_approved_profile_increments_version(temp_store, valid_profi
     # Approve trước
     req = ReviewRequest(action=ReviewAction.APPROVE, reviewer="expert_01")
     temp_store.record_review("WP-PACK01-001", req)
-    assert temp_store.get_profile("WP-PACK01-001").status == ProfileStatus.APPROVED
+    assert temp_store.get_profile("WP-PACK01-001").status == "approved"
 
     # Giờ sửa (PATCH)
     patch = ProfilePatchRequest(step="Lấy hộp carton từ kệ số 2")
     patched = temp_store.patch_profile("WP-PACK01-001", patch)
 
     assert patched.version == 2
-    assert patched.status == ProfileStatus.IN_REVIEW
+    assert patched.status == "in_review"
     assert patched.step == "Lấy hộp carton từ kệ số 2"
 
 

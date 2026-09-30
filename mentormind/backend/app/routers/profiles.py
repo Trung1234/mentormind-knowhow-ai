@@ -93,7 +93,7 @@ def review_profile(
             detail=f"WorkProfile {profile_id} không tồn tại",
         )
 
-    was_approved = existing.status.value == "approved"
+    was_approved = str(getattr(existing.status, "value", existing.status)) == "approved"
 
     try:
         updated = store.record_review(profile_id, review_req)

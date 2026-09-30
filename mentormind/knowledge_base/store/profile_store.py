@@ -19,12 +19,9 @@ from typing import Any
 import jsonschema
 
 from mentormind.core.schemas import (
-    ErrorTag,
     JobResponse,
     JobStatus,
     ProfilePatchRequest,
-    ProfileStatus,
-    ReviewAction,
     ReviewRequest,
     WorkProfile,
 )
@@ -49,6 +46,10 @@ def validate_against_contract(data: dict) -> None:
     """Validate raw dict against JSON Schema contract if available."""
     if CONTRACT_SCHEMA:
         jsonschema.validate(instance=data, schema=CONTRACT_SCHEMA)
+
+
+def _to_val(x: Any) -> Any:
+    return getattr(x, "value", x)
 
 
 class ProfileStore:
@@ -131,7 +132,7 @@ class ProfileStore:
                 (
                     profile.profile_id,
                     profile.process_id,
-                    profile.status.value if isinstance(profile.status, ProfileStatus) else profile.status,
+                    _to_val(profile.status),
                     profile.version,
                     json.dumps(data_dict, ensure_ascii=False),
                     updated_at,
@@ -222,7 +223,7 @@ class ProfileStore:
 
         # Spec 08 §1: Sửa nội dung profile -> version += 1, status = "in_review"
         current_dict["version"] = existing.version + 1
-        current_dict["status"] = ProfileStatus.IN_REVIEW.value
+        current_dict["status"] = "in_review"
 
         updated_profile = WorkProfile.model_validate(current_dict)
         return self.save_profile(updated_profile)
@@ -239,18 +240,18 @@ class ProfileStore:
         now_str = datetime.now(timezone.utc).isoformat()
         current_dict = existing.model_dump(mode="json")
 
-        if review_req.action == ReviewAction.REJECT:
+        if _to_val(review_req.action) == "reject":
             if not (review_req.comment and review_req.comment.strip()):
                 raise ValueError("Từ chối (reject) bắt buộc phải nhập lý do.")
-            current_dict["status"] = ProfileStatus.REJECTED.value
-        elif review_req.action == ReviewAction.APPROVE:
-            current_dict["status"] = ProfileStatus.APPROVED.value
+            current_dict["status"] = "rejected"
+        elif _to_val(review_req.action) == "approve":
+            current_dict["status"] = "approved"
 
         current_dict["review"] = {
             "reviewer": review_req.reviewer,
             "reviewed_at": now_str,
             "comment": review_req.comment,
-            "error_tags": [t.value if isinstance(t, ErrorTag) else t for t in review_req.error_tags],
+            "error_tags": [_to_val(t) for t in review_req.error_tags],
         }
 
         updated_profile = WorkProfile.model_validate(current_dict)
@@ -266,10 +267,10 @@ class ProfileStore:
                 """,
                 (
                     profile_id,
-                    review_req.action.value if isinstance(review_req.action, ReviewAction) else review_req.action,
+                    _to_val(review_req.action),
                     review_req.reviewer,
                     review_req.comment,
-                    json.dumps([t.value if isinstance(t, ErrorTag) else t for t in review_req.error_tags]),
+                    json.dumps([_to_val(t) for t in review_req.error_tags]),
                     now_str,
                 ),
             )
@@ -322,7 +323,7 @@ class ProfileStore:
                 WHERE job_id = ?;
                 """,
                 (
-                    status.value if isinstance(status, JobStatus) else status,
+                    _to_val(status),
                     result_json,
                     error,
                     finished_at,

@@ -150,10 +150,14 @@ class WorkProfile(BaseModel):
         # Contract allOf[0] — constitution art. 3: a VLM draft never carries a reason.
         is_vlm_draft = self.generated_by == "vlm" and self.status == "draft"
         if is_vlm_draft and (self.reason is not None or self.reason_source is not None):
-            raise ValueError("Bản nháp do VLM sinh không được có reason/reason_source.")
+            raise ValueError(
+                "Constitution Điều 3: Bản nháp do VLM sinh không được có reason hoặc reason_source."
+            )
         # Contract allOf[1]: a reason must say which expert channel it came from.
         if self.reason is not None and self.reason_source is None:
-            raise ValueError("Có reason thì phải có reason_source hợp lệ.")
+            raise ValueError(
+                "Bắt buộc phải chọn reason_source hợp lệ ('expert_verbal' hoặc 'expert_interview') khi có reason."
+            )
         # Contract allOf[2]: approval must be attributable.
         if self.status == "approved" and (
             self.review is None or self.review.reviewer is None or self.review.reviewed_at is None

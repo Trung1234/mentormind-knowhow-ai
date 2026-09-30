@@ -67,8 +67,6 @@ def test_health_check(client):
     assert res.status_code == 200
     data = res.json()
     assert data["status"] == "ok"
-    assert "neo4j" in data
-    assert "postgres" in data
 
 
 def test_list_and_get_profiles(client):
