@@ -16,8 +16,17 @@ import {
 } from "lucide-react";
 
 export default function App() {
-  const [viewMode, setViewMode] = useState<"landing" | "workspace">("landing");
-  const [activeTab, setActiveTab] = useState<"review" | "assistant" | "rca">("review");
+  const [viewMode, setViewMode] = useState<"landing" | "workspace">(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("view") === "workspace" || params.get("tab") || window.location.hash.includes("workspace")) return "workspace";
+    return "landing";
+  });
+  const [activeTab, setActiveTab] = useState<"review" | "assistant" | "rca">(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
+    if (tab === "assistant" || tab === "rca" || tab === "review") return tab;
+    return "review";
+  });
   const [healthStatus, setHealthStatus] = useState<{ status: string; neo4j: string; postgres: string } | null>(null);
   const [apiError, setApiError] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(() => {

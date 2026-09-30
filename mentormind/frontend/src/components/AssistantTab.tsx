@@ -148,37 +148,42 @@ export function AssistantTab() {
 
       {/* ── Answer ── */}
       {!loading && answer && (
-        <div className="card" style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-
-          {answer.refused ? (
-            /* Refusal Panel */
-            <div className="alert alert-warning" style={{ flexDirection: "column", alignItems: "flex-start", gap: "0.65rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", fontWeight: 700, fontFamily: "var(--font-body)", fontSize: "1rem" }}>
-                <ShieldAlert size={18} color="var(--warning)" />
-                Insufficient Evidence — Response Refused (Constitution Article 4)
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">
+              <div className="card-icon ci-green">
+                <Bot size={14} color="var(--success)" />
               </div>
-              <p style={{ fontSize: "0.9rem", lineHeight: 1.7 }}>{answer.answer}</p>
-              {answer.suggested_expert && (
-                <div style={{ padding: "0.55rem 0.9rem", background: "var(--bg-subtle)", borderRadius: "var(--r-sm)", border: "1px solid var(--border-medium)", fontSize: "0.85rem" }}>
-                  Suggested expert to contact: <strong style={{ color: "#fbbf24" }}>{answer.suggested_expert}</strong>
-                </div>
-              )}
+              Verified Know-How Response
             </div>
-          ) : (
-            <>
-              {/* Answer bubble */}
-              <div>
-                <div className="chat-bubble-header">
-                  <Bot size={13} color="var(--success)" />
-                  <span style={{ color: "var(--success)" }}>Verified Know-How Response</span>
-                  <span className="badge badge-green" style={{ marginLeft: "auto" }}>
-                    <Sparkles size={9} /> KNOWLEDGE VERIFIED
-                  </span>
+            <span className="badge badge-green">
+              <Sparkles size={10} /> KNOWLEDGE VERIFIED
+            </span>
+          </div>
+
+          <div className="card-body" style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+            {answer.refused ? (
+              /* Refusal Panel */
+              <div className="alert alert-warning" style={{ flexDirection: "column", alignItems: "flex-start", gap: "0.65rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", fontWeight: 700, fontFamily: "var(--font-body)", fontSize: "1rem" }}>
+                  <ShieldAlert size={18} color="var(--warning)" />
+                  Insufficient Evidence — Response Refused (Constitution Article 4)
                 </div>
-                <div className="chat-bubble" style={{ borderLeft: "3px solid var(--success)" }}>
-                  {answer.answer}
-                </div>
+                <p style={{ fontSize: "0.9rem", lineHeight: 1.7 }}>{answer.answer}</p>
+                {answer.suggested_expert && (
+                  <div style={{ padding: "0.55rem 0.9rem", background: "var(--bg-subtle)", borderRadius: "var(--r-sm)", border: "1px solid var(--border-medium)", fontSize: "0.85rem" }}>
+                    Suggested expert to contact: <strong style={{ color: "#fbbf24" }}>{answer.suggested_expert}</strong>
+                  </div>
+                )}
               </div>
+            ) : (
+              <>
+                {/* Answer bubble */}
+                <div>
+                  <div className="chat-bubble" style={{ borderLeft: "3px solid var(--success)", padding: "1rem 1.25rem", fontSize: "0.95rem", lineHeight: 1.7 }}>
+                    {answer.answer}
+                  </div>
+                </div>
 
               {/* Citations */}
               {answer.citations.length > 0 && (
@@ -272,6 +277,7 @@ export function AssistantTab() {
               )}
             </>
           )}
+          </div>
         </div>
       )}
 

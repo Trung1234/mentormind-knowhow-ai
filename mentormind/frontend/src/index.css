@@ -346,7 +346,7 @@ body {
 .tabs-container {
   display: flex;
   gap: 0.5rem;
-  max-width: 1640px;
+  max-width: 1280px;
   margin: 0 auto;
 }
 
@@ -386,8 +386,8 @@ body {
 /* === MAIN CONTENT === */
 .main-content {
   flex: 1;
-  padding: 1.75rem;
-  max-width: 1640px;
+  padding: 1.5rem 1.75rem 2.5rem;
+  max-width: 1280px;
   width: 100%;
   margin: 0 auto;
 }
@@ -917,59 +917,146 @@ body {
   box-shadow: 0 0 10px var(--accent-cyan-glow);
 }
 
-/* === 5-WHY STEPPER (HIGH-TECH INDUSTRIAL TIMELINE) === */
-.why-chain { display: flex; flex-direction: column; padding: 0.5rem 0; }
-.why-step  { display: flex; gap: 1rem; position: relative; }
+/* === RCA TWO-COLUMN DASHBOARD GRID === */
+.rca-grid {
+  display: grid;
+  grid-template-columns: 1.32fr 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+@media (max-width: 1040px) {
+  .rca-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* === 5-WHY STEPPER (HIGH-TECH PRECISION TIMELINE) === */
+.why-chain {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0.25rem 0;
+}
+.why-step {
+  display: flex;
+  gap: 1.15rem;
+  position: relative;
+}
 .why-step:not(:last-child)::after {
   content: '';
   position: absolute;
-  left: 15px;
-  top: 34px;
+  left: 17px;
+  top: 38px;
   bottom: -4px;
   width: 2px;
-  background: linear-gradient(180deg, var(--accent-cyan) 0%, var(--border-tech) 100%);
+  background: linear-gradient(180deg, var(--accent-cyan) 0%, rgba(6, 182, 212, 0.25) 100%);
   z-index: 0;
 }
 .why-node {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: var(--bg-surface);
   border: 2px solid var(--accent-cyan);
-  box-shadow: 0 0 10px var(--accent-cyan-glow);
+  box-shadow: 0 0 12px var(--accent-cyan-glow);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  font-family: var(--font-display);
-  font-size: 0.85rem;
-  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 800;
   color: var(--accent-cyan);
   z-index: 1;
   margin-top: 2px;
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+.why-node:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 16px var(--accent-cyan-glow);
 }
 .why-content {
   flex: 1;
   background: var(--bg-surface);
   border: 1px solid var(--border-tech);
   box-shadow: var(--card-shadow);
-  border-radius: 10px;
-  padding: 0.9rem 1.15rem;
-  margin-bottom: 1rem;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.15rem;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
 }
-.why-q {
-  font-family: var(--font-display);
-  font-size: 0.74rem;
+.why-content:hover {
+  border-color: var(--border-strong);
+}
+.why-step-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.why-step-badge {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
   font-weight: 700;
-  color: var(--text-muted);
+  color: var(--accent-cyan);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
-.why-a {
+.why-q-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-bottom: 0.65rem;
+  background: var(--bg-subtle);
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+}
+.why-q-tag {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--denso-red);
+  background: var(--denso-red-subtle);
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.why-q-text {
   font-size: 0.88rem;
+  font-weight: 600;
   color: var(--text-main);
   line-height: 1.5;
+}
+.why-a-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.25rem 0.35rem 0.1rem;
+}
+.why-a-tag {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--success);
+  background: var(--status-success-bg);
+  border: 1px solid var(--status-success-border);
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.why-a-text {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
 }
 
 /* === SPINNER & SYSTEM STATES === */
