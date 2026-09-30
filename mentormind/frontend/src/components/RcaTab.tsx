@@ -57,7 +57,7 @@ export function RcaTab() {
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
       {/* ── Sigma Integration Control Panel ── */}
-      <div className="card card-glow-red">
+      <div className="card ">
         <div className="card-header">
           <div className="card-title">
             <div className="card-icon ci-danger">
@@ -140,13 +140,13 @@ export function RcaTab() {
         <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
           {/* Report Header */}
-          <div className="card" style={{ background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.2)" }}>
+          <div className="card" style={{ background: "var(--status-danger-bg)", border: "1px solid var(--status-danger-border)" }}>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-dim)", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>
                   DEFECT TRACEABILITY REPORT
                 </div>
-                <h2 style={{ fontFamily: "var(--font-display)", fontSize: "1.35rem", fontWeight: 800, color: "var(--text-pure)", marginBottom: "0.4rem" }}>
+                <h2 style={{ fontFamily: "var(--font-body)", fontSize: "1.35rem", fontWeight: 800, color: "var(--text-pure)", marginBottom: "0.4rem" }}>
                   {report.lot_id ? `LOT: ${report.lot_id}` : "Custom Symptom Analysis"}
                 </h2>
                 <p style={{ fontSize: "0.875rem", color: "var(--text-medium)", lineHeight: 1.6, maxWidth: 600 }}>
@@ -213,7 +213,7 @@ export function RcaTab() {
               <div className="why-chain">
                 {report.five_whys.map((w) => (
                   <div key={w.order} className="why-step">
-                    <div className="why-node">W{w.order}</div>
+                    <div className="why-node">{w.order}</div>
                     <div className="why-content">
                       <div className="why-q">Why #{w.order}</div>
                       <div className="why-a">
@@ -249,8 +249,8 @@ export function RcaTab() {
                     style={{
                       display: "flex", alignItems: "flex-start", gap: "0.75rem",
                       padding: "0.75rem 1rem",
-                      background: "var(--success-dim)",
-                      border: "1px solid rgba(16,185,129,0.2)",
+                      background: "var(--status-success-bg)",
+                      border: "1px solid var(--status-success-border)",
                       borderRadius: "var(--r-md)",
                     }}
                   >

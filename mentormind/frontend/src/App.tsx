@@ -3,7 +3,15 @@ import { api } from "./api";
 import { ReviewProfilesTab } from "./components/ReviewProfilesTab";
 import { AssistantTab } from "./components/AssistantTab";
 import { RcaTab } from "./components/RcaTab";
-import { CheckSquare, Bot, Activity, Database, Radio, Cpu, Wifi, WifiOff, Sun, Moon } from "lucide-react";
+import {
+  CheckSquare,
+  Bot,
+  Activity,
+  Database,
+  Radio,
+  Sun,
+  Moon,
+} from "lucide-react";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<"review" | "assistant" | "rca">("review");
@@ -40,115 +48,90 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  const neo4jStatus  = healthStatus?.neo4j?.toLowerCase() || "ready";
-  const pgStatus     = healthStatus?.postgres?.toLowerCase() || "ready";
+  const isOnline = !apiError;
 
   return (
     <div className="app-container">
-      {/* ── Animated Background Layer ── */}
-      <div className="animated-bg" aria-hidden="true">
-        <div className="orb-1" />
-        <div className="orb-2" />
-        <div className="orb-3" />
-        <div className="orb-4" />
-        <div className="dot-grid" />
-        <div className="scanline" />
-      </div>
+      {/* ── Architectural Engineering Background (Calm, structured, 0% CPU waste) ── */}
+      <div className="engineered-bg" aria-hidden="true" />
 
-      {/* ── Premium HUD Header ── */}
+      {/* ── Enterprise Header ── */}
       <header className="app-header">
         <div className="header-left">
-          {/* DENSO red emblem */}
-          <div className="denso-badge">DENSO</div>
-
-          <div className="header-brand">
-            <h1 className="header-title">
-              MentorMind
-              <span className="header-event-tag">FACTORY HACKS 2026</span>
-            </h1>
-            <p className="header-subtitle">
-              Know-How Extraction &amp; Validation Engine // Industrial AI
-            </p>
+          <div className="brand-badge">DENSO</div>
+          <div className="brand-text">
+            <span className="brand-name">MentorMind</span>
+            <span className="brand-badge-version">v1.2</span>
           </div>
+          <span className="brand-tagline">Quality Know-How &amp; RCA Platform</span>
         </div>
 
-        {/* System telemetry pills & Theme switch */}
-        <div className="header-status">
+        <div className="header-right">
+          {/* Integrated System Health Status */}
+          <div className="system-health-strip">
+            <div className="health-item" title={isOnline ? "Backend API Operational" : "Backend API Offline"}>
+              <span className={`status-dot ${isOnline ? "online" : "offline"}`} />
+              <span>API</span>
+            </div>
+            <div className="health-divider" />
+            <div className="health-item" title={`Neo4j Knowledge Graph: ${healthStatus?.neo4j || "ready"}`}>
+              <Database size={12} className="health-icon" />
+              <span>Graph DB</span>
+            </div>
+            <div className="health-divider" />
+            <div className="health-item" title={`PostgreSQL Vector Store: ${healthStatus?.postgres || "ready"}`}>
+              <Radio size={12} className="health-icon" />
+              <span>Vector DB</span>
+            </div>
+          </div>
+
+          {/* Theme Switcher */}
           <button
             id="theme-toggle"
             onClick={toggleTheme}
             className="theme-toggle-btn"
-            title={theme === "light" ? "Switch to Dark Theme" : "Switch to Light Theme"}
+            title={theme === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"}
           >
             {theme === "light" ? (
-              <>
-                <Sun size={13} color="#d97706" />
-                <span>LIGHT</span>
-              </>
+              <Sun size={13} className="theme-icon sun" />
             ) : (
-              <>
-                <Moon size={13} color="#00d4ff" />
-                <span>DARK</span>
-              </>
+              <Moon size={13} className="theme-icon moon" />
             )}
+            <span>{theme === "light" ? "Light" : "Dark"}</span>
           </button>
-
-          <div className="status-pill">
-            <span className={`status-dot ${apiError ? "offline" : ""}`} />
-            {apiError
-              ? <><WifiOff size={11} /><span>API OFFLINE</span></>
-              : <><Wifi size={11} /><span>API ONLINE</span></>
-            }
-          </div>
-
-          <div className="status-pill">
-            <Database size={11} color={theme === "light" ? "#0284c7" : "#00d4ff"} />
-            <span>GRAPH: {neo4jStatus.toUpperCase()}</span>
-          </div>
-
-          <div className="status-pill">
-            <Radio size={11} color={theme === "light" ? "#059669" : "#10b981"} />
-            <span>VECTOR: {pgStatus.toUpperCase()}</span>
-          </div>
-
-          <div className="status-pill" style={{ borderColor: "rgba(230,0,18,0.28)", color: theme === "light" ? "#b91c1c" : "rgba(255,80,90,0.9)" }}>
-            <Cpu size={11} color="#e60012" />
-            <span>LINE: PACK01 // ST-04</span>
-          </div>
         </div>
       </header>
 
       {/* ── Navigation Tabs ── */}
       <nav className="tabs-nav">
-        <button
-          id="tab-review"
-          className={`tab-btn ${activeTab === "review" ? "active" : ""}`}
-          onClick={() => setActiveTab("review")}
-        >
-          <CheckSquare size={15} />
-          <span className="tab-num">01 //</span>
-          <span>Human-in-the-Loop Review</span>
-        </button>
+        <div className="tabs-container">
+          <button
+            id="tab-review"
+            className={`tab-btn ${activeTab === "review" ? "active" : ""}`}
+            onClick={() => setActiveTab("review")}
+          >
+            <CheckSquare size={15} />
+            <span>Human-in-the-Loop Review</span>
+          </button>
 
-        <button
-          id="tab-assistant"
-          className={`tab-btn ${activeTab === "assistant" ? "active" : ""}`}
-          onClick={() => setActiveTab("assistant")}
-        >
-          <Bot size={15} />
-          <span className="tab-num">02 //</span>
-          <span>Verified RAG Assistant</span>
-        </button>
+          <button
+            id="tab-assistant"
+            className={`tab-btn ${activeTab === "assistant" ? "active" : ""}`}
+            onClick={() => setActiveTab("assistant")}
+          >
+            <Bot size={15} />
+            <span>Know-How Assistant</span>
+          </button>
 
-        <button
-          id="tab-rca"
-          className={`tab-btn ${activeTab === "rca" ? "active" : ""}`}
-          onClick={() => setActiveTab("rca")}
-        >
-          <Activity size={15} />
-          <span className="tab-num">03 //</span>
-          <span>5-Why &amp; RCA Engine</span>
-        </button>
+          <button
+            id="tab-rca"
+            className={`tab-btn ${activeTab === "rca" ? "active" : ""}`}
+            onClick={() => setActiveTab("rca")}
+          >
+            <Activity size={15} />
+            <span>Root Cause Analysis (5-Why)</span>
+          </button>
+        </div>
       </nav>
 
       {/* ── Main Content ── */}

@@ -162,12 +162,12 @@ export function ReviewProfilesTab() {
   };
 
   const ERROR_TAGS: { id: ErrorTag; label: string }[] = [
-    { id: "missed_step",       label: "E1 MISSED STEP" },
-    { id: "hallucinated_step", label: "E2 HALLUCINATION" },
-    { id: "wrong_order",       label: "E3 WRONG ORDER" },
-    { id: "wrong_object",      label: "E4 WRONG OBJECT" },
-    { id: "wrong_action",      label: "E5 WRONG ACTION" },
-    { id: "other",             label: "E6 OTHER" },
+    { id: "missed_step",       label: "Missed Step" },
+    { id: "hallucinated_step", label: "Hallucinated Step" },
+    { id: "wrong_order",       label: "Wrong Order" },
+    { id: "wrong_object",      label: "Wrong Object" },
+    { id: "wrong_action",      label: "Wrong Action" },
+    { id: "other",             label: "Other Defect" },
   ];
 
   return (
@@ -187,8 +187,8 @@ export function ReviewProfilesTab() {
             value={selectedProcess}
             onChange={(e) => setSelectedProcess(e.target.value)}
           >
-            <option value="PACK01">PACK01 // PACKAGING</option>
-            <option value="ASSY02">ASSY02 // ASSEMBLY</option>
+            <option value="PACK01">PACK01 - Packaging Line</option>
+            <option value="ASSY02">ASSY02 - Assembly Line</option>
           </select>
 
           <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-dim)", letterSpacing: "0.08em" }}>
@@ -201,11 +201,11 @@ export function ReviewProfilesTab() {
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
           >
-            <option value="">— ALL STATUSES —</option>
-            <option value="draft">DRAFT</option>
-            <option value="in_review">IN REVIEW</option>
-            <option value="approved">APPROVED</option>
-            <option value="rejected">REJECTED</option>
+            <option value="">All Statuses</option>
+            <option value="draft">Draft</option>
+            <option value="in_review">In Review</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
           </select>
 
           <button id="btn-refresh" className="btn btn-ghost btn-sm" onClick={loadProfiles} style={{ marginLeft: "auto" }}>
@@ -227,7 +227,7 @@ export function ReviewProfilesTab() {
       <div className="review-layout">
 
         {/* Left — Profile List */}
-        <div className="card card-glow-cyan" style={{ padding: "1.1rem" }}>
+        <div className="card " style={{ padding: "1.1rem" }}>
           <div className="card-header" style={{ marginBottom: "0.85rem", paddingBottom: "0.75rem" }}>
             <div className="card-title">
               <div className="card-icon ci-cyan">
@@ -237,7 +237,7 @@ export function ReviewProfilesTab() {
               <span className="badge badge-cyan" style={{ marginLeft: "0.25rem" }}>{profiles.length}</span>
             </div>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-muted)", letterSpacing: "0.08em" }}>
-              SELECT TO AUDIT
+              SELECT TO INSPECT
             </span>
           </div>
 
@@ -245,7 +245,7 @@ export function ReviewProfilesTab() {
             {loading ? (
               <div className="loading-center" style={{ padding: "2rem" }}>
                 <div className="spinner" />
-                <span>SCANNING DATABASE…</span>
+                <span>Loading profiles…</span>
               </div>
             ) : profiles.length === 0 ? (
               <div className="empty-state">
@@ -284,11 +284,11 @@ export function ReviewProfilesTab() {
           <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
             {/* Profile Header Card */}
-            <div className="card card-glow-red">
+            <div className="card ">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem" }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.45rem", flexWrap: "wrap" }}>
-                    <h2 style={{ fontFamily: "var(--font-display)", fontSize: "1.55rem", fontWeight: 800, letterSpacing: "0.03em", color: "var(--text-pure)" }}>
+                    <h2 style={{ fontFamily: "var(--font-body)", fontSize: "1.55rem", fontWeight: 800, letterSpacing: "0.03em", color: "var(--text-pure)" }}>
                       {selectedProfile.profile_id}
                     </h2>
                     <span className={statusBadge(selectedProfile.status)}>{selectedProfile.status.replace("_", " ")}</span>
@@ -331,9 +331,9 @@ export function ReviewProfilesTab() {
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem" }}>
                 {[
-                  { label: "FRAME 01 // ENTRY",  ts: selectedProfile.evidence.t_start?.toFixed(1) + "s" },
-                  { label: "FRAME 02 // ACTION", ts: (((selectedProfile.evidence.t_start || 0) + (selectedProfile.evidence.t_end || 5)) / 2).toFixed(1) + "s" },
-                  { label: "FRAME 03 // SETTLE", ts: selectedProfile.evidence.t_end?.toFixed(1) + "s" },
+                  { label: "Frame 1 · Initial Entry",  ts: selectedProfile.evidence.t_start?.toFixed(1) + "s" },
+                  { label: "Frame 2 · Action Observed", ts: (((selectedProfile.evidence.t_start || 0) + (selectedProfile.evidence.t_end || 5)) / 2).toFixed(1) + "s" },
+                  { label: "Frame 3 · Tool Settle", ts: selectedProfile.evidence.t_end?.toFixed(1) + "s" },
                 ].map(({ label, ts }) => (
                   <div
                     key={label}
@@ -443,7 +443,7 @@ export function ReviewProfilesTab() {
             </div>
 
             {/* Human-in-the-Loop Audit Console */}
-            <div className="card" style={{ background: "rgba(5,10,22,0.9)", border: "1px solid rgba(16,185,129,0.2)" }}>
+            <div className="card" >
               <div className="card-header">
                 <div className="card-title">
                   <div className="card-icon ci-green"><UserCheck size={14} color="var(--success)" /></div>

@@ -49,7 +49,7 @@ export function AssistantTab() {
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
       {/* ── Query Terminal Card ── */}
-      <div className="card card-glow-cyan">
+      <div className="card ">
         <div className="card-header">
           <div className="card-title">
             <div className="card-icon ci-cyan">
@@ -57,7 +57,7 @@ export function AssistantTab() {
             </div>
             Verified Know-How Assistant
           </div>
-          <span className="badge badge-green">RAG ANTI-HALLUCINATION</span>
+          <span className="badge badge-green">RAG Verified</span>
         </div>
 
         {/* Process selector */}
@@ -72,8 +72,8 @@ export function AssistantTab() {
             value={processId}
             onChange={(e) => setProcessId(e.target.value)}
           >
-            <option value="PACK01">PACK01 // PACKAGING</option>
-            <option value="ASSY02">ASSY02 // ASSEMBLY</option>
+            <option value="PACK01">PACK01 - Packaging Line</option>
+            <option value="ASSY02">ASSY02 - Assembly Line</option>
           </select>
         </div>
 
@@ -151,13 +151,13 @@ export function AssistantTab() {
           {answer.refused ? (
             /* Refusal Panel */
             <div className="alert alert-warning" style={{ flexDirection: "column", alignItems: "flex-start", gap: "0.65rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", fontWeight: 700, fontFamily: "var(--font-display)", fontSize: "1rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", fontWeight: 700, fontFamily: "var(--font-body)", fontSize: "1rem" }}>
                 <ShieldAlert size={18} color="var(--warning)" />
                 Insufficient Evidence — Response Refused (Constitution Article 4)
               </div>
               <p style={{ fontSize: "0.9rem", lineHeight: 1.7 }}>{answer.answer}</p>
               {answer.suggested_expert && (
-                <div style={{ padding: "0.55rem 0.9rem", background: "rgba(0,0,0,0.3)", borderRadius: "var(--r-sm)", border: "1px solid rgba(245,158,11,0.28)", fontSize: "0.85rem" }}>
+                <div style={{ padding: "0.55rem 0.9rem", background: "var(--bg-subtle)", borderRadius: "var(--r-sm)", border: "1px solid var(--border-medium)", fontSize: "0.85rem" }}>
                   Suggested expert to contact: <strong style={{ color: "#fbbf24" }}>{answer.suggested_expert}</strong>
                 </div>
               )}
@@ -236,7 +236,7 @@ export function AssistantTab() {
                       ? <Video size={16} color="var(--cyan)" />
                       : <FileText size={16} color="var(--warning)" />
                     }
-                    <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.9rem", color: "var(--text-high)" }}>
+                    <span style={{ fontFamily: "var(--font-body)", fontWeight: 700, fontSize: "0.9rem", color: "var(--text-high)" }}>
                       Source: {selectedCitation.title || selectedCitation.ref_id}
                     </span>
                     <span className="badge badge-cyan" style={{ marginLeft: "auto" }}>
