@@ -32,8 +32,7 @@ def match_steps(
         Match(truth_index=ti, predicted_index=pi, score=score)
         for ti, t in enumerate(truth)
         for pi, p in enumerate(predicted)
-        if overlaps(t.t_start, t.t_end, p.t_start, p.t_end)
-        and (score := similarity(t.step, p.step)) >= threshold
+        if overlaps(t.t_start, t.t_end, p.t_start, p.t_end) and (score := similarity(t.step, p.step)) >= threshold
     ]
     used_truth: set[int] = set()
     used_pred: set[int] = set()

@@ -186,9 +186,7 @@ def _combine(name: str, parts: list[TimedStep]) -> TimedStep:
             "t_end": max(p.t_end for p in parts),
             "hand_action": next((p.hand_action for p in parts if p.hand_action), None),
             "objects": list(dict.fromkeys(o for p in parts for o in p.objects)),
-            "key_point_observed": next(
-                (p.key_point_observed for p in parts if p.key_point_observed), None
-            ),
+            "key_point_observed": next((p.key_point_observed for p in parts if p.key_point_observed), None),
             "confidence": round(sum(p.confidence for p in parts) / len(parts), 3),
             "keyframes": list(dict.fromkeys(k for p in parts for k in p.keyframes)),
             "segment_ids": segment_ids if len(segment_ids) > 1 else [],
@@ -199,6 +197,4 @@ def _combine(name: str, parts: list[TimedStep]) -> TimedStep:
 def _save(work_dir: Path, prompt: str, response: dict[str, Any], report: MergeReport) -> None:
     work_dir.mkdir(parents=True, exist_ok=True)
     record = {"prompt": prompt, "response": response, "report": report.model_dump()}
-    (work_dir / "pass_c.json").write_text(
-        json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    (work_dir / "pass_c.json").write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")

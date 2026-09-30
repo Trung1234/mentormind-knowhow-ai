@@ -39,9 +39,7 @@ def test_ac_03_confidential_video_cloud_provider_raises_before_reading_files(
     assert cloud.calls == []
 
 
-def test_ac_03_cloud_http_provider_sends_nothing(
-    settings: Settings, http: RecordingHttp, frames: list[Path]
-) -> None:
+def test_ac_03_cloud_http_provider_sends_nothing(settings: Settings, http: RecordingHttp, frames: list[Path]) -> None:
     settings = with_provider(settings, vlm_provider="openrouter", vlm_api_key=SecretStr("sk"))
     vlm = get_vlm_provider(settings, http=http)
     assert vlm.is_cloud

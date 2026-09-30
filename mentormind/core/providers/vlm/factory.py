@@ -47,9 +47,7 @@ def _non_blank(secret: SecretStr | None) -> bool:
     return secret is not None and bool(secret.get_secret_value().strip())
 
 
-def get_vlm_provider(
-    settings: Settings | None = None, *, http: HttpClient | None = None
-) -> VLMProvider:
+def get_vlm_provider(settings: Settings | None = None, *, http: HttpClient | None = None) -> VLMProvider:
     """Build the VLM provider selected by ``KNOWHOW_VLM_PROVIDER``.
 
     Raises:
@@ -62,7 +60,5 @@ def get_vlm_provider(
         audit_dir=settings.guard_audit_dir,
         extra_patterns=settings.guard_extra_patterns,
     )
-    provider.image_policy = ImageGuardPolicy(
-        blur_faces=settings.guard_blur_faces, face_model=settings.guard_face_model
-    )
+    provider.image_policy = ImageGuardPolicy(blur_faces=settings.guard_blur_faces, face_model=settings.guard_face_model)
     return provider

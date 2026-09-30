@@ -60,9 +60,7 @@ def test_upsert_by_chunk_id_never_duplicates() -> None:
 def test_filters_on_kind_source_type_and_process() -> None:
     store = MemoryVectorStore()
     store.upsert(CHUNKS)
-    assert [h.chunk.chunk_id for h in store.search("bước", filters={"kind": "table"})] == [
-        "DOC-1#p1-1"
-    ]
+    assert [h.chunk.chunk_id for h in store.search("bước", filters={"kind": "table"})] == ["DOC-1#p1-1"]
     profiles = store.search("linh kiện", filters={"source_type": "work_profile"})
     assert [h.chunk.ref_id for h in profiles] == ["WP-PACK01-003"]
     assert {h.chunk.chunk_id for h in store.search("x", filters={"process_id": "PACK01"})} == {

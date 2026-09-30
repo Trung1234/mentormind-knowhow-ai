@@ -32,12 +32,7 @@ class PiiMasker:
         self._recognizers = tuple(recognizers) + custom_recognizers(extra_patterns or {})
         # Longest first so "Nguyễn Văn An" wins over "An".
         self._known = sorted(
-            (
-                (entity, value)
-                for entity, values in (known or {}).items()
-                for value in values
-                if value
-            ),
+            ((entity, value) for entity, values in (known or {}).items() for value in values if value),
             key=lambda item: len(item[1]),
             reverse=True,
         )
@@ -56,9 +51,7 @@ class PiiMasker:
         for entity, value in self._known:
             pattern = re.compile(re.escape(value), re.IGNORECASE)
             if pattern.search(result):
-                result = pattern.sub(
-                    self.vault.tokenize(value, entity).replace("\\", r"\\"), result
-                )
+                result = pattern.sub(self.vault.tokenize(value, entity).replace("\\", r"\\"), result)
         for recognizer in self._recognizers:
             spans = sorted(recognizer.find(result))
             # Number tokens in reading order, then splice right-to-left so offsets stay valid.

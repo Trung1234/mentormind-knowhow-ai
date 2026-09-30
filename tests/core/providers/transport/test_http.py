@@ -63,8 +63,6 @@ def test_client_errors_are_not_retried() -> None:
 
 
 def test_retry_after_header_is_honoured() -> None:
-    client, sleeps = client_for(
-        [httpx.Response(429, headers={"Retry-After": "7"}), httpx.Response(200, json={})]
-    )
+    client, sleeps = client_for([httpx.Response(429, headers={"Retry-After": "7"}), httpx.Response(200, json={})])
     client.post_json(URL, {})
     assert sleeps == [7.0]

@@ -18,10 +18,11 @@ class AskRequest(BaseModel):
     question: str
     process_id: str | None = None
 
+
 class AssistantAnswer(BaseModel):
-    answer: str                    # tiếng Việt, có marker [1], [2] ...
-    citations: list[Citation]      # index i ứng với marker [i+1]
-    confidence: float              # 0..1
+    answer: str  # tiếng Việt, có marker [1], [2] ...
+    citations: list[Citation]  # index i ứng với marker [i+1]
+    confidence: float  # 0..1
     refused: bool
     suggested_contact: str | None  # display_name chuyên gia khi refused
 ```
@@ -36,28 +37,31 @@ Luồng:
 ```python
 class RcaRequest(BaseModel):
     lot_id: str | None = None
-    symptom_text: str | None = None      # ít nhất một trong hai
+    symptom_text: str | None = None  # ít nhất một trong hai
     process_id: str | None = None
+
 
 class Hypothesis(BaseModel):
     cause: str
     likelihood: Literal["high", "medium", "low"]
     evidence: list[Citation]
-    check_actions: list[str]             # việc cần kiểm tra để xác nhận
+    check_actions: list[str]  # việc cần kiểm tra để xác nhận
+
 
 class WhyStep(BaseModel):
     why: str
     answer: str
-    verified: bool                       # False = "cần xác minh tại hiện trường"
+    verified: bool  # False = "cần xác minh tại hiện trường"
+
 
 class RcaReport(BaseModel):
     lot_id: str | None
     symptom: str
-    hypotheses: list[Hypothesis]         # tối đa 3, sắp theo likelihood
-    five_why: list[WhyStep]              # 3..5 tầng
+    hypotheses: list[Hypothesis]  # tối đa 3, sắp theo likelihood
+    five_why: list[WhyStep]  # 3..5 tầng
     related_lots: list[str]
-    prevention_steps: list[str]          # profile_id
-    disclaimer: str                      # luôn có: đây là giả thuyết, cần xác minh
+    prevention_steps: list[str]  # profile_id
+    disclaimer: str  # luôn có: đây là giả thuyết, cần xác minh
 ```
 Luồng:
 1. Có `lot_id` → `SigmaAdapter.get_lot(lot_id)` + `get_defects(lot_id)` (spec 07) → xác định symptom, process, ca, người vận hành.

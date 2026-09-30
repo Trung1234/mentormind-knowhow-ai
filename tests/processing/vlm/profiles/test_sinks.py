@@ -51,9 +51,7 @@ class FakeStore:
     def get_profile(self, profile_id: str) -> WorkProfile | None:
         return self.rows.get(profile_id)
 
-    def list_profiles(
-        self, process_id: str | None = None, status: str | None = None
-    ) -> list[WorkProfile]:
+    def list_profiles(self, process_id: str | None = None, status: str | None = None) -> list[WorkProfile]:
         return [p for p in self.rows.values() if process_id in (None, p.process_id)]
 
 
@@ -106,19 +104,25 @@ def test_store_sink_never_overwrites_a_draft_it_just_renumbered(tmp_path: Path) 
     assert [store.rows[p.profile_id].step for p in saved] == ["Bước số 1", "Bước số 2"]
 
 
-def test_auto_falls_back_to_the_file_until_spec08_lands(tmp_path: Path) -> None:
+def test_auto_falls_back_to_the_file_until_spec08_lands(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from mentormind.processing.vlm.profiles import sinks
+
+    monkeypatch.setattr(sinks, "_store_class", lambda: None)
     sink = get_profile_sink(settings(tmp_path, "auto"), work_dir=tmp_path)
     assert isinstance(sink, FileProfileSink)
 
 
-def test_asking_for_the_store_before_it_exists_is_a_clear_error(tmp_path: Path) -> None:
+def test_asking_for_the_store_before_it_exists_is_a_clear_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mentormind.processing.vlm.profiles import sinks
+
+    monkeypatch.setattr(sinks, "_store_class", lambda: None)
     with pytest.raises(ProfileSinkError, match="spec 08"):
         get_profile_sink(settings(tmp_path, "store"), work_dir=tmp_path)
 
 
-def test_auto_uses_the_store_once_it_exists(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_auto_uses_the_store_once_it_exists(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from mentormind.processing.vlm.profiles import sinks
 
     monkeypatch.setattr(sinks, "_store_class", lambda: lambda db_path: FakeStore())

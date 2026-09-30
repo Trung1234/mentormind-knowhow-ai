@@ -33,9 +33,7 @@ class ContextPassage(BaseModel):
     classification: DataClassification
 
 
-def filter_passages(
-    passages: Sequence[ContextPassage], destination: SupportsCloudFlag
-) -> list[ContextPassage]:
+def filter_passages(passages: Sequence[ContextPassage], destination: SupportsCloudFlag) -> list[ContextPassage]:
     """Passages ``destination`` may receive; confidential ones are dropped for the cloud."""
     if not destination.is_cloud:
         return list(passages)

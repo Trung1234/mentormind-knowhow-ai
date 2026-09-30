@@ -91,9 +91,7 @@ class DescribePipeline:
             failed_segments=[f.segment_id for f in steps.failed],
         )
 
-    def pass_a(
-        self, segments: Sequence[Segment], work_dir: Path, *, sampler: Sampler | None = None
-    ) -> PassAResult:
+    def pass_a(self, segments: Sequence[Segment], work_dir: Path, *, sampler: Sampler | None = None) -> PassAResult:
         """Describe every segment once (VLM)."""
         return describe_segments(
             segments,
@@ -136,9 +134,7 @@ class DescribePipeline:
                 json.dumps([f.model_dump() for f in steps.failed], ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
-        (work_dir / "predictions.json").write_text(
-            steps.model_dump_json(indent=2), encoding="utf-8"
-        )
+        (work_dir / "predictions.json").write_text(steps.model_dump_json(indent=2), encoding="utf-8")
         write_profiles(profiles, work_dir / "profiles.json")
 
 

@@ -13,23 +13,15 @@ from mentormind.core.schemas.common import DataClassification
 
 def sweep_cmd(
     video: Annotated[Path, typer.Option(exists=True, dir_okay=False, help="Video cần mô tả.")],
-    truth: Annotated[
-        Path, typer.Option(exists=True, dir_okay=False, help="Bước gán tay (spec 04 §6).")
-    ],
-    fps: Annotated[
-        str, typer.Option(help="Các fps cần quét, phân tách bằng dấu phẩy.")
-    ] = "1,2,4,8",
+    truth: Annotated[Path, typer.Option(exists=True, dir_okay=False, help="Bước gán tay (spec 04 §6).")],
+    fps: Annotated[str, typer.Option(help="Các fps cần quét, phân tách bằng dấu phẩy.")] = "1,2,4,8",
     out: Annotated[Path, typer.Option(help="File CSV kết quả.")] = Path("data/work/sweep.csv"),
-    provider: Annotated[
-        str | None, typer.Option(help="Ghi đè KNOWHOW_VLM_PROVIDER cho lần chạy này.")
-    ] = None,
+    provider: Annotated[str | None, typer.Option(help="Ghi đè KNOWHOW_VLM_PROVIDER cho lần chạy này.")] = None,
     segments: Annotated[
         Path | None,
         typer.Option(exists=True, dir_okay=False, help="segments.json của spec 03 (nếu đã có)."),
     ] = None,
-    window: Annotated[
-        float, typer.Option(min=3, help="Độ dài đoạn (s) khi chưa có segments.json.")
-    ] = 10.0,
+    window: Annotated[float, typer.Option(min=3, help="Độ dài đoạn (s) khi chưa có segments.json.")] = 10.0,
     classification: Annotated[
         DataClassification,
         typer.Option(help="Nhãn dữ liệu của video; mặc định coi là dữ liệu nhà máy."),

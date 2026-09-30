@@ -53,9 +53,7 @@ def test_json_mode_auto_uses_what_each_endpoint_honours(
     settings: Settings, http: RecordingHttp, provider: str, expected: str
 ) -> None:
     settings = with_provider(settings, vlm_provider=provider, vlm_api_key=SecretStr("k"))
-    get_vlm_provider(settings, http=http).generate_json(
-        [], "trả JSON", {"type": "object"}, classification="public"
-    )
+    get_vlm_provider(settings, http=http).generate_json([], "trả JSON", {"type": "object"}, classification="public")
     assert http.posts[0][1]["response_format"]["type"] == expected
 
 

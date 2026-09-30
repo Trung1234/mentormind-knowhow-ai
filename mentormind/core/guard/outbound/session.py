@@ -42,9 +42,7 @@ class OutboundSession:
         self._model = model
         self._cloud = destination.is_cloud
         self._active = self._cloud and policy.mask_text
-        self._masker = PiiMasker(
-            PiiVault(), known=policy.known_entities, extra_patterns=policy.extra_patterns
-        )
+        self._masker = PiiMasker(PiiVault(), known=policy.known_entities, extra_patterns=policy.extra_patterns)
         self._audit = AuditLog(policy.audit_dir if destination.is_cloud else None)
 
     @property

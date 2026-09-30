@@ -48,9 +48,7 @@ class LLMProvider(ProviderBase):
             SensitiveDataLeakError: a cloud call would still carry PII after masking.
             ProviderError: transport/HTTP failure or unexpected response shape.
         """
-        session = OutboundSession(
-            self.guard_policy, self, classification, kind=self.kind, model=self.model
-        )
+        session = OutboundSession(self.guard_policy, self, classification, kind=self.kind, model=self.model)
         outgoing_prompt = session.mask(prompt) or ""
         outgoing_system = session.mask(system)
         session.ensure_clean([outgoing_prompt, outgoing_system])
@@ -72,9 +70,7 @@ class LLMProvider(ProviderBase):
             model=self.model,
         )
 
-    def generate_text(
-        self, prompt: str, *, classification: DataClassification | str, **kwargs: Any
-    ) -> str:
+    def generate_text(self, prompt: str, *, classification: DataClassification | str, **kwargs: Any) -> str:
         return self.generate(prompt, classification=classification, **kwargs).text
 
     def generate_json(
@@ -86,9 +82,7 @@ class LLMProvider(ProviderBase):
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Like :meth:`generate`, parsed as a JSON object (raises ``InvalidJSONError``)."""
-        response = self.generate(
-            prompt, classification=classification, json_schema=json_schema, **kwargs
-        )
+        response = self.generate(prompt, classification=classification, json_schema=json_schema, **kwargs)
         return parse_json_object(response.text)
 
     @abstractmethod

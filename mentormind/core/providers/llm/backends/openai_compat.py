@@ -40,9 +40,7 @@ class OpenAICompatLLM(LLMProvider):
 
     @classmethod
     def from_config(cls, config: ProviderConfig, http: HttpClient | None = None) -> Self:
-        endpoint = resolve_endpoint(
-            config, default_model=default_llm_model(config.provider), env_prefix="LLM"
-        )
+        endpoint = resolve_endpoint(config, default_model=default_llm_model(config.provider), env_prefix="LLM")
         return cls(ChatClient.from_config(endpoint, config, http))
 
     def _complete(

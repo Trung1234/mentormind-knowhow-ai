@@ -26,14 +26,10 @@ WORK = Path("data/work")
 
 
 def describe_cmd(
-    video_id: Annotated[
-        str | None, typer.Argument(help="video_id đã cắt đoạn bằng spec 03 (segments.json).")
-    ] = None,
+    video_id: Annotated[str | None, typer.Argument(help="video_id đã cắt đoạn bằng spec 03 (segments.json).")] = None,
     video: Annotated[
         Path | None,
-        typer.Option(
-            exists=True, dir_okay=False, help="Video thô; cắt đoạn 10 s khi chưa có spec 03."
-        ),
+        typer.Option(exists=True, dir_okay=False, help="Video thô; cắt đoạn 10 s khi chưa có spec 03."),
     ] = None,
     segments: Annotated[
         Path | None, typer.Option(exists=True, dir_okay=False, help="segments.json của spec 03.")
@@ -49,15 +45,11 @@ def describe_cmd(
     ] = None,
     window: Annotated[float, typer.Option(min=3, help="Độ dài đoạn (s) cho --video.")] = 10.0,
     provider: Annotated[str | None, typer.Option(help="Ghi đè KNOWHOW_VLM_PROVIDER.")] = None,
-    llm_provider: Annotated[
-        str | None, typer.Option(help="LLM của lượt C; ghi đè KNOWHOW_LLM_PROVIDER.")
-    ] = None,
+    llm_provider: Annotated[str | None, typer.Option(help="LLM của lượt C; ghi đè KNOWHOW_LLM_PROVIDER.")] = None,
     consistency: Annotated[
         bool, typer.Option(help="Lượt B: chạy lượt A 2 lần, giữ bước có ở cả 2 (gấp đôi token).")
     ] = True,
-    merge: Annotated[
-        bool, typer.Option(help="Lượt C: LLM gộp bước trùng giữa các đoạn kề.")
-    ] = True,
+    merge: Annotated[bool, typer.Option(help="Lượt C: LLM gộp bước trùng giữa các đoạn kề.")] = True,
 ) -> None:
     """Describe a video: passes A, B, C, then draft WorkProfiles."""
     from mentormind.core.guard import ConfidentialDataError, DataGuard
@@ -111,15 +103,12 @@ def describe_cmd(
     moved = sum(a.profile_id != b.profile_id for a, b in zip(result.profiles, stored, strict=True))
     kept = len(result.steps.steps)
     typer.echo(f"provider={vlm.name} model={vlm.model} | {len(loaded)} đoạn | chi tiết: {work_dir}")
-    typer.echo(
-        f"lượt A: {result.pass_a_steps} bước" + (f" → lượt B giữ {kept}" if consistency else "")
-    )
+    typer.echo(f"lượt A: {result.pass_a_steps} bước" + (f" → lượt B giữ {kept}" if consistency else ""))
     if result.merge is not None:
         m = result.merge
         typer.echo(
             f"lượt C ({llm.name if llm else '-'}): gộp {m.merged}, đổi tên {m.renamed}, "
-            f"bỏ bước bịa {m.invented_dropped}, từ chối {m.rejected}"
-            + (f" | {m.error}" if m.error else "")
+            f"bỏ bước bịa {m.invented_dropped}, từ chối {m.rejected}" + (f" | {m.error}" if m.error else "")
         )
     if result.failed_segments:
         typer.secho(f"{len(result.failed_segments)} đoạn lỗi JSON: {work_dir}/failed_segments.json",
@@ -153,8 +142,7 @@ def propose_reasons_cmd(
         raise typer.Exit(1) from exc
     if not profiles:
         typer.secho(
-            f"Lỗi: {sink.where} chưa có profile nào của {video_id}; "
-            "chạy `knowhow vlm describe` trước.",
+            f"Lỗi: {sink.where} chưa có profile nào của {video_id}; chạy `knowhow vlm describe` trước.",
             fg=typer.colors.RED,
             err=True,
         )
@@ -178,10 +166,7 @@ def propose_reasons_cmd(
             sink.save(video_id, updated)
         else:
             sink.save(video_id, changed)
-    typer.echo(
-        f"{candidates} profile có transcript → điền lý do cho {len(changed)} (in_review) "
-        f"→ {sink.where}"
-    )
+    typer.echo(f"{candidates} profile có transcript → điền lý do cho {len(changed)} (in_review) → {sink.where}")
 
 
 def _llm(settings: Settings) -> LLMProvider:
@@ -210,9 +195,7 @@ def _segments(
         )  # fmt: skip
     path = segments or WORK / "video" / str(video_id) / "segments.json"
     if not path.is_file():
-        raise FileNotFoundError(
-            f"Không thấy {path} (spec 03 `knowhow video segment` chưa chạy). Dùng --video <file>."
-        )
+        raise FileNotFoundError(f"Không thấy {path} (spec 03 `knowhow video segment` chưa chạy). Dùng --video <file>.")
     loaded = [Segment.model_validate(s) for s in json.loads(path.read_text(encoding="utf-8"))]
     if not loaded:
         raise ValueError(f"{path} không có đoạn nào.")

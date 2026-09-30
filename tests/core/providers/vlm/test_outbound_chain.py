@@ -48,9 +48,7 @@ def test_ac_16_self_hosted_vlm_gets_the_prompt_untouched() -> None:
     assert vlm.calls[0].prompt == "Tổ trưởng: 0987654321"
 
 
-def test_ac_16_leak_is_refused_before_any_http_call(
-    settings: Settings, http: RecordingHttp
-) -> None:
+def test_ac_16_leak_is_refused_before_any_http_call(settings: Settings, http: RecordingHttp) -> None:
     settings = settings.model_copy(
         update={
             "vlm_provider": "openrouter",
@@ -90,9 +88,7 @@ def test_ac_17_self_hosted_frames_are_sent_as_is(tmp_path: Path) -> None:
     assert vlm.calls[0].images[0].data == frame.read_bytes()
 
 
-def test_ac_17_missing_face_model_fails_closed(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_ac_17_missing_face_model_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def offline(*args: object, **kwargs: object) -> httpx.Response:
         raise httpx.ConnectError("offline")
 

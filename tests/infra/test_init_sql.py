@@ -12,9 +12,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 INIT = (REPO / "infra" / "postgres" / "init.sql").read_text(encoding="utf-8")
-CONTRACT = json.loads(
-    (REPO / "docs" / "contracts" / "work_profile.schema.json").read_text(encoding="utf-8")
-)
+CONTRACT = json.loads((REPO / "docs" / "contracts" / "work_profile.schema.json").read_text(encoding="utf-8"))
 
 
 def _table(name: str) -> str:

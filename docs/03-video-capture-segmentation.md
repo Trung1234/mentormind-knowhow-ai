@@ -11,7 +11,7 @@ VLM lấy mẫu thưa (mặc định ~1 fps) sẽ bỏ sót động tác tay nha
 ## 3. Data model — `core.schemas.video`
 ```python
 class VideoAsset(BaseModel):
-    video_id: str              # "VID-" + sha256[:12]
+    video_id: str  # "VID-" + sha256[:12]
     path: str
     duration_s: float
     fps: float
@@ -19,17 +19,21 @@ class VideoAsset(BaseModel):
     process_id: str | None
     data_classification: DataClassification
 
+
 class Segment(BaseModel):
-    segment_id: str            # f"{video_id}-S{index:03d}"
+    segment_id: str  # f"{video_id}-S{index:03d}"
     video_id: str
     index: int
     t_start: float
     t_end: float
     method: Literal["scene", "hand_activity", "fixed_window"]
-    motion_score: float | None     # 0..1, None nếu không tính
-    keyframes: list[str]           # đường dẫn JPG
-    clip_path: str                 # mp4 đã cắt
-    data_classification: DataClassification   # kế thừa từ VideoAsset, để DataGuard (spec 04) kiểm tra không cần tra ngược
+    motion_score: float | None  # 0..1, None nếu không tính
+    keyframes: list[str]  # đường dẫn JPG
+    clip_path: str  # mp4 đã cắt
+    data_classification: (
+        DataClassification  # kế thừa từ VideoAsset, để DataGuard (spec 04) kiểm tra không cần tra ngược
+    )
+
 
 class TranscriptSegment(BaseModel):
     video_id: str
@@ -37,7 +41,7 @@ class TranscriptSegment(BaseModel):
     t_end: float
     text: str
     language: str
-    source: Literal["inline", "cued_recall"] = "inline"   # lời bình khi quay / ghi âm video-cued recall
+    source: Literal["inline", "cued_recall"] = "inline"  # lời bình khi quay / ghi âm video-cued recall
     data_classification: DataClassification
 ```
 

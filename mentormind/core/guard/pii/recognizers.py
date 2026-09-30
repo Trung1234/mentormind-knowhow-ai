@@ -65,9 +65,7 @@ class Recognizer(BaseModel):
         return spans
 
     def _keyword_near(self, text: str, start: int, end: int) -> bool:
-        window = strip_diacritics(
-            text[max(0, start - _CONTEXT_WINDOW) : min(len(text), end + _CONTEXT_WINDOW)]
-        )
+        window = strip_diacritics(text[max(0, start - _CONTEXT_WINDOW) : min(len(text), end + _CONTEXT_WINDOW)])
         return any(keyword in window for keyword in self.context_keywords)
 
 
@@ -96,7 +94,4 @@ DEFAULT_RECOGNIZERS: tuple[Recognizer, ...] = (
 
 def custom_recognizers(patterns: Mapping[str, str]) -> tuple[Recognizer, ...]:
     """Recognizers for site-specific codes, e.g. ``{"EQUIPMENT": "SIGMA-EQ-\\d+"}``."""
-    return tuple(
-        Recognizer(entity=entity.upper(), pattern=re.compile(regex))
-        for entity, regex in patterns.items()
-    )
+    return tuple(Recognizer(entity=entity.upper(), pattern=re.compile(regex)) for entity, regex in patterns.items())

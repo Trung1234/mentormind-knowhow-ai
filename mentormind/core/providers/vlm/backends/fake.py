@@ -90,9 +90,7 @@ class FakeVLM(VLMProvider):
             )
         )
         text = self._script[min(len(self.calls), len(self._script)) - 1]
-        usage = TokenUsage(
-            prompt_tokens=len(prompt) + 100 * len(images), completion_tokens=len(text)
-        )
+        usage = TokenUsage(prompt_tokens=len(prompt) + 100 * len(images), completion_tokens=len(text))
         return text, usage
 
 

@@ -15,9 +15,7 @@ from pathlib import Path
 from dotenv import dotenv_values
 
 
-def lookup_secret(
-    name: str, *, secrets_file: Path, environ: Mapping[str, str] | None = None
-) -> str | None:
+def lookup_secret(name: str, *, secrets_file: Path, environ: Mapping[str, str] | None = None) -> str | None:
     """Return the non-empty value of secret ``name``, or None when it is not configured."""
     env = os.environ if environ is None else environ
     value = (env.get(name) or "").strip()

@@ -1,4 +1,11 @@
-.PHONY: up down dev-up dev-shell check test demo fmt vlm-server-sync vlm-server vlm-server-smoke
+.PHONY: start demo-ui up down dev-up dev-shell check test demo fmt vlm-server-sync vlm-server vlm-server-smoke
+
+# Khởi động toàn bộ Backend + Tablet Frontend chỉ bằng 1 lệnh
+start:
+	./start.sh
+
+demo-ui:
+	./start.sh
 
 # spec 01 FR-05 / task D3. docker-compose.yml stays at the repo root; every override lives in
 # infra/docker/ and is selected by PLATFORM (or by spelling COMPOSE_FILES out yourself):

@@ -8,6 +8,7 @@ on:
 
 jobs:
   check:
+    name: Python Lint, Typecheck & Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,3 +21,27 @@ jobs:
       # Python comes from .python-version (3.11, spec 01 FR-01).
       - run: uv sync --all-extras --locked
       - run: make check
+
+  frontend-build:
+    name: Frontend Typecheck & Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: mentormind/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: mentormind/frontend
+        run: |
+          npm ci
+
+      - name: Typecheck and Build Frontend
+        working-directory: mentormind/frontend
+        run: |
+          npm run build

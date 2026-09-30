@@ -88,9 +88,7 @@ def test_every_vendor_row_is_an_llm_provider_too() -> None:
         ("openrouter", "OPENROUTER_API_KEY", "qwen/qwen-plus"),
     ],
 )
-def test_cloud_llm_defaults_and_key_from_secrets(
-    settings: Settings, provider: str, key_env: str, model: str
-) -> None:
+def test_cloud_llm_defaults_and_key_from_secrets(settings: Settings, provider: str, key_env: str, model: str) -> None:
     settings.secrets_file.write_text(f"{key_env}=sk-test\n", encoding="utf-8")
     http = RecordingHttp(content="xin chào")
     llm = get_llm_provider(settings.model_copy(update={"llm_provider": provider}), http=http)
@@ -123,8 +121,6 @@ def test_cloud_llm_prompt_is_masked_and_answer_restored(settings: Settings) -> N
     http = RecordingHttp(content="Gọi [PHONE_1] để báo thiếu hàng")
     update = {"llm_provider": "qwen_api", "llm_api_key": SecretStr("k")}
     llm = get_llm_provider(settings.model_copy(update=update), http=http)
-    answer = llm.generate_text(
-        "Tổ trưởng: 0987654321. Hỏi cách báo thiếu hàng.", classification="public"
-    )
+    answer = llm.generate_text("Tổ trưởng: 0987654321. Hỏi cách báo thiếu hàng.", classification="public")
     assert "0987654321" not in http.posts[0][1]["messages"][-1]["content"]
     assert answer == "Gọi 0987654321 để báo thiếu hàng"

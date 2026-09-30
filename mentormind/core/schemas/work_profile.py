@@ -30,9 +30,7 @@ from pydantic import (
 
 from mentormind.core.schemas.common import DataClassification
 
-CONTRACT_PATH = (
-    Path(__file__).resolve().parents[3] / "docs" / "contracts" / "work_profile.schema.json"
-)
+CONTRACT_PATH = Path(__file__).resolve().parents[3] / "docs" / "contracts" / "work_profile.schema.json"
 SCHEMA_VERSION: Literal["1.0"] = "1.0"
 
 GeneratedBy = Literal["vlm", "ocr", "human"]
@@ -40,9 +38,7 @@ GeneratedBy = Literal["vlm", "ocr", "human"]
 Actor = Literal["human", "robot", "machine"]
 ProfileStatus = Literal["draft", "in_review", "approved", "rejected"]
 ReasonSource = Literal["expert_verbal", "expert_interview"]
-ErrorTag = Literal[
-    "missed_step", "hallucinated_step", "wrong_order", "wrong_object", "wrong_action", "other"
-]
+ErrorTag = Literal["missed_step", "hallucinated_step", "wrong_order", "wrong_object", "wrong_action", "other"]
 
 
 class ContractValidationError(ValueError):
@@ -59,9 +55,7 @@ class _DropUnsetOptional(BaseModel):
     _non_nullable: frozenset[str] = frozenset()
 
     @model_serializer(mode="wrap")
-    def _drop_none(
-        self, handler: SerializerFunctionWrapHandler, info: SerializationInfo
-    ) -> dict[str, Any]:
+    def _drop_none(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict[str, Any]:
         data: dict[str, Any] = handler(self)
         return {k: v for k, v in data.items() if not (k in self._non_nullable and v is None)}
 
@@ -150,10 +144,12 @@ class WorkProfile(BaseModel):
         # Contract allOf[0] — constitution art. 3: a VLM draft never carries a reason.
         is_vlm_draft = self.generated_by == "vlm" and self.status == "draft"
         if is_vlm_draft and (self.reason is not None or self.reason_source is not None):
-            raise ValueError("Bản nháp do VLM sinh không được có reason/reason_source.")
+            raise ValueError("Constitution Điều 3: Bản nháp do VLM sinh không được có reason hoặc reason_source.")
         # Contract allOf[1]: a reason must say which expert channel it came from.
         if self.reason is not None and self.reason_source is None:
-            raise ValueError("Có reason thì phải có reason_source hợp lệ.")
+            raise ValueError(
+                "Bắt buộc phải chọn reason_source hợp lệ ('expert_verbal' hoặc 'expert_interview') khi có reason."
+            )
         # Contract allOf[2]: approval must be attributable.
         if self.status == "approved" and (
             self.review is None or self.review.reviewer is None or self.review.reviewed_at is None
@@ -175,9 +171,7 @@ def _contract_validator() -> Draft202012Validator:
 def validate_against_contract(obj: WorkProfile | dict[str, Any]) -> None:
     """Raise :class:`ContractValidationError` unless ``obj`` satisfies the JSON contract."""
     document = obj.to_contract_dict() if isinstance(obj, WorkProfile) else obj
-    errors = sorted(
-        _contract_validator().iter_errors(document), key=lambda e: list(e.absolute_path)
-    )
+    errors = sorted(_contract_validator().iter_errors(document), key=lambda e: list(e.absolute_path))
     if errors:
         raise ContractValidationError(
             [f"{'/'.join(map(str, e.absolute_path)) or '<root>'}: {e.message}" for e in errors]

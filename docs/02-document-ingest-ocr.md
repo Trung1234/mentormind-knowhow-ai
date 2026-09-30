@@ -19,18 +19,24 @@ Tất cả chạy local. Không gọi OCR cloud.
 ## 3. Data model — `core.schemas.document.DocumentChunk`
 ```python
 class ChunkKind(StrEnum):
-    TEXT = "text"; TABLE = "table"; FIGURE_CAPTION = "figure_caption"; DRAWING_NOTE = "drawing_note"
+    TEXT = "text"
+    TABLE = "table"
+    FIGURE_CAPTION = "figure_caption"
+    DRAWING_NOTE = "drawing_note"
+
 
 class DocumentChunk(BaseModel):
-    chunk_id: str            # f"{doc_id}#p{page}-{index}"
-    source_type: Literal["document"] = "document"   # khớp Citation.source_type (spec 05), dùng làm cột filter trong bảng vector
-    doc_id: str              # "DOC-" + sha256(file bytes)[:12]
+    chunk_id: str  # f"{doc_id}#p{page}-{index}"
+    source_type: Literal["document"] = (
+        "document"  # khớp Citation.source_type (spec 05), dùng làm cột filter trong bảng vector
+    )
+    doc_id: str  # "DOC-" + sha256(file bytes)[:12]
     source_path: str
     title: str | None
     page: int | None
     kind: ChunkKind
-    text: str                # markdown; bảng giữ dạng markdown table
-    process_ids: list[str] = []   # công đoạn liên quan nếu nhận ra (VD "PACK01")
+    text: str  # markdown; bảng giữ dạng markdown table
+    process_ids: list[str] = []  # công đoạn liên quan nếu nhận ra (VD "PACK01")
     part_numbers: list[str] = []
     data_classification: DataClassification
     extractor: Literal["mmore", "docling", "surya"]

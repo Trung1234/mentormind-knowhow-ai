@@ -58,12 +58,14 @@ class Citation(BaseModel):
     snippet: str
     score: float | None = None
 
+
 class RetrievedContext(BaseModel):
     query: str
     process_id: str | None
-    passages: list[str]          # đoạn văn bản đưa vào prompt
-    graph_facts: list[str]       # câu dạng "Bước X dùng linh kiện Y"
+    passages: list[str]  # đoạn văn bản đưa vào prompt
+    graph_facts: list[str]  # câu dạng "Bước X dùng linh kiện Y"
     citations: list[Citation]
+
 
 class HybridRetriever:
     def retrieve(self, query: str, process_id: str | None = None, k: int = 8) -> RetrievedContext: ...

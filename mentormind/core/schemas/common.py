@@ -17,9 +17,14 @@ class DataClassification(StrEnum):
 
 
 class Citation(BaseModel):
-    """Evidence an agent answer points to (spec 05 §4)."""
+    """Evidence an agent answer points to (spec 05 §4, spec 08)."""
 
-    source_type: Literal["work_profile", "document", "video_segment", "sigma"]
+    source_type: Literal["work_profile", "document", "video_segment", "sigma", "video"]
     ref_id: str
-    snippet: str
+    snippet: str = ""
+    title: str | None = None
+    t_start: float | None = None
+    t_end: float | None = None
+    excerpt: str | None = None
+    keyframe_url: str | None = None
     score: float | None = None
