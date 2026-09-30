@@ -7,9 +7,10 @@ import {
   CheckSquare,
   Bot,
   Activity,
-  Cpu,
   Database,
   Radio,
+  Cpu,
+  Layers,
 } from "lucide-react";
 
 export default function App() {
@@ -37,62 +38,70 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {/* Top Header */}
+      {/* Industrial Telemetry Header */}
       <header className="app-header">
         <div className="brand-section">
           <div className="brand-logo-badge">DENSO</div>
           <div className="brand-titles">
-            <h1>MentorMind Know-How AI</h1>
-            <p>Hệ Thống Trích Xuất & Thẩm Định Bí Quyết Chuyên Gia Sản Xuất</p>
+            <h1>
+              <span>MENTORMIND</span>
+              <span className="factory-tag">FACTORY HACKS 2026</span>
+            </h1>
+            <p>Hệ Thống Trích Xuất & Thẩm Định Bí Quyết Chuyên Gia Sản Xuất (Know-How Engine)</p>
           </div>
         </div>
 
         <div className="system-status">
           <div className="status-indicator">
             <span className={`status-dot ${apiError ? "error" : ""}`} />
-            <span>API: {apiError ? "Mất kết nối" : "Sẵn sàng"}</span>
+            <span>API: {apiError ? "MẤT KẾT NỐI" : "ONLINE"}</span>
           </div>
 
           <div className="status-indicator">
-            <Database size={14} color="#3b82f6" />
-            <span>Neo4j: {healthStatus?.neo4j || "online"}</span>
+            <Database size={14} color="#06b6d4" />
+            <span>GRAPH: {healthStatus?.neo4j?.toUpperCase() || "READY"}</span>
           </div>
 
           <div className="status-indicator">
             <Radio size={14} color="#10b981" />
-            <span>Postgres: {healthStatus?.postgres || "online"}</span>
+            <span>VECTOR: {healthStatus?.postgres?.toUpperCase() || "READY"}</span>
+          </div>
+
+          <div className="status-indicator" style={{ borderLeft: "2px solid #e60012" }}>
+            <Cpu size={14} color="#e60012" />
+            <span>LINE: PACK01 // ST-04</span>
           </div>
         </div>
       </header>
 
-      {/* Main Tabs Navigation */}
+      {/* Mechanical Tactical Navigation Tabs */}
       <nav className="tabs-nav">
         <button
           className={`tab-btn ${activeTab === "review" ? "active" : ""}`}
           onClick={() => setActiveTab("review")}
         >
-          <CheckSquare size={20} />
-          <span>1. Duyệt thao tác (Review Profiles)</span>
+          <CheckSquare size={19} />
+          <span>01 // DUYỆT THAO TÁC (HUMAN-IN-THE-LOOP)</span>
         </button>
 
         <button
           className={`tab-btn ${activeTab === "assistant" ? "active" : ""}`}
           onClick={() => setActiveTab("assistant")}
         >
-          <Bot size={20} />
-          <span>2. Hỏi trợ lý (Know-How Assistant)</span>
+          <Bot size={19} />
+          <span>02 // TRỢ LÝ TRUY VẤN (VERIFIED RAG)</span>
         </button>
 
         <button
           className={`tab-btn ${activeTab === "rca" ? "active" : ""}`}
           onClick={() => setActiveTab("rca")}
         >
-          <Activity size={20} />
-          <span>3. Truy nguyên lỗi (RCA & 5-Why)</span>
+          <Activity size={19} />
+          <span>03 // TRUY NGUYÊN LỖI (5-WHY & RCA)</span>
         </button>
       </nav>
 
-      {/* Main Tab Content */}
+      {/* Main Content Workspace */}
       <main className="main-content">
         {activeTab === "review" && <ReviewProfilesTab />}
         {activeTab === "assistant" && <AssistantTab />}

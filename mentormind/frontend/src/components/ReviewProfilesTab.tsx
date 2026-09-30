@@ -15,8 +15,11 @@ import {
   AlertTriangle,
   Film,
   UserCheck,
-  ChevronRight,
   Filter,
+  ShieldCheck,
+  Video,
+  CornerDownRight,
+  Hash,
 } from "lucide-react";
 
 export function ReviewProfilesTab() {
@@ -94,12 +97,12 @@ export function ReviewProfilesTab() {
       const updated = await api.patchProfile(selectedProfile.profile_id, patchData);
       setActionMsg({
         type: "success",
-        text: `Đã lưu cập nhật cho ${updated.profile_id}. Phiên bản tăng lên v${updated.version} (trạng thái: Đang duyệt).`,
+        text: `ĐÃ LƯU THÀNH CÔNG: Hồ sơ ${updated.profile_id} đã cập nhật lên phiên bản v${updated.version} (Trạng thái: IN_REVIEW).`,
       });
       selectProfile(updated);
       loadProfiles();
     } catch (err: any) {
-      setActionMsg({ type: "error", text: `Lỗi khi lưu: ${err.message}` });
+      setActionMsg({ type: "error", text: `LỖI GHI DỮ LIỆU: ${err.message}` });
     }
   };
 
@@ -108,7 +111,7 @@ export function ReviewProfilesTab() {
     if (hasReasonWithoutSource) {
       setActionMsg({
         type: "warning",
-        text: "AC-08: Bắt buộc chọn Nguồn lý do (expert_verbal / expert_interview) trước khi duyệt!",
+        text: "VI PHẠM QUY ĐỊNH AC-08: Phải chọn Nguồn lý do (expert_verbal / expert_interview) trước khi duyệt!",
       });
       return;
     }
@@ -121,12 +124,12 @@ export function ReviewProfilesTab() {
       const updated = await api.reviewProfile(selectedProfile.profile_id, req);
       setActionMsg({
         type: "success",
-        text: `Đã DUYỆT thành công hồ sơ ${updated.profile_id}! Dữ liệu đã đồng bộ vào Knowledge Graph.`,
+        text: `ĐÃ PHÊ DUYỆT THÀNH CÔNG: Hồ sơ ${updated.profile_id} đã chuyển thành VERIFIED KNOWLEDGE và đồng bộ vào Neo4j Knowledge Graph.`,
       });
       selectProfile(updated);
       loadProfiles();
     } catch (err: any) {
-      setActionMsg({ type: "error", text: `Không thể duyệt: ${err.message}` });
+      setActionMsg({ type: "error", text: `TỪ CHỐI DUYỆT: ${err.message}` });
     }
   };
 
@@ -135,7 +138,7 @@ export function ReviewProfilesTab() {
     if (!reviewComment.trim()) {
       setActionMsg({
         type: "error",
-        text: "AC-03: Từ chối bắt buộc phải nhập lý do cụ thể vào ô Nhận xét/Lý do từ chối!",
+        text: "YÊU CẦU BẮT BUỘC AC-03: Từ chối hồ sơ bắt buộc phải nhập lý do cụ thể vào ô Nhận xét/Lý do từ chối!",
       });
       return;
     }
@@ -149,12 +152,12 @@ export function ReviewProfilesTab() {
       const updated = await api.reviewProfile(selectedProfile.profile_id, req);
       setActionMsg({
         type: "warning",
-        text: `Đã TỪ CHỐI hồ sơ ${updated.profile_id}. Trạng thái đã chuyển thành Rejected.`,
+        text: `ĐÃ TỪ CHỐI HỒ SƠ: ${updated.profile_id} đã chuyển trạng thái REJECTED.`,
       });
       selectProfile(updated);
       loadProfiles();
     } catch (err: any) {
-      setActionMsg({ type: "error", text: `Lỗi: ${err.message}` });
+      setActionMsg({ type: "error", text: `LỖI: ${err.message}` });
     }
   };
 
@@ -167,76 +170,88 @@ export function ReviewProfilesTab() {
   };
 
   const ERROR_TAG_OPTIONS: { id: ErrorTag; label: string }[] = [
-    { id: "missed_step", label: "Bỏ sót bước" },
-    { id: "hallucinated_step", label: "Bịa bước (Hallucination)" },
-    { id: "wrong_order", label: "Sai thứ tự" },
-    { id: "wrong_object", label: "Sai vật thể/dụng cụ" },
-    { id: "wrong_action", label: "Sai thao tác tay" },
-    { id: "other", label: "Lỗi khác" },
+    { id: "missed_step", label: "[E1] BỎ SÓT BƯỚC" },
+    { id: "hallucinated_step", label: "[E2] BỊA BƯỚC (HALLUCINATION)" },
+    { id: "wrong_order", label: "[E3] SAI THỨ TỰ THAO TÁC" },
+    { id: "wrong_object", label: "[E4] SAI VẬT THỂ / DỤNG CỤ" },
+    { id: "wrong_action", label: "[E5] SAI HƯỚNG / LỰC MIẾT" },
+    { id: "other", label: "[E6] LỖI KHÁC" },
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-      {/* Filter Header */}
-      <div className="card" style={{ padding: "1rem 1.5rem", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <Filter size={18} color="#94a3b8" />
-            <span style={{ fontWeight: 600, color: "#94a3b8" }}>Công đoạn:</span>
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
+      {/* Precision Filter HUD */}
+      <div className="card" style={{ padding: "1.1rem 1.75rem", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "1.5rem", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+            <Filter size={18} color="#06b6d4" />
+            <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.95rem", color: "#94a3b8" }}>
+              CÔNG ĐOẠN (LINE):
+            </span>
             <select
               className="form-select"
-              style={{ width: "160px", minHeight: "42px", padding: "0.4rem 0.8rem" }}
+              style={{ width: "200px", minHeight: "44px", fontFamily: "var(--font-mono)", fontWeight: 600 }}
               value={selectedProcess}
               onChange={(e) => setSelectedProcess(e.target.value)}
             >
-              <option value="PACK01">PACK01 (Đóng gói)</option>
-              <option value="ASSY02">ASSY02 (Lắp ráp)</option>
+              <option value="PACK01">PACK01 // ĐÓNG GÓI</option>
+              <option value="ASSY02">ASSY02 // LẮP RÁP</option>
             </select>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <span style={{ fontWeight: 600, color: "#94a3b8" }}>Trạng thái:</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+            <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.95rem", color: "#94a3b8" }}>
+              TRẠNG THÁI:
+            </span>
             <select
               className="form-select"
-              style={{ width: "160px", minHeight: "42px", padding: "0.4rem 0.8rem" }}
+              style={{ width: "200px", minHeight: "44px", fontFamily: "var(--font-mono)", fontWeight: 600 }}
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
             >
-              <option value="">Tất cả trạng thái</option>
-              <option value="draft">Bản nháp (draft)</option>
-              <option value="in_review">Đang duyệt (in_review)</option>
-              <option value="approved">Đã duyệt (approved)</option>
-              <option value="rejected">Bị từ chối (rejected)</option>
+              <option value="">-- TẤT CẢ TRẠNG THÁI --</option>
+              <option value="draft">BẢN NHÁP (DRAFT)</option>
+              <option value="in_review">ĐANG DUYỆT (IN_REVIEW)</option>
+              <option value="approved">ĐÃ DUYỆT (APPROVED)</option>
+              <option value="rejected">TỪ CHỐI (REJECTED)</option>
             </select>
           </div>
         </div>
 
-        <button className="btn btn-secondary" onClick={loadProfiles} style={{ minHeight: "42px" }}>
-          Làm mới danh sách
+        <button className="btn btn-secondary" onClick={loadProfiles} style={{ minHeight: "44px" }}>
+          LÀM MỚI DANH SÁCH
         </button>
       </div>
 
       {actionMsg && (
         <div className={`alert-box alert-${actionMsg.type}`}>
-          <AlertTriangle size={20} />
-          <span>{actionMsg.text}</span>
+          <AlertTriangle size={24} style={{ flexShrink: 0 }} />
+          <span style={{ fontWeight: 600 }}>{actionMsg.text}</span>
         </div>
       )}
 
-      {/* Main Grid: Left List + Right Detail */}
+      {/* Main Inspection Grid */}
       <div className="grid-2">
-        {/* Left Column: Profile Selector */}
-        <div className="card" style={{ padding: "1rem" }}>
-          <h2 className="card-title" style={{ fontSize: "1.1rem", padding: "0.5rem" }}>
-            Danh sách thao tác ({profiles.length})
-          </h2>
+        {/* Left Column: Tactical Profile Selector */}
+        <div className="card" style={{ padding: "1.25rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #334155", paddingBottom: "0.75rem", marginBottom: "1rem" }}>
+            <h2 className="card-title" style={{ fontSize: "1.1rem", marginBottom: 0 }}>
+              <Hash size={18} color="#06b6d4" />
+              <span>HỒ SƠ THAO TÁC ({profiles.length})</span>
+            </h2>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "#94a3b8" }}>SELECT TO AUDIT</span>
+          </div>
 
           {loading ? (
-            <p style={{ color: "#94a3b8", padding: "1rem" }}>Đang tải danh sách...</p>
+            <p style={{ color: "#94a3b8", padding: "1.5rem", textAlign: "center", fontFamily: "var(--font-mono)" }}>
+              ĐANG ĐỐI SOÁT CƠ SỞ DỮ LIỆU...
+            </p>
           ) : profiles.length === 0 ? (
-            <p style={{ color: "#94a3b8", padding: "1rem" }}>Không tìm thấy hồ sơ nào phù hợp.</p>
+            <p style={{ color: "#94a3b8", padding: "1.5rem", textAlign: "center" }}>
+              Không tìm thấy hồ sơ thao tác nào.
+            </p>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", maxHeight: "720px", overflowY: "auto" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", maxHeight: "780px", overflowY: "auto", paddingRight: "4px" }}>
               {profiles.map((p) => {
                 const isSelected = selectedProfile?.profile_id === p.profile_id;
                 return (
@@ -244,28 +259,33 @@ export function ReviewProfilesTab() {
                     key={p.profile_id}
                     onClick={() => selectProfile(p)}
                     style={{
-                      padding: "0.85rem 1rem",
-                      borderRadius: "8px",
-                      background: isSelected ? "rgba(59, 130, 246, 0.15)" : "#0f172a",
-                      border: isSelected ? "1px solid #3b82f6" : "1px solid #334155",
+                      padding: "1rem 1.15rem",
+                      borderRadius: "4px",
+                      background: isSelected ? "rgba(6, 182, 212, 0.12)" : "#0b101c",
+                      border: isSelected ? "1px solid #06b6d4" : "1px solid #1e293b",
+                      borderLeft: isSelected ? "4px solid #06b6d4" : "4px solid transparent",
                       cursor: "pointer",
                       display: "flex",
                       flexDirection: "column",
-                      gap: "0.4rem",
+                      gap: "0.5rem",
                       transition: "all 0.15s ease",
+                      position: "relative",
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: "0.9rem", color: "#60a5fa" }}>
-                        {p.profile_id} (v{p.version})
+                      <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: "0.95rem", color: isSelected ? "#38bdf8" : "#cbd5e1" }}>
+                        {p.profile_id} <span style={{ opacity: 0.6, fontSize: "0.8rem" }}>v{p.version}</span>
                       </span>
                       <span className={`badge badge-${p.status}`}>{p.status}</span>
                     </div>
-                    <div style={{ fontWeight: 600, fontSize: "0.95rem", color: "#f8fafc" }}>
-                      Bước {p.step_order}: {p.step}
+
+                    <div style={{ fontWeight: 600, fontSize: "0.975rem", color: "#f8fafc", lineHeight: 1.4 }}>
+                      [BƯỚC {p.step_order}] {p.step}
                     </div>
-                    <div style={{ fontSize: "0.8rem", color: "#94a3b8" }}>
-                      Thời gian: {p.evidence.t_start?.toFixed(1)}s - {p.evidence.t_end?.toFixed(1)}s · Độ tin cậy: {(p.confidence * 100).toFixed(0)}%
+
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.8rem", color: "#94a3b8", fontFamily: "var(--font-mono)" }}>
+                      <span>TIMELINE: {p.evidence.t_start?.toFixed(1)}s - {p.evidence.t_end?.toFixed(1)}s</span>
+                      <span style={{ color: p.confidence >= 0.9 ? "#10b981" : "#f59e0b" }}>CONF: {(p.confidence * 100).toFixed(0)}%</span>
                     </div>
                   </div>
                 );
@@ -274,72 +294,94 @@ export function ReviewProfilesTab() {
           )}
         </div>
 
-        {/* Right Column: Detailed Review & Inspection */}
+        {/* Right Column: High-End Inspection Console */}
         {selectedProfile ? (
-          <div className="card" style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+          <div className="card" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+            {/* Header Telemetry */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid #334155", paddingBottom: "1rem" }}>
               <div>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.35rem" }}>
-                  <h2 style={{ fontSize: "1.4rem", fontWeight: 800 }}>{selectedProfile.profile_id}</h2>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.85rem", marginBottom: "0.45rem" }}>
+                  <h2 style={{ fontFamily: "var(--font-display)", fontSize: "1.6rem", fontWeight: 800, letterSpacing: "0.03em" }}>
+                    {selectedProfile.profile_id}
+                  </h2>
                   <span className={`badge badge-${selectedProfile.status}`}>{selectedProfile.status}</span>
-                  <span style={{ fontSize: "0.9rem", color: "#94a3b8" }}>Phiên bản {selectedProfile.version}</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem", color: "#06b6d4", background: "rgba(6,182,212,0.1)", padding: "0.2rem 0.5rem", borderRadius: "3px" }}>
+                    REVISION v{selectedProfile.version}
+                  </span>
                 </div>
-                <p style={{ color: "#94a3b8", fontSize: "0.9rem" }}>
-                  Công đoạn: <strong>{selectedProfile.process_id}</strong> · Nguồn sinh: <strong>{selectedProfile.generated_by.toUpperCase()}</strong> · Phân loại: <strong>{selectedProfile.data_classification}</strong>
+                <p style={{ color: "#94a3b8", fontSize: "0.9rem", fontFamily: "var(--font-mono)" }}>
+                  PROCESS: <strong style={{ color: "#f8fafc" }}>{selectedProfile.process_id}</strong> · PROVENANCE: <strong style={{ color: "#38bdf8" }}>{selectedProfile.generated_by.toUpperCase()}</strong> · CLASSIFICATION: <strong style={{ color: "#f8fafc" }}>{selectedProfile.data_classification}</strong>
                 </p>
+              </div>
+
+              <div style={{ textAlign: "right" }}>
+                <span style={{ display: "block", fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "#94a3b8" }}>ĐỘ TIN CẬY THUẬT TOÁN</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "1.25rem", fontWeight: 800, color: "#10b981" }}>
+                  {(selectedProfile.confidence * 100).toFixed(1)}%
+                </span>
               </div>
             </div>
 
-            {/* Evidence & Keyframes */}
+            {/* Viewfinder & Video Keyframe Telemetry */}
             <div>
-              <label className="form-label" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <Film size={18} color="#60a5fa" />
-                <span>Bằng chứng hình ảnh & Keyframes ({selectedProfile.evidence.t_start?.toFixed(1)}s - {selectedProfile.evidence.t_end?.toFixed(1)}s)</span>
+              <label className="form-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <Film size={18} color="#06b6d4" />
+                  <span>BẰNG CHỨNG THỊ GIÁC (CAMERA VIEWFINDER — {selectedProfile.evidence.t_start?.toFixed(1)}s - {selectedProfile.evidence.t_end?.toFixed(1)}s)</span>
+                </span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "#38bdf8" }}>
+                  CLIP: {selectedProfile.evidence.video_id || "VID-PACK01"}
+                </span>
               </label>
+
               <div className="keyframe-gallery">
                 <div className="keyframe-box">
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", color: "#94a3b8", gap: "0.3rem" }}>
-                    <Film size={28} />
-                    <span style={{ fontSize: "0.8rem" }}>Đoạn clip {selectedProfile.evidence.video_id}</span>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", color: "#94a3b8", gap: "0.4rem" }}>
+                    <Video size={32} color="#06b6d4" />
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem" }}>FRAME 01 // ENTRY</span>
                   </div>
                   <span className="timestamp-badge">{selectedProfile.evidence.t_start?.toFixed(1)}s</span>
                 </div>
+
                 <div className="keyframe-box">
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", color: "#94a3b8", gap: "0.3rem" }}>
-                    <Film size={28} />
-                    <span style={{ fontSize: "0.8rem" }}>Keyframe Giữa</span>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", color: "#94a3b8", gap: "0.4rem" }}>
+                    <Video size={32} color="#06b6d4" />
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem" }}>FRAME 02 // ACTION</span>
                   </div>
                   <span className="timestamp-badge">{(((selectedProfile.evidence.t_start || 0) + (selectedProfile.evidence.t_end || 5)) / 2).toFixed(1)}s</span>
                 </div>
+
                 <div className="keyframe-box">
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", color: "#94a3b8", gap: "0.3rem" }}>
-                    <Film size={28} />
-                    <span style={{ fontSize: "0.8rem" }}>Keyframe Kết thúc</span>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", color: "#94a3b8", gap: "0.4rem" }}>
+                    <Video size={32} color="#06b6d4" />
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem" }}>FRAME 03 // SETTLE</span>
                   </div>
                   <span className="timestamp-badge">{selectedProfile.evidence.t_end?.toFixed(1)}s</span>
                 </div>
               </div>
             </div>
 
-            {/* Editable Fields */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            {/* Editable Inspection Fields */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
               <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-                <label className="form-label">Tên bước thao tác (Bắt đầu bằng động từ)</label>
-                <input className="form-input" value={step} onChange={(e) => setStep(e.target.value)} />
+                <label className="form-label">TÊN BƯỚC THAO TÁC (ĐỘNG TỪ Ở ĐẦU)</label>
+                <input className="form-input" style={{ fontWeight: 600, fontSize: "1.05rem" }} value={step} onChange={(e) => setStep(e.target.value)} />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Thao tác tay quan sát được (Hand action)</label>
+                <label className="form-label">THAO TÁC TAY QUAN SÁT ĐƯỢC (HAND ACTION)</label>
                 <textarea className="form-textarea" value={handAction} onChange={(e) => setHandAction(e.target.value)} />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Điểm then chốt (Key point)</label>
+                <label className="form-label">ĐIỂM THEN CHỐT QUAN SÁT (KEY POINT)</label>
                 <textarea className="form-textarea" value={keyPoint} onChange={(e) => setKeyPoint(e.target.value)} />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Lý do đằng sau thao tác (Reason - Bí quyết chuyên gia)</label>
+                <label className="form-label">
+                  LÝ DO ĐẰNG SAU THAO TÁC (REASON — BÍ QUYẾT CHUYÊN GIA)
+                </label>
                 <textarea
                   className="form-textarea"
                   placeholder="Chỉ điền từ lời giải thích thực tế của chuyên gia..."
@@ -350,49 +392,54 @@ export function ReviewProfilesTab() {
 
               <div className="form-group">
                 <label className="form-label">
-                  Nguồn lý do (Reason source)
-                  {reason.trim().length > 0 && <span style={{ color: "#ef4444" }}> * Bắt buộc khi có Reason</span>}
+                  NGUỒN LÝ DO (REASON SOURCE)
+                  {reason.trim().length > 0 && <span style={{ color: "#f43f5e" }}> * BẮT BUỘC THEO AC-08</span>}
                 </label>
                 <select
                   className="form-select"
                   value={reasonSource}
                   onChange={(e) => setReasonSource(e.target.value as ReasonSource)}
-                  style={{ borderColor: hasReasonWithoutSource ? "#ef4444" : undefined }}
+                  style={{ borderColor: hasReasonWithoutSource ? "#f43f5e" : undefined, fontFamily: "var(--font-mono)" }}
                 >
-                  <option value="">-- Chưa chọn nguồn --</option>
-                  <option value="expert_verbal">Lời nói khi thao tác (expert_verbal)</option>
-                  <option value="expert_interview">Phỏng vấn chuyên sâu (expert_interview)</option>
+                  <option value="">-- CHƯA CHỌN NGUỒN --</option>
+                  <option value="expert_verbal">LỜI NÓI KHI THAO TÁC (EXPERT_VERBAL)</option>
+                  <option value="expert_interview">PHỎNG VẤN CHUYÊN SÂU (EXPERT_INTERVIEW)</option>
                 </select>
               </div>
 
               <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-                <label className="form-label">Tiêu chuẩn nghiệm thu (Pass criteria)</label>
+                <label className="form-label">TIÊU CHUẨN NGHIỆM THU (PASS CRITERIA)</label>
                 <input className="form-input" value={passCriteria} onChange={(e) => setPassCriteria(e.target.value)} />
               </div>
             </div>
 
-            {/* Validation warning for AC-08 */}
+            {/* AC-08 Tactical Alert */}
             {hasReasonWithoutSource && (
               <div className="alert-box alert-warning">
-                <AlertTriangle size={20} />
-                <span><strong>Lưu ý quy định AC-08:</strong> Đã nhập nội dung ô Lý do nhưng chưa chọn Nguồn lý do. Nút Duyệt sẽ tạm thời bị khóa!</span>
+                <AlertTriangle size={24} style={{ flexShrink: 0 }} />
+                <span>
+                  <strong>CẢNH BÁO VI PHẠM AC-08:</strong> Đã nhập nội dung ô Lý do nhưng chưa chọn Nguồn lý do (reason_source). Nút Duyệt thao tác bị khóa theo quy chuẩn Constitution Điều 3!
+                </span>
               </div>
             )}
 
-            {/* Rejection / Review section */}
-            <div style={{ background: "#0f172a", border: "1px solid #334155", borderRadius: "8px", padding: "1rem" }}>
-              <h3 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "0.75rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <UserCheck size={18} color="#10b981" />
-                <span>Khu vực Thẩm định & Duyệt (Human-in-the-Loop)</span>
-              </h3>
+            {/* Tactile Review Audit Console */}
+            <div style={{ background: "#0a0e1a", border: "1px solid #334155", borderRadius: "4px", padding: "1.25rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                <h3 style={{ fontFamily: "var(--font-display)", fontSize: "1.05rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <UserCheck size={18} color="#10b981" />
+                  <span>THẨM ĐỊNH CHẤT LƯỢNG (HUMAN-IN-THE-LOOP AUDIT)</span>
+                </h3>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "#10b981" }}>STATION SIGN-OFF</span>
+              </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "0.75rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
                 <div>
-                  <label className="form-label">Người thẩm định (Reviewer)</label>
+                  <label className="form-label">KỸ SƯ KIỂM DUYỆT (REVIEWER)</label>
                   <input className="form-input" value={reviewer} onChange={(e) => setReviewer(e.target.value)} />
                 </div>
                 <div>
-                  <label className="form-label">Nhận xét / Lý do từ chối (Bắt buộc nếu từ chối)</label>
+                  <label className="form-label">NHẬN XÉT / LÝ DO TỪ CHỐI (BẮT BUỘC KHI REJECT)</label>
                   <input
                     className="form-input"
                     placeholder="Ghi chú ý kiến chuyên gia hoặc lý do từ chối..."
@@ -402,8 +449,8 @@ export function ReviewProfilesTab() {
                 </div>
               </div>
 
-              <div style={{ marginBottom: "1rem" }}>
-                <label className="form-label">Gắn nhãn lỗi nếu có (Error tags)</label>
+              <div style={{ marginBottom: "1.25rem" }}>
+                <label className="form-label">GẮN NHÃN LỖI PHÁT HIỆN (ERROR TAGGING MATRIX)</label>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
                   {ERROR_TAG_OPTIONS.map((tag) => {
                     const isSelected = selectedErrorTags.includes(tag.id);
@@ -413,13 +460,16 @@ export function ReviewProfilesTab() {
                         type="button"
                         onClick={() => toggleErrorTag(tag.id)}
                         style={{
-                          padding: "0.4rem 0.8rem",
-                          borderRadius: "6px",
+                          padding: "0.45rem 0.85rem",
+                          borderRadius: "4px",
                           border: isSelected ? "1px solid #f43f5e" : "1px solid #334155",
-                          background: isSelected ? "#4c0519" : "#1e293b",
-                          color: isSelected ? "#fda4af" : "#94a3b8",
-                          fontSize: "0.85rem",
+                          background: isSelected ? "rgba(244, 63, 94, 0.2)" : "#131a2c",
+                          color: isSelected ? "#fca5a5" : "#94a3b8",
+                          fontFamily: "var(--font-mono)",
+                          fontSize: "0.8rem",
+                          fontWeight: 600,
                           cursor: "pointer",
+                          transition: "all 0.15s ease",
                         }}
                       >
                         {tag.label}
@@ -430,40 +480,39 @@ export function ReviewProfilesTab() {
               </div>
 
               {/* Action Buttons */}
-              <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", gap: "1rem" }}>
                 <button
                   className="btn btn-success"
                   onClick={handleApprove}
                   disabled={hasReasonWithoutSource}
-                  style={{ flex: 1 }}
                 >
                   <CheckCircle size={20} />
-                  <span>Duyệt thao tác (Approve)</span>
+                  <span>DUYỆT THAO TÁC (APPROVE)</span>
                 </button>
 
                 <button
                   className="btn btn-danger"
                   onClick={handleReject}
-                  style={{ flex: 1 }}
                 >
                   <XCircle size={20} />
-                  <span>Từ chối (Reject)</span>
+                  <span>TỪ CHỐI (REJECT)</span>
                 </button>
 
                 <button
                   className="btn btn-primary"
                   onClick={handleSavePatch}
-                  style={{ flex: 1 }}
                 >
                   <Save size={20} />
-                  <span>Lưu thay đổi (v{selectedProfile.version + 1})</span>
+                  <span>LƯU SỬA (v{selectedProfile.version + 1})</span>
                 </button>
               </div>
             </div>
           </div>
         ) : (
-          <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "400px" }}>
-            <p style={{ color: "#94a3b8" }}>Chọn một hồ sơ thao tác từ cột bên trái để thẩm định</p>
+          <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "450px" }}>
+            <p style={{ color: "#94a3b8", fontFamily: "var(--font-mono)" }}>
+              CHỌN MỘT HỒ SƠ TỪ DANH SÁCH BÊN TRÁI ĐỂ TIẾN HÀNH THẨM ĐỊNH
+            </p>
           </div>
         )}
       </div>

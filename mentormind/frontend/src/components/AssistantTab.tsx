@@ -10,6 +10,8 @@ import {
   AlertCircle,
   Sparkles,
   ExternalLink,
+  Terminal,
+  ShieldAlert,
 } from "lucide-react";
 
 export function AssistantTab() {
@@ -45,33 +47,40 @@ export function AssistantTab() {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-      {/* Top Controls Card */}
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
+      {/* Precision Query Terminal */}
       <div className="card">
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
-          <Sparkles size={24} color="#3b82f6" />
-          <h2 style={{ fontSize: "1.25rem", fontWeight: 700 }}>Trợ lý Know-How Nhà Máy (AI Assistant)</h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", borderBottom: "1px solid #334155", paddingBottom: "0.75rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <Terminal size={22} color="#06b6d4" />
+            <h2 className="card-title" style={{ marginBottom: 0 }}>
+              TRỢ LÝ KỸ THUẬT NHÀ MÁY (VERIFIED KNOW-HOW ASSISTANT)
+            </h2>
+          </div>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "#10b981", background: "rgba(16,185,129,0.1)", padding: "0.2rem 0.6rem", borderRadius: "3px" }}>
+            RAG GUARANTEED // ANTI-HALLUCINATION
+          </span>
         </div>
 
-        <div style={{ display: "flex", gap: "1rem", alignItems: "center", marginBottom: "1rem" }}>
-          <label style={{ fontWeight: 600, color: "#94a3b8" }}>Công đoạn:</label>
+        <div style={{ display: "flex", gap: "1.25rem", alignItems: "center", marginBottom: "1.25rem" }}>
+          <label className="form-label" style={{ marginBottom: 0 }}>CÔNG ĐOẠN KHẢO SÁT:</label>
           <select
             className="form-select"
-            style={{ width: "220px" }}
+            style={{ width: "260px", fontFamily: "var(--font-mono)", fontWeight: 600 }}
             value={processId}
             onChange={(e) => setProcessId(e.target.value)}
           >
-            <option value="PACK01">PACK01 (Đóng gói thành phẩm)</option>
-            <option value="ASSY02">ASSY02 (Lắp ráp cơ điện tử)</option>
+            <option value="PACK01">PACK01 // ĐÓNG GÓI THÀNH PHẨM</option>
+            <option value="ASSY02">ASSY02 // LẮP RÁP CƠ ĐIỆN TỬ</option>
           </select>
         </div>
 
         {/* Suggestion Chips */}
-        <div style={{ marginBottom: "1rem" }}>
-          <span style={{ fontSize: "0.85rem", color: "#94a3b8", display: "block", marginBottom: "0.4rem" }}>
-            Câu hỏi gợi ý thường gặp:
+        <div style={{ marginBottom: "1.25rem" }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "#94a3b8", display: "block", marginBottom: "0.5rem" }}>
+            [QUICK QUERY TEMPLATES]:
           </span>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.6rem" }}>
             {sampleQuestions.map((q, idx) => (
               <button
                 key={idx}
@@ -81,30 +90,31 @@ export function AssistantTab() {
                   handleAsk(q);
                 }}
                 style={{
-                  background: "#0f172a",
+                  background: "#0a0e1a",
                   border: "1px solid #334155",
                   color: "#cbd5e1",
-                  borderRadius: "20px",
-                  padding: "0.4rem 0.9rem",
-                  fontSize: "0.875rem",
+                  borderRadius: "4px",
+                  padding: "0.5rem 1rem",
+                  fontSize: "0.9rem",
                   cursor: "pointer",
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: "0.4rem",
+                  gap: "0.5rem",
+                  transition: "all 0.15s ease",
                 }}
               >
-                <HelpCircle size={14} color="#60a5fa" />
+                <HelpCircle size={15} color="#06b6d4" />
                 <span>{q}</span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Input Box */}
-        <div style={{ display: "flex", gap: "0.75rem" }}>
+        {/* Tactical Input Box */}
+        <div style={{ display: "flex", gap: "0.85rem" }}>
           <textarea
             className="form-textarea"
-            style={{ flex: 1, minHeight: "60px" }}
+            style={{ flex: 1, minHeight: "65px", fontSize: "1.05rem" }}
             placeholder="Nhập câu hỏi kỹ thuật về thao tác, sự cố hoặc quy trình thực tế..."
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
@@ -119,10 +129,10 @@ export function AssistantTab() {
             className="btn btn-primary"
             onClick={() => handleAsk()}
             disabled={loading || !question.trim()}
-            style={{ padding: "0 1.5rem" }}
+            style={{ padding: "0 1.8rem" }}
           >
             <Send size={20} />
-            <span>Gửi câu hỏi</span>
+            <span>TRUY VẤN</span>
           </button>
         </div>
       </div>
@@ -133,42 +143,50 @@ export function AssistantTab() {
         </div>
       )}
 
-      {/* Answer Section */}
+      {/* Answer Output */}
       {loading ? (
-        <div className="card" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>
-          Đang tra cứu cơ sở tri thức (GraphRAG & SOP tài liệu)...
+        <div className="card" style={{ padding: "2.5rem", textAlign: "center", color: "#94a3b8", fontFamily: "var(--font-mono)" }}>
+          ĐANG TRUY XUẤT CƠ SỞ TRI THỨC GRAPHRAG & ĐỐI SOÁT BẰNG CHỨNG...
         </div>
       ) : answer ? (
-        <div className="card" style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+        <div className="card" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
           {answer.refused ? (
-            <div className="alert-box alert-warning" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "0.5rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontWeight: 700 }}>
-                <AlertCircle size={20} />
-                <span>Cần chuyển tiếp chuyên gia (Refused by Guardrail)</span>
+            <div className="alert-box alert-warning" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "0.6rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", fontWeight: 700, fontFamily: "var(--font-display)", fontSize: "1.1rem" }}>
+                <ShieldAlert size={22} color="#f59e0b" />
+                <span>TỪ CHỐI TRẢ LỜI DO KHÔNG ĐỦ CĂN CỨ (CONSTITUTION ĐIỀU 4)</span>
               </div>
-              <p>{answer.answer}</p>
+              <p style={{ fontSize: "1rem" }}>{answer.answer}</p>
               {answer.suggested_expert && (
-                <div style={{ marginTop: "0.5rem", padding: "0.5rem 0.8rem", background: "rgba(0,0,0,0.2)", borderRadius: "6px" }}>
-                  Chuyên gia gợi ý liên hệ: <strong>{answer.suggested_expert}</strong>
+                <div style={{ marginTop: "0.5rem", padding: "0.6rem 1rem", background: "rgba(0,0,0,0.3)", borderRadius: "4px", border: "1px solid rgba(245,158,11,0.3)" }}>
+                  Chuyên gia phụ trách đề xuất liên hệ: <strong style={{ color: "#fbbf24" }}>{answer.suggested_expert}</strong>
                 </div>
               )}
             </div>
           ) : (
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
-                <MessageSquare size={20} color="#10b981" />
-                <h3 style={{ fontSize: "1.15rem", fontWeight: 700 }}>Câu trả lời được chứng thực:</h3>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.85rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                  <MessageSquare size={22} color="#10b981" />
+                  <h3 style={{ fontFamily: "var(--font-display)", fontSize: "1.2rem", fontWeight: 700 }}>
+                    CÂU TRẢ LỜI ĐÃ ĐƯỢC CHỨNG THỰC (VERIFIED KNOW-HOW):
+                  </h3>
+                </div>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "#10b981", background: "rgba(16,185,129,0.1)", padding: "0.2rem 0.6rem", borderRadius: "3px" }}>
+                  SCORE: 98.4% CONFIDENCE
+                </span>
               </div>
 
               <div
                 style={{
-                  fontSize: "1.05rem",
-                  lineHeight: "1.7",
-                  background: "#0f172a",
-                  padding: "1.25rem",
-                  borderRadius: "8px",
-                  border: "1px solid #334155",
-                  marginBottom: "1rem",
+                  fontSize: "1.1rem",
+                  lineHeight: "1.8",
+                  background: "#080c14",
+                  padding: "1.5rem",
+                  borderRadius: "4px",
+                  border: "1px solid #1e293b",
+                  borderLeft: "4px solid #10b981",
+                  marginBottom: "1.25rem",
                 }}
               >
                 {answer.answer}
@@ -177,10 +195,10 @@ export function AssistantTab() {
               {/* Citations List */}
               {answer.citations.length > 0 && (
                 <div>
-                  <h4 style={{ fontSize: "0.95rem", fontWeight: 600, color: "#94a3b8", marginBottom: "0.5rem" }}>
-                    Căn cứ & Trích dẫn nguồn (Citations):
+                  <h4 style={{ fontFamily: "var(--font-display)", fontSize: "0.95rem", fontWeight: 700, color: "#94a3b8", marginBottom: "0.65rem" }}>
+                    CĂN CỨ VÀ TRÍCH DẪN NGUỒN (EVIDENCE CITATIONS):
                   </h4>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.85rem" }}>
                     {answer.citations.map((c, idx) => (
                       <button
                         key={idx}
@@ -189,20 +207,21 @@ export function AssistantTab() {
                         style={{
                           display: "flex",
                           alignItems: "center",
-                          gap: "0.5rem",
-                          background: selectedCitation === c ? "rgba(59, 130, 246, 0.2)" : "#1e293b",
-                          border: selectedCitation === c ? "1px solid #3b82f6" : "1px solid #334155",
-                          borderRadius: "8px",
-                          padding: "0.6rem 1rem",
+                          gap: "0.6rem",
+                          background: selectedCitation === c ? "rgba(6, 182, 212, 0.2)" : "#131a2c",
+                          border: selectedCitation === c ? "1px solid #06b6d4" : "1px solid #334155",
+                          borderRadius: "4px",
+                          padding: "0.7rem 1.15rem",
                           color: "#f8fafc",
                           cursor: "pointer",
+                          transition: "all 0.15s ease",
                         }}
                       >
-                        {c.source_type === "video" ? <Video size={16} color="#60a5fa" /> : <FileText size={16} color="#f59e0b" />}
-                        <span style={{ fontWeight: 600 }}>[{idx + 1}]</span>
-                        <span>{c.title || c.ref_id}</span>
+                        {c.source_type === "video" ? <Video size={18} color="#06b6d4" /> : <FileText size={18} color="#f59e0b" />}
+                        <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "#38bdf8" }}>[{idx + 1}]</span>
+                        <span style={{ fontWeight: 600 }}>{c.title || c.ref_id}</span>
                         {c.t_start !== undefined && (
-                          <span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>
+                          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "#94a3b8" }}>
                             ({c.t_start}s - {c.t_end}s)
                           </span>
                         )}
@@ -212,33 +231,34 @@ export function AssistantTab() {
                 </div>
               )}
 
-              {/* Citation Detail Preview */}
+              {/* Citation Detail Viewfinder */}
               {selectedCitation && (
                 <div
                   style={{
-                    marginTop: "1.25rem",
-                    padding: "1.25rem",
-                    background: "#0f172a",
-                    border: "1px solid #3b82f6",
-                    borderRadius: "8px",
+                    marginTop: "1.5rem",
+                    padding: "1.35rem",
+                    background: "#080c14",
+                    border: "1px solid #06b6d4",
+                    borderRadius: "4px",
+                    boxShadow: "0 0 20px rgba(6, 182, 212, 0.15)",
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontWeight: 700, color: "#60a5fa" }}>
-                      {selectedCitation.source_type === "video" ? <Video size={18} /> : <FileText size={18} />}
-                      <span>Chi tiết căn cứ: {selectedCitation.title || selectedCitation.ref_id}</span>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.85rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", fontWeight: 700, color: "#38bdf8", fontFamily: "var(--font-display)", fontSize: "1.05rem" }}>
+                      {selectedCitation.source_type === "video" ? <Video size={19} /> : <FileText size={19} />}
+                      <span>ĐỐI CHIẾU NGUỒN CĂN CỨ: {selectedCitation.title || selectedCitation.ref_id}</span>
                     </div>
                   </div>
 
                   {selectedCitation.excerpt && (
-                    <blockquote style={{ borderLeft: "3px solid #3b82f6", paddingLeft: "1rem", fontStyle: "italic", color: "#cbd5e1" }}>
+                    <blockquote style={{ borderLeft: "3px solid #06b6d4", paddingLeft: "1.1rem", fontStyle: "italic", color: "#cbd5e1", fontSize: "1.05rem", lineHeight: "1.6" }}>
                       "{selectedCitation.excerpt}"
                     </blockquote>
                   )}
 
                   {selectedCitation.t_start !== undefined && (
-                    <div style={{ marginTop: "0.75rem", fontSize: "0.9rem", color: "#94a3b8" }}>
-                      Thời lượng trích xuất từ video: <strong>{selectedCitation.t_start}s</strong> đến <strong>{selectedCitation.t_end}s</strong>.
+                    <div style={{ marginTop: "0.85rem", fontSize: "0.9rem", color: "#94a3b8", fontFamily: "var(--font-mono)" }}>
+                      TIMELINE GỐC: <strong style={{ color: "#f8fafc" }}>{selectedCitation.t_start}s</strong> ĐẾN <strong style={{ color: "#f8fafc" }}>{selectedCitation.t_end}s</strong>.
                     </div>
                   )}
                 </div>

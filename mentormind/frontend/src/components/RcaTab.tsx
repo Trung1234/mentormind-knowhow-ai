@@ -9,6 +9,8 @@ import {
   ArrowRight,
   ShieldCheck,
   FileSpreadsheet,
+  Cpu,
+  Info,
 } from "lucide-react";
 
 export function RcaTab() {
@@ -47,45 +49,53 @@ export function RcaTab() {
   const getLikelihoodBadge = (likelihood: string) => {
     switch (likelihood) {
       case "high":
-        return <span className="badge" style={{ background: "#4c0519", color: "#f43f5e", border: "1px solid #e11d48" }}>Cao (High)</span>;
+        return <span className="badge" style={{ background: "rgba(244,63,94,0.15)", color: "#fb7185", border: "1px solid #e11d48" }}>XÁC SUẤT CAO [HIGH]</span>;
       case "medium":
-        return <span className="badge" style={{ background: "#451a03", color: "#f59e0b", border: "1px solid #b45309" }}>Trung bình</span>;
+        return <span className="badge" style={{ background: "rgba(245,158,11,0.15)", color: "#fbbf24", border: "1px solid #d97706" }}>TRUNG BÌNH [MED]</span>;
       default:
-        return <span className="badge" style={{ background: "#1e293b", color: "#94a3b8", border: "1px solid #475569" }}>Thấp (Low)</span>;
+        return <span className="badge" style={{ background: "rgba(100,116,139,0.15)", color: "#94a3b8", border: "1px solid #475569" }}>THẤP [LOW]</span>;
     }
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-      {/* Control Card */}
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
+      {/* MES Sigma Integration Control */}
       <div className="card">
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1rem" }}>
-          <AlertOctagon size={24} color="#f43f5e" />
-          <h2 style={{ fontSize: "1.25rem", fontWeight: 700 }}>Truy Nguyên Nguyên Nhân Gốc Rễ (RCA & 5-Why)</h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", borderBottom: "1px solid #334155", paddingBottom: "0.75rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <AlertOctagon size={24} color="#f43f5e" />
+            <h2 className="card-title" style={{ marginBottom: 0 }}>
+              TRUY NGUYÊN NGUYÊN NHÂN GỐC RỄ (SIGMA MES RCA & 5-WHY)
+            </h2>
+          </div>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "#f43f5e", background: "rgba(244,63,94,0.1)", padding: "0.2rem 0.6rem", borderRadius: "3px" }}>
+            DEFECT TRACEABILITY SYSTEM
+          </span>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem", marginBottom: "1.25rem" }}>
           <div>
-            <label className="form-label" style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              <FileSpreadsheet size={16} color="#3b82f6" />
-              <span>Chọn lô sản xuất lỗi (Dữ liệu từ Sigma MES):</span>
+            <label className="form-label" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <FileSpreadsheet size={16} color="#06b6d4" />
+              <span>CHỌN LÔ SẢN XUẤT PHÁT SINH LỖI (MES FEED):</span>
             </label>
             <select
               className="form-select"
+              style={{ fontFamily: "var(--font-mono)", fontWeight: 600 }}
               value={selectedLotId}
               onChange={(e) => setSelectedLotId(e.target.value)}
             >
-              <option value="">-- Nhập triệu chứng tùy ý --</option>
+              <option value="">-- NHẬP TRIỆU CHỨNG TÙY BIẾN --</option>
               {lots.map((l) => (
                 <option key={l.lot_id} value={l.lot_id}>
-                  {l.lot_id} · {l.part_number} · [{l.status}] {l.defect_type ? `- ${l.defect_type}` : ""}
+                  {l.lot_id} // {l.part_number} // [{l.status}] {l.defect_type ? `- ${l.defect_type}` : ""}
                 </option>
               ))}
             </select>
           </div>
 
           <div>
-            <label className="form-label">Mô tả triệu chứng bổ sung (Tùy chọn):</label>
+            <label className="form-label">MÔ TẢ TRIỆU CHỨNG LỖI QUAN SÁT (SYMPTOM OVERRIDE):</label>
             <input
               className="form-input"
               placeholder="Ví dụ: Nắp hộp bị lệch mép >2mm, rách gập mép..."
@@ -99,10 +109,10 @@ export function RcaTab() {
           className="btn btn-primary"
           onClick={handleInvestigate}
           disabled={loading || (!selectedLotId && !customSymptom)}
-          style={{ width: "100%", maxWidth: "320px" }}
+          style={{ width: "100%", maxWidth: "340px" }}
         >
           <Search size={20} />
-          <span>{loading ? "Đang suy luận RCA..." : "Khởi chạy điều tra RCA"}</span>
+          <span>{loading ? "ĐANG TỔNG HỢP NGUYÊN NHÂN..." : "KHỞI CHẠY ĐIỀU TRA RCA"}</span>
         </button>
       </div>
 
@@ -112,48 +122,48 @@ export function RcaTab() {
         </div>
       )}
 
-      {/* Investigation Results */}
+      {/* Investigation Dashboard */}
       {report && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          {/* Header Summary */}
-          <div className="card" style={{ background: "#0f172a", border: "1px solid #334155" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
+          {/* Header Summary HUD */}
+          <div className="card" style={{ background: "#080c14", border: "1px solid #334155", borderLeft: "4px solid #06b6d4" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
               <div>
-                <span style={{ fontSize: "0.85rem", color: "#94a3b8" }}>Lô được phân tích:</span>
-                <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "#60a5fa" }}>
-                  {report.lot_id || "Khảo sát theo triệu chứng"}
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "#94a3b8" }}>MÃ LÔ ĐƯỢC PHÂN TÍCH:</span>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "1.4rem", fontWeight: 800, color: "#38bdf8" }}>
+                  {report.lot_id || "TRIỆU CHỨNG THỦ CÔNG"}
                 </div>
               </div>
-              <div>
-                <span style={{ fontSize: "0.85rem", color: "#94a3b8" }}>Triệu chứng phát hiện:</span>
-                <div style={{ fontSize: "1.1rem", fontWeight: 600, color: "#f8fafc" }}>
+              <div style={{ textAlign: "right" }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "#94a3b8" }}>TRIỆU CHỨNG PHÁT HIỆN:</span>
+                <div style={{ fontFamily: "var(--font-display)", fontSize: "1.2rem", fontWeight: 700, color: "#f8fafc" }}>
                   {report.symptom}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Hypotheses Table */}
+          {/* Hypotheses Matrix */}
           <div className="card">
             <h3 className="card-title">
-              <Layers size={20} color="#f59e0b" />
-              <span>Bảng Giả thuyết Nguyên nhân (Hypotheses)</span>
+              <Layers size={22} color="#f59e0b" />
+              <span>MA TRẬN GIẢ THUYẾT NGUYÊN NHÂN (HYPOTHESES MATRIX)</span>
             </h3>
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
                 <thead>
-                  <tr style={{ borderBottom: "1px solid #334155", color: "#94a3b8", fontSize: "0.9rem" }}>
-                    <th style={{ padding: "0.75rem 1rem" }}>Khả năng xảy ra</th>
-                    <th style={{ padding: "0.75rem 1rem" }}>Giả thuyết kỹ thuật</th>
-                    <th style={{ padding: "0.75rem 1rem" }}>Căn cứ dữ liệu đối soát</th>
+                  <tr style={{ borderBottom: "2px solid #334155", color: "#94a3b8", fontFamily: "var(--font-display)", fontSize: "0.95rem" }}>
+                    <th style={{ padding: "0.9rem 1.2rem", width: "220px" }}>MỨC ĐỘ XÁC SUẤT</th>
+                    <th style={{ padding: "0.9rem 1.2rem" }}>GIẢ THUYẾT KỸ THUẬT</th>
+                    <th style={{ padding: "0.9rem 1.2rem", width: "300px" }}>CĂN CỨ ĐỐI SOÁT</th>
                   </tr>
                 </thead>
                 <tbody>
                   {report.hypotheses.map((h, i) => (
-                    <tr key={i} style={{ borderBottom: "1px solid #1e293b" }}>
-                      <td style={{ padding: "0.85rem 1rem" }}>{getLikelihoodBadge(h.likelihood)}</td>
-                      <td style={{ padding: "0.85rem 1rem", fontWeight: 600 }}>{h.hypothesis}</td>
-                      <td style={{ padding: "0.85rem 1rem", color: "#94a3b8", fontSize: "0.9rem" }}>
+                    <tr key={i} style={{ borderBottom: "1px solid #1e293b", background: i % 2 === 0 ? "rgba(255,255,255,0.01)" : "transparent" }}>
+                      <td style={{ padding: "1rem 1.2rem" }}>{getLikelihoodBadge(h.likelihood)}</td>
+                      <td style={{ padding: "1rem 1.2rem", fontWeight: 600, fontSize: "1.05rem" }}>{h.hypothesis}</td>
+                      <td style={{ padding: "1rem 1.2rem", color: "#06b6d4", fontFamily: "var(--font-mono)", fontSize: "0.9rem" }}>
                         {h.evidence_refs.join(", ") || "Chưa có bằng chứng trực tiếp"}
                       </td>
                     </tr>
@@ -166,59 +176,66 @@ export function RcaTab() {
           {/* 5-Why Analysis Chain */}
           <div className="card">
             <h3 className="card-title">
-              <ArrowRight size={20} color="#3b82f6" />
-              <span>Chuỗi Phân Tích 5-Why (Root Cause Chain)</span>
+              <ArrowRight size={22} color="#06b6d4" />
+              <span>CHUỖI PHÂN TÍCH 5-WHY (ROOT CAUSE TELEMETRY CHAIN)</span>
             </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
               {report.five_whys.map((step) => (
                 <div
                   key={step.order}
                   style={{
                     display: "flex",
                     alignItems: "flex-start",
-                    gap: "1rem",
-                    padding: "1rem",
-                    borderRadius: "8px",
-                    background: "#0f172a",
-                    border: "1px solid #334155",
+                    gap: "1.25rem",
+                    padding: "1.2rem",
+                    borderRadius: "4px",
+                    background: "#080c14",
+                    border: "1px solid #1e293b",
+                    borderLeft: "4px solid #06b6d4",
                   }}
                 >
                   <div
                     style={{
-                      background: "#1e293b",
-                      border: "1px solid #3b82f6",
-                      borderRadius: "50%",
-                      width: "36px",
-                      height: "36px",
+                      background: "#151d30",
+                      border: "1px solid #06b6d4",
+                      borderRadius: "4px",
+                      width: "42px",
+                      height: "42px",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
+                      fontFamily: "var(--font-mono)",
                       fontWeight: 800,
-                      color: "#60a5fa",
+                      fontSize: "1.1rem",
+                      color: "#38bdf8",
                       flexShrink: 0,
                     }}
                   >
                     W{step.order}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, color: "#cbd5e1", marginBottom: "0.25rem" }}>
-                      {step.question}
+                    <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, color: "#94a3b8", fontSize: "0.95rem", marginBottom: "0.35rem" }}>
+                      [WHY {step.order}]: {step.question}
                     </div>
-                    <div style={{ color: "#f8fafc", fontSize: "1rem" }}>{step.answer}</div>
+                    <div style={{ color: "#f8fafc", fontSize: "1.05rem", lineHeight: "1.5" }}>{step.answer}</div>
                   </div>
                   {step.verified && (
                     <div
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: "0.3rem",
+                        gap: "0.4rem",
                         color: "#10b981",
+                        fontFamily: "var(--font-mono)",
                         fontSize: "0.85rem",
-                        fontWeight: 600,
+                        fontWeight: 700,
+                        background: "rgba(16,185,129,0.1)",
+                        padding: "0.3rem 0.6rem",
+                        borderRadius: "3px",
                       }}
                     >
                       <CheckCircle2 size={16} />
-                      <span>Đã xác minh</span>
+                      <span>VERIFIED</span>
                     </div>
                   )}
                 </div>
@@ -226,36 +243,37 @@ export function RcaTab() {
             </div>
           </div>
 
-          {/* Preventive Actions & Lots */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
+          {/* Preventive Roadmap & Related Lots */}
+          <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: "1.75rem" }}>
             <div className="card">
-              <h3 className="card-title" style={{ fontSize: "1.1rem" }}>
-                <ShieldCheck size={20} color="#10b981" />
-                <span>Biện pháp phòng ngừa (Preventive Actions)</span>
+              <h3 className="card-title" style={{ fontSize: "1.15rem" }}>
+                <ShieldCheck size={22} color="#10b981" />
+                <span>BIỆN PHÁP PHÒNG NGỪA (PREVENTIVE ACTIONS)</span>
               </h3>
-              <ul style={{ paddingLeft: "1.25rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <ul style={{ paddingLeft: "1.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                 {report.preventive_actions.map((act, i) => (
-                  <li key={i} style={{ color: "#f8fafc" }}>{act}</li>
+                  <li key={i} style={{ color: "#f8fafc", fontSize: "1.025rem", lineHeight: "1.6" }}>{act}</li>
                 ))}
               </ul>
             </div>
 
             <div className="card">
-              <h3 className="card-title" style={{ fontSize: "1.1rem" }}>
-                <span>Các lô có nguy cơ tương tự (Related Lots)</span>
+              <h3 className="card-title" style={{ fontSize: "1.15rem" }}>
+                <span>CÁC LÔ CÙNG NGUY CƠ (AFFECTED LOTS)</span>
               </h3>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.6rem" }}>
                 {report.related_lots.map((lot, i) => (
                   <span
                     key={i}
                     style={{
-                      background: "#0f172a",
+                      background: "rgba(244, 63, 94, 0.12)",
                       border: "1px solid #f43f5e",
                       color: "#fca5a5",
-                      padding: "0.4rem 0.8rem",
-                      borderRadius: "6px",
+                      padding: "0.5rem 0.9rem",
+                      borderRadius: "4px",
                       fontFamily: "var(--font-mono)",
-                      fontSize: "0.9rem",
+                      fontSize: "0.95rem",
+                      fontWeight: 700,
                     }}
                   >
                     {lot}
@@ -265,9 +283,10 @@ export function RcaTab() {
             </div>
           </div>
 
-          {/* Disclaimer */}
-          <div style={{ padding: "0.75rem 1rem", background: "#111827", borderRadius: "8px", border: "1px solid #334155", color: "#94a3b8", fontSize: "0.85rem", textAlign: "center" }}>
-            {report.disclaimer}
+          {/* Official Disclaimer */}
+          <div style={{ padding: "0.9rem 1.25rem", background: "#0a0e1a", borderRadius: "4px", border: "1px solid #334155", color: "#94a3b8", fontSize: "0.9rem", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
+            <Info size={16} color="#94a3b8" />
+            <span>{report.disclaimer}</span>
           </div>
         </div>
       )}
