@@ -3,12 +3,25 @@ import { api } from "./api";
 import { ReviewProfilesTab } from "./components/ReviewProfilesTab";
 import { AssistantTab } from "./components/AssistantTab";
 import { RcaTab } from "./components/RcaTab";
-import { CheckSquare, Bot, Activity, Database, Radio, Cpu, Wifi, WifiOff } from "lucide-react";
+import { CheckSquare, Bot, Activity, Database, Radio, Cpu, Wifi, WifiOff, Sun, Moon } from "lucide-react";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<"review" | "assistant" | "rca">("review");
   const [healthStatus, setHealthStatus] = useState<{ status: string; neo4j: string; postgres: string } | null>(null);
   const [apiError, setApiError] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    const saved = localStorage.getItem("mentormind_theme") as "light" | "dark" | null;
+    return saved || "light";
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("mentormind_theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === "light" ? "dark" : "light"));
+  };
 
   useEffect(() => {
     const checkHealth = () => {
@@ -59,8 +72,27 @@ export default function App() {
           </div>
         </div>
 
-        {/* System telemetry pills */}
+        {/* System telemetry pills & Theme switch */}
         <div className="header-status">
+          <button
+            id="theme-toggle"
+            onClick={toggleTheme}
+            className="theme-toggle-btn"
+            title={theme === "light" ? "Switch to Dark Theme" : "Switch to Light Theme"}
+          >
+            {theme === "light" ? (
+              <>
+                <Sun size={13} color="#d97706" />
+                <span>LIGHT</span>
+              </>
+            ) : (
+              <>
+                <Moon size={13} color="#00d4ff" />
+                <span>DARK</span>
+              </>
+            )}
+          </button>
+
           <div className="status-pill">
             <span className={`status-dot ${apiError ? "offline" : ""}`} />
             {apiError
@@ -70,16 +102,16 @@ export default function App() {
           </div>
 
           <div className="status-pill">
-            <Database size={11} color="#00d4ff" />
+            <Database size={11} color={theme === "light" ? "#0284c7" : "#00d4ff"} />
             <span>GRAPH: {neo4jStatus.toUpperCase()}</span>
           </div>
 
           <div className="status-pill">
-            <Radio size={11} color="#10b981" />
+            <Radio size={11} color={theme === "light" ? "#059669" : "#10b981"} />
             <span>VECTOR: {pgStatus.toUpperCase()}</span>
           </div>
 
-          <div className="status-pill" style={{ borderColor: "rgba(230,0,18,0.28)", color: "rgba(255,80,90,0.9)" }}>
+          <div className="status-pill" style={{ borderColor: "rgba(230,0,18,0.28)", color: theme === "light" ? "#b91c1c" : "rgba(255,80,90,0.9)" }}>
             <Cpu size={11} color="#e60012" />
             <span>LINE: PACK01 // ST-04</span>
           </div>
