@@ -89,6 +89,12 @@ class Settings(BaseSettings):
     # One JSON line per agent call (spec 06 FR-04). Empty = no trace.
     trace_dir: Path | None = REPO_ROOT / "data" / "work" / "traces"
 
+    # --- Evaluation (spec 09) --------------------------------------------------------------
+    # Judge LLM of the Ragas metrics; empty = the agent's KNOWHOW_LLM_* (FR-02).
+    eval_llm_provider: str | None = None
+    eval_llm_base_url: str | None = None
+    eval_llm_model: str | None = None
+
     # --- Stores & adapters (spec 07, 08) ----------------------------------------------------
     profile_db: Path = Path("data/work/profiles.sqlite")
     # Where `vlm describe` keeps drafts: auto = spec 08 store if present, else JSON file.
