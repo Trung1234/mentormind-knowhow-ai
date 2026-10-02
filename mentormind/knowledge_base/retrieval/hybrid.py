@@ -108,10 +108,11 @@ PROFILE_EXPANSIONS = (
     "RETURN 'Chuyên gia ' + coalesce(e.display_name, e.expert_id) + ' đóng góp bước ' + s.step "
     "AS fact, 'work_profile' AS source_type, s.profile_id AS ref_id, "
     "s.data_classification AS data_classification",
-    "MATCH (s:Step {profile_id: $profile_id})-[:EVIDENCED_BY]->(v:VideoSegment) "
+    "MATCH (s:Step {profile_id: $profile_id})-[r:EVIDENCED_BY]->(v:VideoSegment) "
     "RETURN 'Video ' + coalesce(v.video_id, '') + ' đoạn ' + v.segment_id AS fact, "
     "'video_segment' AS source_type, v.segment_id AS ref_id, "
-    "s.data_classification AS data_classification",
+    "s.data_classification AS data_classification, "
+    "r.profile_t_start AS t_start, r.profile_t_end AS t_end",
 )
 
 
@@ -253,7 +254,8 @@ class HybridRetriever:
             if not fact or not ref_id:
                 continue
             source_type = row.get("source_type", "work_profile")
-            citation = Citation(source_type=source_type, ref_id=ref_id, snippet=fact, score=score)
+            citation = Citation(source_type=source_type, ref_id=ref_id, snippet=fact, score=score,
+                                t_start=row.get("t_start"), t_end=row.get("t_end"))
             classification = DataClassification(
                 row.get("data_classification") or "factory_confidential"
             )

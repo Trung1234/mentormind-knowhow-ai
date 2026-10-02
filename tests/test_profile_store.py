@@ -122,6 +122,26 @@ def test_publication_failure_keeps_profile_unapproved(temp_store, valid_profile_
     assert temp_store.get_profile("WP-PACK01-001").status == "draft"
 
 
+def test_review_event_failure_rolls_back_sqlite_and_compensates_publication(tmp_path, valid_profile_data):
+    class FailingEventStore(ProfileStore):
+        @staticmethod
+        def _write_review_event(cursor, profile_id, review_req, now_str):
+            raise RuntimeError("review event write failed")
+
+    store = FailingEventStore(db_path=tmp_path / "failed_review.sqlite")
+    store.save_profile(WorkProfile.model_validate(valid_profile_data))
+    actions = []
+    with pytest.raises(RuntimeError, match="review event write failed"):
+        store.record_review(
+            "WP-PACK01-001", ReviewRequest(action="approve", reviewer="EXP-1"),
+            before_save=lambda profile: actions.append("published"),
+            rollback_publish=lambda profile: actions.append("unloaded"),
+        )
+    assert actions == ["published", "unloaded"]
+    assert store.get_profile("WP-PACK01-001").status == "draft"
+    assert store.get_profile_with_reviews("WP-PACK01-001")["reviews"] == []
+
+
 def test_ac_03_review_reject_without_comment(temp_store, valid_profile_data):
     """AC-03: review reject không kèm comment -> raise error."""
     profile = WorkProfile.model_validate(valid_profile_data)

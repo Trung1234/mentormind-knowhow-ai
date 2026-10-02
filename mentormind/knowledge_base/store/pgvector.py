@@ -23,6 +23,8 @@ class PgVectorStore:
         self._psycopg = psycopg
         self.dsn = dsn
         self.table = f"public.{table}"
+        if embedder is not None and getattr(embedder, "model_name", None) != embed_model:
+            raise VectorStoreError("Embedder model identity must match the configured embedding model")
         self.embedder = embedder or BgeM3Embedder(embed_model)
         self.embed_model = embed_model
         if self.embedder.dim != 1024:

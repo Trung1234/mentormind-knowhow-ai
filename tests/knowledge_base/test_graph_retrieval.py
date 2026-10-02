@@ -176,6 +176,38 @@ def test_unload_removes_only_step_and_its_chunk():
     assert not any("DELETE p" in q for q, _ in graph.calls)
 
 
+def test_failed_vector_delete_rolls_back_graph_unload():
+    class TransactionalGraph(RecordingGraph):
+        def __init__(self):
+            super().__init__()
+            self.steps = set()
+
+        @contextmanager
+        def transaction(self):
+            before = self.steps.copy()
+            try:
+                yield
+            except Exception:
+                self.steps = before
+                raise
+
+        def run(self, query, **params):
+            if "MERGE (s:Step" in query:
+                self.steps.add(params["profile_id"])
+            if "DETACH DELETE s" in query:
+                self.steps.discard(params["profile_id"])
+                raise RuntimeError("graph delete failed")
+            return super().run(query, **params)
+
+    graph, vectors = TransactionalGraph(), MemoryVectorStore()
+    loader = KnowledgeGraphLoader(graph, vectors)
+    loader.load_profiles([profile()])
+    with pytest.raises(RuntimeError, match="graph delete failed"):
+        loader.unload_profile("WP-PACK01-001")
+    assert graph.steps == {"WP-PACK01-001"}
+    assert vectors.search("Kiểm tra")
+
+
 def test_retrieval_keeps_passage_and_citation_together_and_filters_process():
     graph, vectors = RecordingGraph(), MemoryVectorStore()
     KnowledgeGraphLoader(graph, vectors).load_profiles([profile()])
@@ -187,6 +219,19 @@ def test_retrieval_keeps_passage_and_citation_together_and_filters_process():
     assert len(result.passages) == len(result.citations) == len(result.classifications)
     assert any(c.ref_id == "WP-PACK01-001" for c in result.citations)
     assert HybridRetriever(vectors, graph).retrieve("linh kiện", process_id="PACK02").passages == []
+
+
+def test_video_expansion_citation_carries_profile_evidence_window():
+    graph, vectors = RecordingGraph(), MemoryVectorStore()
+    KnowledgeGraphLoader(graph, vectors).load_profiles([profile()])
+    graph.rows["[r:EVIDENCED_BY]"] = [
+        {"fact": "Video VID-1 đoạn VID-1#s1", "source_type": "video_segment",
+         "ref_id": "VID-1#s1", "data_classification": "synthetic",
+         "t_start": 2, "t_end": 4}
+    ]
+    result = HybridRetriever(vectors, graph).retrieve("Kiểm tra")
+    citation = next(c for c in result.citations if c.source_type == "video_segment")
+    assert (citation.ref_id, citation.t_start, citation.t_end) == ("VID-1#s1", 2, 4)
 
 
 def test_bad_router_output_falls_back_to_vector():

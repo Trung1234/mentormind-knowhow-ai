@@ -180,18 +180,35 @@ class KnowledgeGraphLoader:
         )
 
     def unload_profile(self, profile_id: str) -> None:
-        rows = self.graph.run(
-            "MATCH (p:Process)-[:HAS_STEP]->(s:Step {profile_id: $profile_id}) "
-            "RETURN p.process_id AS process_id", profile_id=profile_id,
+        old = self.vectors.search(
+            "", k=1, filters={"source_type": "work_profile", "ref_id": profile_id}
         )
-        self.vectors.delete([profile_id])
-        self.graph.run("MATCH (s:Step {profile_id: $profile_id}) DETACH DELETE s", profile_id=profile_id)
-        self.graph.run(
-            "MATCH (e:Exception) WHERE e.exception_id STARTS WITH $prefix "
-            "AND NOT EXISTS { MATCH ()-[:HAS_EXCEPTION]->(e) } DELETE e", prefix=profile_id + "#",
-        )
-        for row in rows:
-            self._rebuild_next(row["process_id"])
+        transaction = getattr(self.graph, "transaction", None)
+        try:
+            with transaction() if transaction is not None else nullcontext():
+                rows = self.graph.run(
+                    "MATCH (p:Process)-[:HAS_STEP]->(s:Step {profile_id: $profile_id}) "
+                    "RETURN p.process_id AS process_id", profile_id=profile_id,
+                )
+                self.graph.run(
+                    "MATCH (s:Step {profile_id: $profile_id}) DETACH DELETE s",
+                    profile_id=profile_id,
+                )
+                self.graph.run(
+                    "MATCH (e:Exception) WHERE e.exception_id STARTS WITH $prefix "
+                    "AND NOT EXISTS { MATCH ()-[:HAS_EXCEPTION]->(e) } DELETE e",
+                    prefix=profile_id + "#",
+                )
+                for row in rows:
+                    self._rebuild_next(row["process_id"])
+                self.vectors.delete([profile_id])
+        except Exception:
+            if old:
+                try:
+                    self.vectors.upsert([old[0].chunk])
+                except Exception:
+                    log.exception("Could not restore vector chunk for %s", profile_id)
+            raise
 
     def load_sigma(self, adapter: Any) -> int:
         """Load read-only Sigma adapter records; prevention edges need a published Step."""

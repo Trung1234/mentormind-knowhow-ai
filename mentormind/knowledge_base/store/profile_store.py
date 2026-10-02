@@ -117,29 +117,26 @@ class ProfileStore:
 
         updated_at = datetime.now(timezone.utc).isoformat()
         with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                INSERT INTO profiles (profile_id, process_id, status, version, data_json, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                ON CONFLICT(profile_id) DO UPDATE SET
-                    process_id=excluded.process_id,
-                    status=excluded.status,
-                    version=excluded.version,
-                    data_json=excluded.data_json,
-                    updated_at=excluded.updated_at;
-                """,
-                (
-                    profile.profile_id,
-                    profile.process_id,
-                    _to_val(profile.status),
-                    profile.version,
-                    json.dumps(data_dict, ensure_ascii=False),
-                    updated_at,
-                ),
-            )
-            conn.commit()
+            self._write_profile(conn.cursor(), profile, data_dict, updated_at)
         return profile
+
+    @staticmethod
+    def _write_profile(cursor: sqlite3.Cursor, profile: WorkProfile,
+                       data_dict: dict[str, Any], updated_at: str) -> None:
+        cursor.execute(
+            """
+            INSERT INTO profiles (profile_id, process_id, status, version, data_json, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(profile_id) DO UPDATE SET
+                process_id=excluded.process_id,
+                status=excluded.status,
+                version=excluded.version,
+                data_json=excluded.data_json,
+                updated_at=excluded.updated_at;
+            """,
+            (profile.profile_id, profile.process_id, _to_val(profile.status), profile.version,
+             json.dumps(data_dict, ensure_ascii=False), updated_at),
+        )
 
     def get_profile(self, profile_id: str) -> WorkProfile | None:
         with self._get_connection() as conn:
@@ -231,6 +228,7 @@ class ProfileStore:
         profile_id: str,
         review_req: ReviewRequest,
         before_save: Callable[[WorkProfile], None] | None = None,
+        rollback_publish: Callable[[WorkProfile], None] | None = None,
     ) -> WorkProfile:
         existing = self.get_profile(profile_id)
         if not existing:
@@ -254,30 +252,37 @@ class ProfileStore:
         }
 
         updated_profile = WorkProfile.model_validate(current_dict)
-        if before_save is not None:
-            before_save(updated_profile)
-        self.save_profile(updated_profile)
-
-        # Record review event
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                INSERT INTO review_events (profile_id, action, reviewer, comment, error_tags, created_at)
-                VALUES (?, ?, ?, ?, ?, ?);
-                """,
-                (
-                    profile_id,
-                    _to_val(review_req.action),
-                    review_req.reviewer,
-                    review_req.comment,
-                    json.dumps([_to_val(t) for t in review_req.error_tags]),
-                    now_str,
-                ),
-            )
-            conn.commit()
+        data_dict = updated_profile.model_dump(mode="json")
+        validate_against_contract(data_dict)
+        published = False
+        try:
+            # The profile and its review event commit together. Publish while that SQLite
+            # transaction is open; if publication fails, SQLite rolls back both writes.
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                self._write_profile(cursor, updated_profile, data_dict, now_str)
+                if before_save is not None:
+                    before_save(updated_profile)
+                    published = True
+                self._write_review_event(cursor, profile_id, review_req, now_str)
+        except Exception:
+            if published and rollback_publish is not None:
+                rollback_publish(updated_profile)
+            raise
 
         return updated_profile
+
+    @staticmethod
+    def _write_review_event(cursor: sqlite3.Cursor, profile_id: str,
+                            review_req: ReviewRequest, now_str: str) -> None:
+        cursor.execute(
+            """
+            INSERT INTO review_events (profile_id, action, reviewer, comment, error_tags, created_at)
+            VALUES (?, ?, ?, ?, ?, ?);
+            """,
+            (profile_id, _to_val(review_req.action), review_req.reviewer, review_req.comment,
+             json.dumps([_to_val(t) for t in review_req.error_tags]), now_str),
+        )
 
     # ==========================
     # Job tracking methods
