@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
 from collections.abc import Iterator
+from contextlib import contextmanager, suppress
 from pathlib import Path
 from typing import Any
 
@@ -42,7 +42,8 @@ class Neo4jGraph:
                 yield
                 transaction.commit()
             except Exception:
-                transaction.rollback()
+                with suppress(Exception):
+                    transaction.rollback()
                 raise
             finally:
                 self._transaction = None

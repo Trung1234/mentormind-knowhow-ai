@@ -137,6 +137,11 @@ class HybridRetriever:
         self.router = router
         self.token_budget = token_budget
 
+    def close(self) -> None:
+        close = getattr(self.graph, "close", None)
+        if close is not None:
+            close()
+
     def match_symptom(self, text: str) -> str | None:
         catalog = self.graph.run("MATCH (s:Symptom) RETURN s.symptom_id AS symptom_id, s.name AS name")
         if not catalog:

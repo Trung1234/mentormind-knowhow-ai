@@ -3,7 +3,7 @@
 import os
 import uuid
 from contextlib import contextmanager
-from typing import cast
+from typing import Any, cast
 
 import pytest
 
@@ -118,6 +118,54 @@ def test_failed_graph_commit_removes_new_vector_chunk():
     assert vectors.search("Kiểm tra") == []
 
 
+def test_neo4j_client_uses_one_transaction_and_rolls_back_on_failure():
+    class Transaction:
+        def __init__(self):
+            self.queries = []
+            self.rolled_back = False
+
+        def run(self, query, **params):
+            self.queries.append(query)
+            return []
+
+        def rollback(self):
+            self.rolled_back = True
+
+    class Session:
+        def __init__(self, transaction):
+            self.transaction = transaction
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def begin_transaction(self):
+            return self.transaction
+
+        def run(self, query, **params):
+            raise AssertionError("query escaped the transaction")
+
+    class Driver:
+        def __init__(self, session):
+            self._session = session
+
+        def session(self):
+            return self._session
+
+    transaction = Transaction()
+    graph = Neo4jGraph.__new__(Neo4jGraph)
+    graph._driver = cast(Any, Driver(Session(transaction)))
+    graph._transaction = None
+    with pytest.raises(RuntimeError, match="stop"):
+        with graph.transaction():
+            graph.run("MERGE (:Step {profile_id: $id})", id="WP-PACK01-001")
+            raise RuntimeError("stop")
+    assert transaction.queries == ["MERGE (:Step {profile_id: $id})"]
+    assert transaction.rolled_back is True
+
+
 def test_unload_removes_only_step_and_its_chunk():
     graph, vectors = RecordingGraph(), MemoryVectorStore()
     loader = KnowledgeGraphLoader(graph, vectors)
@@ -230,7 +278,7 @@ def test_retriever_factory_needs_no_cloud_key_for_offline_retrieval():
                         llm_api_key=None)
     retriever = get_hybrid_retriever(settings)
     assert retriever.router is None
-    retriever.graph.close()
+    retriever.close()
 
 
 @pytest.mark.integration

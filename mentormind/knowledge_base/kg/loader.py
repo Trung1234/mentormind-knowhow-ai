@@ -195,8 +195,18 @@ class KnowledgeGraphLoader:
 
     def load_sigma(self, adapter: Any) -> int:
         """Load read-only Sigma adapter records; prevention edges need a published Step."""
+        transaction = getattr(self.graph, "transaction", None)
+        with transaction() if transaction is not None else nullcontext():
+            return self._load_sigma(adapter)
+
+    def _load_sigma(self, adapter: Any) -> int:
         count = 0
         for lot in adapter.list_lots():
+            self.graph.run(
+                "MATCH (l:Lot {lot_id: $lot_id})-[r:PROCESSED_AT]->(p:Process) "
+                "WHERE p.process_id <> $process_id DELETE r",
+                lot_id=lot.lot_id, process_id=lot.process_id,
+            )
             self.graph.run(
                 "MERGE (l:Lot {lot_id: $lot_id}) SET l.product_code = $product_code "
                 "MERGE (p:Process {process_id: $process_id}) "
@@ -207,6 +217,18 @@ class KnowledgeGraphLoader:
             )
             count += 1
         for item in adapter.defect_catalog():
+            self.graph.run(
+                "MATCH (s:Symptom {symptom_id: $symptom_id})-[r:CAUSED_BY]->(c:RootCause) "
+                "WHERE $cause_id IS NULL OR c.cause_id <> $cause_id DELETE r",
+                symptom_id=item.defect_code, cause_id=item.known_root_cause_id,
+            )
+            if item.known_root_cause_id:
+                self.graph.run(
+                    "MATCH (c:RootCause {cause_id: $cause_id})-[r:PREVENTED_BY]->(s:Step) "
+                    "WHERE $profile_id IS NULL OR s.profile_id <> $profile_id DELETE r",
+                    cause_id=item.known_root_cause_id,
+                    profile_id=item.prevention_profile_id,
+                )
             self.graph.run(
                 "MERGE (s:Symptom {symptom_id: $symptom_id}) SET s.name = $name "
                 "WITH s WHERE $cause_id IS NOT NULL "
@@ -219,7 +241,21 @@ class KnowledgeGraphLoader:
                 cause_id=item.known_root_cause_id, description=item.known_root_cause,
                 profile_id=item.prevention_profile_id,
             )
+        touched_symptoms: set[str] = set()
         for defect in adapter.list_defects():
+            old = self.graph.run(
+                "MATCH (:Lot)-[r:HAS_DEFECT {defect_id: $defect_id}]->(s:Symptom) "
+                "RETURN DISTINCT s.symptom_id AS symptom_id",
+                defect_id=defect.defect_id,
+            )
+            touched_symptoms.update(row["symptom_id"] for row in old)
+            touched_symptoms.add(defect.defect_code)
+            self.graph.run(
+                "MATCH (l:Lot)-[r:HAS_DEFECT {defect_id: $defect_id}]->(s:Symptom) "
+                "WHERE l.lot_id <> $lot_id OR s.symptom_id <> $symptom_id DELETE r",
+                lot_id=defect.lot_id, symptom_id=defect.defect_code,
+                defect_id=defect.defect_id,
+            )
             self.graph.run(
                 "MATCH (l:Lot {lot_id: $lot_id}), (p:Process {process_id: $process_id}) "
                 "MERGE (s:Symptom {symptom_id: $symptom_id}) "
@@ -229,6 +265,16 @@ class KnowledgeGraphLoader:
                 lot_id=defect.lot_id, process_id=defect.process_id,
                 symptom_id=defect.defect_code, defect_id=defect.defect_id,
                 date=str(defect.detected_at.date()), qty=defect.qty,
+            )
+        for symptom_id in touched_symptoms:
+            self.graph.run(
+                "MATCH (s:Symptom {symptom_id: $symptom_id})-[r:DETECTED_AT]->(:Process) "
+                "DELETE r", symptom_id=symptom_id,
+            )
+            self.graph.run(
+                "MATCH (s:Symptom {symptom_id: $symptom_id})<-[:HAS_DEFECT]-(l:Lot)"
+                "-[:PROCESSED_AT]->(p:Process) MERGE (s)-[:DETECTED_AT]->(p)",
+                symptom_id=symptom_id,
             )
         return count
 
