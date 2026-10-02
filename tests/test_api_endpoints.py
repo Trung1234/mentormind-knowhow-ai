@@ -142,6 +142,25 @@ def test_ac_01_patch_profile(client):
     assert data["step"] == "Lấy hộp carton từ kệ số 3"
 
 
+def test_patching_approved_profile_unpublishes_index(client, mock_store):
+    published = set()
+
+    class TrackingLoader:
+        def load_profiles(self, profiles):
+            published.update(profile.profile_id for profile in profiles)
+
+        def unload_profile(self, profile_id):
+            published.discard(profile_id)
+
+    app.dependency_overrides[get_knowledge_loader] = lambda: TrackingLoader()
+    assert client.post("/profiles/WP-PACK01-001/review",
+                       json={"action": "approve", "reviewer": "expert_01"}).status_code == 200
+    assert published == {"WP-PACK01-001"}
+    assert client.patch("/profiles/WP-PACK01-001", json={"step": "Bước mới"}).status_code == 200
+    assert mock_store.get_profile("WP-PACK01-001").status == "in_review"
+    assert published == set()
+
+
 def test_ac_04_media_path_traversal_blocked(client):
     """AC-04: GET /media/../../etc/passwd -> 400 hoặc 404, chặn truy cập."""
     res = client.get("/media/../../etc/passwd")
