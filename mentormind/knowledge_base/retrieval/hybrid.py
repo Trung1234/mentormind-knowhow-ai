@@ -14,8 +14,12 @@ from mentormind.knowledge_base.kg.loader import Graph
 from mentormind.knowledge_base.store.vector_store import VectorStore
 
 Template = Literal[
-    "steps_of_process", "steps_using_part", "where_symptom_occurred",
-    "root_causes_of_symptom", "prevention_steps", "lots_with_defect",
+    "steps_of_process",
+    "steps_using_part",
+    "where_symptom_occurred",
+    "root_causes_of_symptom",
+    "prevention_steps",
+    "lots_with_defect",
 ]
 
 
@@ -155,7 +159,8 @@ class HybridRetriever:
             return ranked[0][1]
         rows = self.graph.run(
             "CALL db.index.fulltext.queryNodes('symptom_name', $text) YIELD node, score "
-            "RETURN node.symptom_id AS symptom_id ORDER BY score DESC LIMIT 1", text=text,
+            "RETURN node.symptom_id AS symptom_id ORDER BY score DESC LIMIT 1",
+            text=text,
         )
         return rows[0]["symptom_id"] if rows else None
 
@@ -169,7 +174,8 @@ class HybridRetriever:
                 "Choose at most one graph template for this question. Return JSON with template "
                 "and any needed process_id, part_number, symptom_text, defect_code, date_from, "
                 "date_to. Templates: " + ", ".join(TEMPLATES) + "\nQuestion: " + query,
-                Route.model_json_schema(), classification="factory_confidential",
+                Route.model_json_schema(),
+                classification="factory_confidential",
             )
             route = Route.model_validate(response)
             if process_id is not None:
@@ -201,15 +207,16 @@ class HybridRetriever:
     def retrieve(self, query: str, process_id: str | None = None, k: int = 8) -> RetrievedContext:
         filters = {"process_id": process_id} if process_id else None
         hits = self.vectors.search(query, k=k, filters=filters)
-        candidates: dict[
-            tuple[str, str, str], tuple[str, Citation, float, bool, DataClassification]
-        ] = {}
+        candidates: dict[tuple[str, str, str], tuple[str, Citation, float, bool, DataClassification]] = {}
         for hit in hits:
             chunk = hit.chunk
-            citation = Citation(source_type=chunk.source_type, ref_id=chunk.ref_id,
-                                snippet=chunk.text, score=hit.score)
+            citation = Citation(source_type=chunk.source_type, ref_id=chunk.ref_id, snippet=chunk.text, score=hit.score)
             candidates[(chunk.source_type, chunk.ref_id, chunk.chunk_id)] = (
-                chunk.text, citation, hit.score, False, chunk.data_classification
+                chunk.text,
+                citation,
+                hit.score,
+                False,
+                chunk.data_classification,
             )
             if chunk.source_type == "work_profile":
                 for statement in PROFILE_EXPANSIONS:
@@ -221,7 +228,8 @@ class HybridRetriever:
                     "(d:Document {doc_id: $doc_id}) "
                     "WHERE $process_id IS NULL OR p.process_id = $process_id "
                     "RETURN s.step AS fact, 'work_profile' AS source_type, s.profile_id AS ref_id, "
-                    "s.data_classification AS data_classification", doc_id=chunk.ref_id,
+                    "s.data_classification AS data_classification",
+                    doc_id=chunk.ref_id,
                     process_id=process_id,
                 )
                 self._add_rows(candidates, rows, hit.score + 0.1)
@@ -231,9 +239,7 @@ class HybridRetriever:
             self._add_rows(candidates, rows, 0.1)
         passages, facts, citations, classifications = [], [], [], []
         budget = self.token_budget
-        for passage, citation, _, is_fact, classification in sorted(
-            candidates.values(), key=lambda x: -x[2]
-        ):
+        for passage, citation, _, is_fact, classification in sorted(candidates.values(), key=lambda x: -x[2]):
             cost = max(1, len(re.findall(r"\w+|[^\w\s]", passage)) * 2)
             if cost > budget:
                 continue
@@ -243,9 +249,14 @@ class HybridRetriever:
             if is_fact:
                 facts.append(passage)
             budget -= cost
-        return RetrievedContext(query=query, process_id=process_id, passages=passages,
-                                graph_facts=facts, citations=citations,
-                                classifications=classifications)
+        return RetrievedContext(
+            query=query,
+            process_id=process_id,
+            passages=passages,
+            graph_facts=facts,
+            citations=citations,
+            classifications=classifications,
+        )
 
     @staticmethod
     def _add_rows(candidates: dict, rows: list[dict[str, Any]], score: float) -> None:
@@ -254,14 +265,16 @@ class HybridRetriever:
             if not fact or not ref_id:
                 continue
             source_type = row.get("source_type", "work_profile")
-            citation = Citation(source_type=source_type, ref_id=ref_id, snippet=fact, score=score,
-                                t_start=row.get("t_start"), t_end=row.get("t_end"))
-            classification = DataClassification(
-                row.get("data_classification") or "factory_confidential"
+            citation = Citation(
+                source_type=source_type,
+                ref_id=ref_id,
+                snippet=fact,
+                score=score,
+                t_start=row.get("t_start"),
+                t_end=row.get("t_end"),
             )
-            candidates[(source_type, ref_id, fact)] = (
-                fact, citation, score, True, classification
-            )
+            classification = DataClassification(row.get("data_classification") or "factory_confidential")
+            candidates[(source_type, ref_id, fact)] = (fact, citation, score, True, classification)
 
 
 def get_hybrid_retriever(settings: Any = None) -> HybridRetriever:

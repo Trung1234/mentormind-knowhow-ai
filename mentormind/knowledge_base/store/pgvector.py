@@ -12,8 +12,13 @@ from mentormind.knowledge_base.store.vector_store import Embedder, VectorStoreEr
 
 
 class PgVectorStore:
-    def __init__(self, dsn: str, table: str = "knowhow_chunks", embedder: Embedder | None = None,
-                 embed_model: str = "BAAI/bge-m3"):
+    def __init__(
+        self,
+        dsn: str,
+        table: str = "knowhow_chunks",
+        embedder: Embedder | None = None,
+        embed_model: str = "BAAI/bge-m3",
+    ):
         if not re.fullmatch(r"[a-z][a-z0-9_]*", table):
             raise ValueError("Invalid vector table name")
         try:
@@ -66,9 +71,18 @@ class PgVectorStore:
                         "part_numbers=excluded.part_numbers,"
                         "data_classification=excluded.data_classification,metadata=excluded.metadata,"
                         "embedding=excluded.embedding",
-                        (chunk.chunk_id, chunk.source_type, chunk.ref_id, chunk.kind, chunk.text,
-                         chunk.process_ids, chunk.part_numbers, str(chunk.data_classification),
-                         Jsonb(metadata), self._literal(vector)),
+                        (
+                            chunk.chunk_id,
+                            chunk.source_type,
+                            chunk.ref_id,
+                            chunk.kind,
+                            chunk.text,
+                            chunk.process_ids,
+                            chunk.part_numbers,
+                            str(chunk.data_classification),
+                            Jsonb(metadata),
+                            self._literal(vector),
+                        ),
                     )
         return len(batch)
 
@@ -92,20 +106,23 @@ class PgVectorStore:
         predicate = " AND ".join(where) if where else "TRUE"
         limit = max(k * 4, 20)
         vector = self._literal(self.embedder.embed([query])[0])
-        columns = ("chunk_id,source_type,ref_id,kind,text,process_ids,part_numbers,"
-                   "data_classification,metadata,embedding::text")
+        columns = (
+            "chunk_id,source_type,ref_id,kind,text,process_ids,part_numbers,"
+            "data_classification,metadata,embedding::text"
+        )
         with self._psycopg.connect(self.dsn) as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    f"SELECT {columns} FROM {self.table} WHERE {predicate} "
-                    "ORDER BY embedding <=> %s::vector LIMIT %s", (*values, vector, limit),
+                    f"SELECT {columns} FROM {self.table} WHERE {predicate} ORDER BY embedding <=> %s::vector LIMIT %s",
+                    (*values, vector, limit),
                 )
                 dense = cur.fetchall()
                 cur.execute(
                     f"SELECT {columns} FROM {self.table} WHERE {predicate} "
                     "AND search_tsv @@ plainto_tsquery('public.mm_unaccent', %s) "
                     "ORDER BY ts_rank(search_tsv, plainto_tsquery('public.mm_unaccent', %s)) DESC "
-                    "LIMIT %s", (*values, query, query, limit),
+                    "LIMIT %s",
+                    (*values, query, query, limit),
                 )
                 lexical = cur.fetchall()
         fused: dict[str, float] = {}
@@ -117,8 +134,14 @@ class PgVectorStore:
         for chunk_id, score in sorted(fused.items(), key=lambda pair: -pair[1])[:k]:
             row = rows[chunk_id]
             chunk = VectorChunk(
-                chunk_id=row[0], source_type=row[1], ref_id=row[2], kind=row[3], text=row[4],
-                process_ids=row[5], part_numbers=row[6], data_classification=row[7],
+                chunk_id=row[0],
+                source_type=row[1],
+                ref_id=row[2],
+                kind=row[3],
+                text=row[4],
+                process_ids=row[5],
+                part_numbers=row[6],
+                data_classification=row[7],
                 metadata=row[8],
             )
             result.append(VectorHit(chunk=chunk, score=round(score, 6)))

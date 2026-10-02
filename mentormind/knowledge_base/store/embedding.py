@@ -28,9 +28,7 @@ class BgeM3Embedder:
             try:
                 self._model = SentenceTransformer(self.model_name, local_files_only=True)
             except (OSError, ValueError) as exc:
-                raise VectorStoreError(
-                    f"Embedding model {self.model_name!r} is not cached locally"
-                ) from exc
+                raise VectorStoreError(f"Embedding model {self.model_name!r} is not cached locally") from exc
         vectors = self._model.encode(list(texts), normalize_embeddings=True)
         result: list[list[float]] = vectors.tolist()
         if any(len(vector) != self.dim for vector in result):

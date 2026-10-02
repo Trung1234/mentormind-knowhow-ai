@@ -42,14 +42,21 @@ class RecordingGraph:
 def profile(number=1, status="approved", version=1):
     return WorkProfile(
         schema_version="1.0",
-        profile_id=f"WP-PACK01-{number:03d}", process_id="PACK01", step_order=number,
-        step=f"Kiểm tra linh kiện bước {number}", hand_action="Cầm linh kiện",
+        profile_id=f"WP-PACK01-{number:03d}",
+        process_id="PACK01",
+        step_order=number,
+        step=f"Kiểm tra linh kiện bước {number}",
+        hand_action="Cầm linh kiện",
         reason="Tránh trầy" if status == "approved" else None,
         reason_source="expert_verbal" if status == "approved" else None,
         evidence=Evidence(video_id="VID-1", t_start=2, t_end=4, segment_ids=["VID-1#s1"]),
-        confidence=0.9, generated_by="human", data_classification="synthetic", status=status,
+        confidence=0.9,
+        generated_by="human",
+        data_classification="synthetic",
+        status=status,
         review=ReviewInfo(reviewer="EXP-1", reviewed_at="2026-09-28T00:00:00Z") if status == "approved" else None,
-        created_at="2026-09-28T00:00:00Z", version=version,
+        created_at="2026-09-28T00:00:00Z",
+        version=version,
     )
 
 
@@ -62,8 +69,7 @@ def test_loader_publishes_only_approved_and_explicit_segment_ids():
         "WP-PACK01-001"
     ]
     assert any("EVIDENCED_BY" in q and p.get("segment_ids") == ["VID-1#s1"] for q, p in graph.calls)
-    assert any("EVIDENCED_BY" in q and "r.profile_t_start" in q and "v.t_start" not in q
-               for q, _ in graph.calls)
+    assert any("EVIDENCED_BY" in q and "r.profile_t_start" in q and "v.t_start" not in q for q, _ in graph.calls)
     assert any("NEXT" in q for q, _ in graph.calls)
 
 
@@ -225,9 +231,14 @@ def test_video_expansion_citation_carries_profile_evidence_window():
     graph, vectors = RecordingGraph(), MemoryVectorStore()
     KnowledgeGraphLoader(graph, vectors).load_profiles([profile()])
     graph.rows["[r:EVIDENCED_BY]"] = [
-        {"fact": "Video VID-1 đoạn VID-1#s1", "source_type": "video_segment",
-         "ref_id": "VID-1#s1", "data_classification": "synthetic",
-         "t_start": 2, "t_end": 4}
+        {
+            "fact": "Video VID-1 đoạn VID-1#s1",
+            "source_type": "video_segment",
+            "ref_id": "VID-1#s1",
+            "data_classification": "synthetic",
+            "t_start": 2,
+            "t_end": 4,
+        }
     ]
     result = HybridRetriever(vectors, graph).retrieve("Kiểm tra")
     citation = next(c for c in result.citations if c.source_type == "video_segment")
@@ -254,12 +265,24 @@ def test_bad_router_output_falls_back_to_vector():
 
 def test_two_document_chunks_keep_distinct_passages_and_citations():
     vectors = MemoryVectorStore()
-    vectors.upsert([
-        VectorChunk(chunk_id="DOC-1#1", source_type="document", ref_id="DOC-1",
-                    text="Kiểm tra góc vát", data_classification="synthetic"),
-        VectorChunk(chunk_id="DOC-1#2", source_type="document", ref_id="DOC-1",
-                    text="Kiểm tra bề mặt", data_classification="synthetic"),
-    ])
+    vectors.upsert(
+        [
+            VectorChunk(
+                chunk_id="DOC-1#1",
+                source_type="document",
+                ref_id="DOC-1",
+                text="Kiểm tra góc vát",
+                data_classification="synthetic",
+            ),
+            VectorChunk(
+                chunk_id="DOC-1#2",
+                source_type="document",
+                ref_id="DOC-1",
+                text="Kiểm tra bề mặt",
+                data_classification="synthetic",
+            ),
+        ]
+    )
     context = HybridRetriever(vectors, RecordingGraph()).retrieve("Kiểm tra", k=2)
     assert len(context.passages) == len(context.citations) == 2
     assert set(context.passages) == {"Kiểm tra góc vát", "Kiểm tra bề mặt"}
@@ -285,16 +308,18 @@ def test_root_cause_citation_identifies_catalog_row():
 
 def test_sigma_csv_loads_lot_defect_and_prevention_without_unapproved_step(tmp_path):
     (tmp_path / "lots.csv").write_text(
-        "lot_id,product_code,process_id,date,shift,operator_id,qty\n"
-        "LOT-1,P1,PACK01,2026-09-28,A,O1,10\n", encoding="utf-8",
+        "lot_id,product_code,process_id,date,shift,operator_id,qty\nLOT-1,P1,PACK01,2026-09-28,A,O1,10\n",
+        encoding="utf-8",
     )
     (tmp_path / "defects.csv").write_text(
         "defect_id,lot_id,process_id,defect_code,description,qty,detected_at\n"
-        "DEF-1,LOT-1,PACK01,D-01,Thiếu linh kiện,2,2026-09-28T08:00:00\n", encoding="utf-8",
+        "DEF-1,LOT-1,PACK01,D-01,Thiếu linh kiện,2,2026-09-28T08:00:00\n",
+        encoding="utf-8",
     )
     (tmp_path / "defect_catalog.csv").write_text(
         "defect_code,symptom_name,known_root_cause_id,known_root_cause,prevention_profile_id\n"
-        "D-01,Thiếu linh kiện,RC-01,Bỏ sót,WP-PACK01-005\n", encoding="utf-8",
+        "D-01,Thiếu linh kiện,RC-01,Bỏ sót,WP-PACK01-005\n",
+        encoding="utf-8",
     )
     graph = RecordingGraph()
     assert KnowledgeGraphLoader(graph, MemoryVectorStore()).load_sigma(CsvSigmaAdapter(tmp_path)) == 1
@@ -319,8 +344,7 @@ def test_committed_sigma_fixture_is_case_and_time_linkable():
 
 
 def test_retriever_factory_needs_no_cloud_key_for_offline_retrieval():
-    settings = Settings(_env_file=None, vector_backend="memory", llm_provider="qwen_api",
-                        llm_api_key=None)
+    settings = Settings(_env_file=None, vector_backend="memory", llm_provider="qwen_api", llm_api_key=None)
     retriever = get_hybrid_retriever(settings)
     assert retriever.router is None
     retriever.close()
@@ -332,46 +356,65 @@ def test_neo4j_profile_lifecycle_and_all_six_templates(tmp_path):
     if not uri:
         pytest.skip("Set KNOWHOW_TEST_NEO4J_URI to run against a disposable Neo4j 5 instance")
     token = "IT" + uuid.uuid4().hex[:8].upper()
-    settings = Settings(_env_file=None, neo4j_uri=uri,
-                        neo4j_password=os.getenv("KNOWHOW_TEST_NEO4J_PASSWORD", "change-me"))
+    settings = Settings(
+        _env_file=None, neo4j_uri=uri, neo4j_password=os.getenv("KNOWHOW_TEST_NEO4J_PASSWORD", "change-me")
+    )
     graph = Neo4jGraph(settings)
     try:
         graph.init()
         vectors = MemoryVectorStore()
         loader = KnowledgeGraphLoader(graph, vectors)
         profiles = [
-            profile(i).model_copy(update={"profile_id": f"WP-{token}-{i:03d}",
-                                          "process_id": token,
-                                          "part_numbers": [f"{token}-PART"] if i == 2 else [],
-                                          "evidence": Evidence(video_id=f"{token}-VID", t_start=i,
-                                                               t_end=i + 1,
-                                                               segment_ids=[f"{token}-VID#s{i}"])})
+            profile(i).model_copy(
+                update={
+                    "profile_id": f"WP-{token}-{i:03d}",
+                    "process_id": token,
+                    "part_numbers": [f"{token}-PART"] if i == 2 else [],
+                    "evidence": Evidence(
+                        video_id=f"{token}-VID", t_start=i, t_end=i + 1, segment_ids=[f"{token}-VID#s{i}"]
+                    ),
+                }
+            )
             for i in (1, 2, 3)
         ]
-        other = [profile(i, status).model_copy(update={"profile_id": f"WP-{token}-{i:03d}",
-                                                "process_id": token})
-                 for i, status in ((4, "draft"), (5, "rejected"))]
+        other = [
+            profile(i, status).model_copy(update={"profile_id": f"WP-{token}-{i:03d}", "process_id": token})
+            for i, status in ((4, "draft"), (5, "rejected"))
+        ]
         result = loader.load_profiles(profiles + other)
         assert (result.loaded, result.skipped) == (3, 2)
         assert loader.stats()["Step"] >= 3
         assert loader.load_profiles(profiles).loaded == 3
-        assert len(graph.run("MATCH (p:Process {process_id: $pid})-[:HAS_STEP]->(s:Step) "
-                             "RETURN s.profile_id AS id", pid=token)) == 3
-        edges = graph.run("MATCH (a:Step)-[:NEXT]->(b:Step) "
-                          "WHERE a.profile_id STARTS WITH $prefix "
-                          "RETURN a.step_order AS a, b.step_order AS b", prefix=f"WP-{token}")
+        assert (
+            len(
+                graph.run(
+                    "MATCH (p:Process {process_id: $pid})-[:HAS_STEP]->(s:Step) RETURN s.profile_id AS id", pid=token
+                )
+            )
+            == 3
+        )
+        edges = graph.run(
+            "MATCH (a:Step)-[:NEXT]->(b:Step) "
+            "WHERE a.profile_id STARTS WITH $prefix "
+            "RETURN a.step_order AS a, b.step_order AS b",
+            prefix=f"WP-{token}",
+        )
         assert [(row["a"], row["b"]) for row in edges] == [(1, 2), (2, 3)]
 
         (tmp_path / "lots.csv").write_text(
-            "lot_id,product_code,process_id,date,shift,operator_id,qty\n"
-            f"{token}-LOT,P1,{token},2026-09-28,A,O1,10\n", encoding="utf-8")
+            f"lot_id,product_code,process_id,date,shift,operator_id,qty\n{token}-LOT,P1,{token},2026-09-28,A,O1,10\n",
+            encoding="utf-8",
+        )
         (tmp_path / "defects.csv").write_text(
             "defect_id,lot_id,process_id,defect_code,description,qty,detected_at\n"
             f"{token}-DEF,{token}-LOT,{token},{token}-D01,Lỗi,1,2026-09-28T08:00:00\n",
-            encoding="utf-8")
+            encoding="utf-8",
+        )
         (tmp_path / "defect_catalog.csv").write_text(
             "defect_code,symptom_name,known_root_cause_id,known_root_cause,prevention_profile_id\n"
-            f"{token}-D01,Thiếu linh kiện,{token}-RC,Bỏ sót,WP-{token}-002\n", encoding="utf-8")
+            f"{token}-D01,Thiếu linh kiện,{token}-RC,Bỏ sót,WP-{token}-002\n",
+            encoding="utf-8",
+        )
         loader.load_sigma(CsvSigmaAdapter(tmp_path))
         retriever = HybridRetriever(vectors, graph)
         expected = {
@@ -380,8 +423,10 @@ def test_neo4j_profile_lifecycle_and_all_six_templates(tmp_path):
             "where_symptom_occurred": (dict(symptom_id=f"{token}-D01", process_id=token), "-LOT"),
             "root_causes_of_symptom": (dict(symptom_id=f"{token}-D01", process_id=token), "Bỏ sót"),
             "prevention_steps": (dict(symptom_id=f"{token}-D01", process_id=token), "WP-"),
-            "lots_with_defect": (dict(symptom_id=f"{token}-D01", process_id=token,
-                                      date_from="2026-09-28", date_to="2026-09-28"), "-LOT"),
+            "lots_with_defect": (
+                dict(symptom_id=f"{token}-D01", process_id=token, date_from="2026-09-28", date_to="2026-09-28"),
+                "-LOT",
+            ),
         }
         for name, (params, fragment) in expected.items():
             rows = retriever.run_template(cast(Template, name), **params)
@@ -389,13 +434,17 @@ def test_neo4j_profile_lifecycle_and_all_six_templates(tmp_path):
 
         loader.unload_profile(f"WP-{token}-002")
         assert retriever.run_template("steps_using_part", part_number=f"{token}-PART") == []
-        assert graph.run("MATCH (p:Part {part_number: $number}) RETURN p.part_number AS number",
-                         number=f"{token}-PART")
+        assert graph.run("MATCH (p:Part {part_number: $number}) RETURN p.part_number AS number", number=f"{token}-PART")
     finally:
         for label, key in (
-            ("Process", "process_id"), ("Step", "profile_id"), ("Exception", "exception_id"),
-            ("Part", "part_number"), ("VideoSegment", "segment_id"), ("Symptom", "symptom_id"),
-            ("RootCause", "cause_id"), ("Lot", "lot_id"),
+            ("Process", "process_id"),
+            ("Step", "profile_id"),
+            ("Exception", "exception_id"),
+            ("Part", "part_number"),
+            ("VideoSegment", "segment_id"),
+            ("Symptom", "symptom_id"),
+            ("RootCause", "cause_id"),
+            ("Lot", "lot_id"),
         ):
             graph.run(f"MATCH (n:{label}) WHERE n.{key} CONTAINS $token DETACH DELETE n", token=token)
         graph.close()

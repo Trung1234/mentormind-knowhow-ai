@@ -103,8 +103,7 @@ def test_pgvector_backend_selected_by_settings() -> None:
 def test_pgvector_rejects_embedder_without_matching_model_identity() -> None:
     pytest.importorskip("psycopg")
     with pytest.raises(VectorStoreError, match="model identity"):
-        get_vector_store(Settings(_env_file=None, vector_backend="pgvector"),
-                         embedder=HashingEmbedder(dim=1024))
+        get_vector_store(Settings(_env_file=None, vector_backend="pgvector"), embedder=HashingEmbedder(dim=1024))
 
 
 def test_bge_embedder_accepts_only_1024_dimensional_dense_vectors() -> None:

@@ -57,6 +57,7 @@ def mock_store(tmp_path):
 @pytest.fixture
 def client(mock_store):
     app.dependency_overrides[get_profile_store] = lambda: mock_store
+
     class FakeLoader:
         def load_profiles(self, profiles):
             return None
@@ -110,8 +111,7 @@ def test_review_does_not_commit_approval_if_publication_fails(client, mock_store
 
     app.dependency_overrides[get_knowledge_loader] = lambda: FailingLoader()
     with pytest.raises(RuntimeError, match="graph unavailable"):
-        client.post("/profiles/WP-PACK01-001/review",
-                    json={"action": "approve", "reviewer": "expert_01"})
+        client.post("/profiles/WP-PACK01-001/review", json={"action": "approve", "reviewer": "expert_01"})
     assert mock_store.get_profile("WP-PACK01-001").status == "draft"
 
 
@@ -153,8 +153,10 @@ def test_patching_approved_profile_unpublishes_index(client, mock_store):
             published.discard(profile_id)
 
     app.dependency_overrides[get_knowledge_loader] = lambda: TrackingLoader()
-    assert client.post("/profiles/WP-PACK01-001/review",
-                       json={"action": "approve", "reviewer": "expert_01"}).status_code == 200
+    assert (
+        client.post("/profiles/WP-PACK01-001/review", json={"action": "approve", "reviewer": "expert_01"}).status_code
+        == 200
+    )
     assert published == {"WP-PACK01-001"}
     assert client.patch("/profiles/WP-PACK01-001", json={"step": "Bước mới"}).status_code == 200
     assert mock_store.get_profile("WP-PACK01-001").status == "in_review"

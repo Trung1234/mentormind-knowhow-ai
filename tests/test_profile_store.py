@@ -117,8 +117,9 @@ def test_publication_failure_keeps_profile_unapproved(temp_store, valid_profile_
         raise RuntimeError("graph unavailable")
 
     with pytest.raises(RuntimeError, match="graph unavailable"):
-        temp_store.record_review("WP-PACK01-001", ReviewRequest(action="approve", reviewer="EXP-1"),
-                                 before_save=failed_publish)
+        temp_store.record_review(
+            "WP-PACK01-001", ReviewRequest(action="approve", reviewer="EXP-1"), before_save=failed_publish
+        )
     assert temp_store.get_profile("WP-PACK01-001").status == "draft"
 
 
@@ -133,7 +134,8 @@ def test_review_event_failure_rolls_back_sqlite_and_compensates_publication(tmp_
     actions = []
     with pytest.raises(RuntimeError, match="review event write failed"):
         store.record_review(
-            "WP-PACK01-001", ReviewRequest(action="approve", reviewer="EXP-1"),
+            "WP-PACK01-001",
+            ReviewRequest(action="approve", reviewer="EXP-1"),
             before_save=lambda profile: actions.append("published"),
             rollback_publish=lambda profile: actions.append("unloaded"),
         )

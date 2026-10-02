@@ -47,8 +47,9 @@ class LotNotFound(KeyError):
 
 class SigmaAdapter(Protocol):
     def get_lot(self, lot_id: str) -> LotRecord: ...
-    def list_lots(self, process_id: str | None = None, date_from: date | None = None,
-                  date_to: date | None = None) -> list[LotRecord]: ...
+    def list_lots(
+        self, process_id: str | None = None, date_from: date | None = None, date_to: date | None = None
+    ) -> list[LotRecord]: ...
     def get_defects(self, lot_id: str) -> list[DefectRecord]: ...
     def list_defects(self, defect_code: str | None = None) -> list[DefectRecord]: ...
     def defect_catalog(self) -> list[DefectCatalogEntry]: ...
@@ -74,19 +75,26 @@ class CsvSigmaAdapter:
                 return lot
         raise LotNotFound(lot_id)
 
-    def list_lots(self, process_id: str | None = None, date_from: date | None = None,
-                  date_to: date | None = None) -> list[LotRecord]:
-        return [row for row in self._rows("lots.csv", LotRecord)
-                if (process_id is None or row.process_id == process_id)
-                and (date_from is None or row.date >= date_from)
-                and (date_to is None or row.date <= date_to)]
+    def list_lots(
+        self, process_id: str | None = None, date_from: date | None = None, date_to: date | None = None
+    ) -> list[LotRecord]:
+        return [
+            row
+            for row in self._rows("lots.csv", LotRecord)
+            if (process_id is None or row.process_id == process_id)
+            and (date_from is None or row.date >= date_from)
+            and (date_to is None or row.date <= date_to)
+        ]
 
     def get_defects(self, lot_id: str) -> list[DefectRecord]:
         return [row for row in self.list_defects() if row.lot_id == lot_id]
 
     def list_defects(self, defect_code: str | None = None) -> list[DefectRecord]:
-        return [row for row in self._rows("defects.csv", DefectRecord)
-                if defect_code is None or row.defect_code == defect_code]
+        return [
+            row
+            for row in self._rows("defects.csv", DefectRecord)
+            if defect_code is None or row.defect_code == defect_code
+        ]
 
     def defect_catalog(self) -> list[DefectCatalogEntry]:
         return self._rows("defect_catalog.csv", DefectCatalogEntry)

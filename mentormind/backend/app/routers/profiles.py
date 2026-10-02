@@ -85,8 +85,7 @@ def review_profile(
             loader.load_profiles([existing])
 
     try:
-        updated = store.record_review(profile_id, review_req, before_save=publish,
-                                      rollback_publish=rollback_publish)
+        updated = store.record_review(profile_id, review_req, before_save=publish, rollback_publish=rollback_publish)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

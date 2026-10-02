@@ -121,8 +121,9 @@ class ProfileStore:
         return profile
 
     @staticmethod
-    def _write_profile(cursor: sqlite3.Cursor, profile: WorkProfile,
-                       data_dict: dict[str, Any], updated_at: str) -> None:
+    def _write_profile(
+        cursor: sqlite3.Cursor, profile: WorkProfile, data_dict: dict[str, Any], updated_at: str
+    ) -> None:
         cursor.execute(
             """
             INSERT INTO profiles (profile_id, process_id, status, version, data_json, updated_at)
@@ -134,8 +135,14 @@ class ProfileStore:
                 data_json=excluded.data_json,
                 updated_at=excluded.updated_at;
             """,
-            (profile.profile_id, profile.process_id, _to_val(profile.status), profile.version,
-             json.dumps(data_dict, ensure_ascii=False), updated_at),
+            (
+                profile.profile_id,
+                profile.process_id,
+                _to_val(profile.status),
+                profile.version,
+                json.dumps(data_dict, ensure_ascii=False),
+                updated_at,
+            ),
         )
 
     def get_profile(self, profile_id: str) -> WorkProfile | None:
@@ -273,15 +280,20 @@ class ProfileStore:
         return updated_profile
 
     @staticmethod
-    def _write_review_event(cursor: sqlite3.Cursor, profile_id: str,
-                            review_req: ReviewRequest, now_str: str) -> None:
+    def _write_review_event(cursor: sqlite3.Cursor, profile_id: str, review_req: ReviewRequest, now_str: str) -> None:
         cursor.execute(
             """
             INSERT INTO review_events (profile_id, action, reviewer, comment, error_tags, created_at)
             VALUES (?, ?, ?, ?, ?, ?);
             """,
-            (profile_id, _to_val(review_req.action), review_req.reviewer, review_req.comment,
-             json.dumps([_to_val(t) for t in review_req.error_tags]), now_str),
+            (
+                profile_id,
+                _to_val(review_req.action),
+                review_req.reviewer,
+                review_req.comment,
+                json.dumps([_to_val(t) for t in review_req.error_tags]),
+                now_str,
+            ),
         )
 
     # ==========================
