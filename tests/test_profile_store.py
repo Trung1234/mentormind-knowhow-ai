@@ -108,6 +108,20 @@ def test_ac_02_review_approve(temp_store, valid_profile_data):
     assert details["reviews"][0]["action"] == "approve"
 
 
+def test_publication_failure_keeps_profile_unapproved(temp_store, valid_profile_data):
+    from mentormind.core.schemas import ReviewRequest
+
+    temp_store.save_profile(WorkProfile.model_validate(valid_profile_data))
+
+    def failed_publish(_profile):
+        raise RuntimeError("graph unavailable")
+
+    with pytest.raises(RuntimeError, match="graph unavailable"):
+        temp_store.record_review("WP-PACK01-001", ReviewRequest(action="approve", reviewer="EXP-1"),
+                                 before_save=failed_publish)
+    assert temp_store.get_profile("WP-PACK01-001").status == "draft"
+
+
 def test_ac_03_review_reject_without_comment(temp_store, valid_profile_data):
     """AC-03: review reject không kèm comment -> raise error."""
     profile = WorkProfile.model_validate(valid_profile_data)

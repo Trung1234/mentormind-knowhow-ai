@@ -12,7 +12,7 @@ Acceptance Criteria tested:
 import pytest
 from fastapi.testclient import TestClient
 
-from mentormind.backend.app.deps import get_profile_store
+from mentormind.backend.app.deps import get_knowledge_loader, get_profile_store
 from mentormind.backend.app.main import app
 from mentormind.core.schemas import WorkProfile
 from mentormind.knowledge_base.store.profile_store import ProfileStore
@@ -57,6 +57,14 @@ def mock_store(tmp_path):
 @pytest.fixture
 def client(mock_store):
     app.dependency_overrides[get_profile_store] = lambda: mock_store
+    class FakeLoader:
+        def load_profiles(self, profiles):
+            return None
+
+        def unload_profile(self, profile_id):
+            return None
+
+    app.dependency_overrides[get_knowledge_loader] = lambda: FakeLoader()
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
@@ -90,6 +98,21 @@ def test_ac_02_review_approve(client):
     assert res.status_code == 200
     assert res.json()["status"] == "approved"
     assert res.json()["review"]["reviewer"] == "expert_01"
+
+
+def test_review_does_not_commit_approval_if_publication_fails(client, mock_store):
+    class FailingLoader:
+        def load_profiles(self, profiles):
+            raise RuntimeError("graph unavailable")
+
+        def unload_profile(self, profile_id):
+            return None
+
+    app.dependency_overrides[get_knowledge_loader] = lambda: FailingLoader()
+    with pytest.raises(RuntimeError, match="graph unavailable"):
+        client.post("/profiles/WP-PACK01-001/review",
+                    json={"action": "approve", "reviewer": "expert_01"})
+    assert mock_store.get_profile("WP-PACK01-001").status == "draft"
 
 
 def test_ac_03_review_reject_without_comment(client):

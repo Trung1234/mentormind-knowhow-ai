@@ -14,7 +14,7 @@ import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import jsonschema
 
@@ -230,6 +230,7 @@ class ProfileStore:
         self,
         profile_id: str,
         review_req: ReviewRequest,
+        before_save: Callable[[WorkProfile], None] | None = None,
     ) -> WorkProfile:
         existing = self.get_profile(profile_id)
         if not existing:
@@ -253,6 +254,8 @@ class ProfileStore:
         }
 
         updated_profile = WorkProfile.model_validate(current_dict)
+        if before_save is not None:
+            before_save(updated_profile)
         self.save_profile(updated_profile)
 
         # Record review event

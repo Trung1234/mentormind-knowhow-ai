@@ -11,7 +11,7 @@ Lưu tri thức đã duyệt dưới dạng đồ thị (quan hệ công đoạn
 | Label | Thuộc tính |
 |---|---|
 | `Process` | **process_id**, name |
-| `Step` | **profile_id**, step, step_order, hand_action, key_point, reason, reason_source, pass_criteria, confidence, version |
+| `Step` | **profile_id**, step, step_order, hand_action, key_point, reason, reason_source, pass_criteria, confidence, version, reviewer, data_classification |
 | `Exception` | **exception_id** (= profile_id + "#" + index), case, handling |
 | `Part` | **part_number** |
 | `Equipment` | **equipment_id** |
@@ -38,15 +38,18 @@ Lưu tri thức đã duyệt dưới dạng đồ thị (quan hệ công đoạn
 (Symptom)-[:CAUSED_BY {confidence, source}]->(RootCause)
 (RootCause)-[:PREVENTED_BY]->(Step)
 ```
+`shift` là thuộc tính của `PROCESSED_AT`, không phải node riêng trong MVP. Dữ liệu Sigma mock chưa có `equipment_id` theo lô, nên đồ thị chỉ truy được lỗi theo lô/công đoạn; không được suy ra máy cụ thể gây lỗi từ thiết bị gắn với một Step. Câu hỏi “lỗi từng xảy ra ở máy nào khác” trong `architecture.md` cần dữ liệu thiết bị theo lô hoặc sự kiện trước khi hỗ trợ đáng tin cậy.
 File `knowledge_base/kg/schema.cypher` chứa toàn bộ `CREATE CONSTRAINT ... IF NOT EXISTS` cho các khóa trên.
 
 ## 3. Loader — `knowledge_base.kg.loader`
 - **FR-01** `load_profiles(profiles)` chỉ nhận `status == "approved"`; profile khác → bỏ qua và đếm vào `skipped`.
 - **FR-02** Dùng `MERGE` theo khóa; chạy lại không nhân đôi node/cạnh. Khi `version` mới hơn → cập nhật thuộc tính.
 - **FR-02b** Cạnh `EVIDENCED_BY` tạo từ `evidence.segment_ids` của profile (match theo `segment_id`), không suy ra bằng overlap thời gian.
-- **FR-03** `NEXT` được tính lại cho cả process sau mỗi lần nạp, theo `step_order`.
+- `evidence.t_start/t_end` là khoảng của profile và được lưu trên cạnh `EVIDENCED_BY` (`profile_t_start/profile_t_end`); không ghi đè mốc thật của node `VideoSegment` khi nhiều profile dùng chung segment.
+- **FR-03** `NEXT` được tính lại cho cả process sau mỗi lần nạp, theo `step_order`, dùng `profile_id` để phá hòa khi thứ tự trùng.
 - **FR-04** `unload_profile(profile_id)` xóa `Step` và cạnh liên quan (dùng khi profile bị reject sau khi đã approved).
 - **FR-05** `load_sigma(adapter)` nạp `Lot`, `PROCESSED_AT`, `HAS_DEFECT`, `Symptom`, `CAUSED_BY`, `PREVENTED_BY` từ Sigma adapter (spec 07).
+- Nếu Sigma được nạp trước profile, giữ `prevention_profile_id` trên `RootCause` và chỉ tạo `PREVENTED_BY` khi Step tương ứng đã approved; nạp profile sau đó phải nối cạnh này.
 - **FR-06** Profile approved cũng được upsert vào vector store (pgvector, qua `VectorStore`) như một chunk (`source_type="work_profile"`, text = step + hand_action + key_point + reason + exceptions) để tìm được bằng vector. `unload_profile` xóa luôn chunk này.
 - CLI: `knowhow kg init` (chạy schema.cypher), `knowhow kg load-profiles`, `knowhow kg load-sigma`, `knowhow kg stats`.
 
@@ -65,15 +68,19 @@ class RetrievedContext(BaseModel):
     passages: list[str]  # đoạn văn bản đưa vào prompt
     graph_facts: list[str]  # câu dạng "Bước X dùng linh kiện Y"
     citations: list[Citation]
+    classifications: list[DataClassification]
 
 
 class HybridRetriever:
     def retrieve(self, query: str, process_id: str | None = None, k: int = 8) -> RetrievedContext: ...
 ```
+`passages[i]` luôn có nguồn tại `citations[i]` và nhãn nhạy cảm tại `classifications[i]`; agent dùng nhãn này để lọc trước khi gửi context tới provider cloud. Cùng một document có thể đóng góp nhiều chunk và nhiều citation cùng `ref_id`.
+Citation Sigma về lô dùng `lot_id`; fact nguyên nhân từ catalog dùng `ref_id="defect_catalog.csv#<defect_code>"` để phân biệt nguồn catalog với bản ghi lô.
 Thuật toán:
 1. **Vector**: tìm top-k trong pgvector — hybrid gồm dense (cosine trên cột `embedding`, index HNSW) + lexical (`ts_rank` trên `tsvector` cấu hình `simple` + `unaccent`, vì Postgres không có từ điển tiếng Việt), gộp bằng Reciprocal Rank Fusion (k=60); filter `process_id` nếu có.
+   PG backend dùng BGE-M3 local qua extra `kg-semantic` (`uv sync --extra kg --extra kg-semantic`); model phải nằm trong cache local trước khi chạy offline. Mọi chunk PostgreSQL mang `metadata.embedding_model` và truy vấn chỉ ghép vector cùng model, tránh trộn không gian embedding.
 2. **Graph expansion**: với hit `work_profile` → lấy `Step` + bước trước/sau (`NEXT`), `Exception`, `Part`, `Expert`, `VideoSegment`; với hit `document` → các `Step` có `REFERENCES` tới document đó.
-3. **Relational intent**: một router (LLM, output JSON enum) chọn 0..1 template Cypher trong bảng dưới. **Không sinh Cypher tự do** (an toàn + ổn định).
+3. **Relational intent**: một router LLM chạy local/self-host (output JSON enum) chọn 0..1 template Cypher trong bảng dưới. **Không sinh Cypher tự do** (an toàn + ổn định). Nếu router cấu hình cloud, bỏ qua routing để không gửi câu hỏi nhà máy ra ngoài.
 4. Gộp, khử trùng, xếp hạng (vector score + bonus 0.1 cho node chạm bởi graph), cắt theo ngân sách 3.000 token.
 
 | Template | Tham số | Ví dụ câu hỏi |
@@ -87,7 +94,7 @@ Thuật toán:
 
 Symptom text → `symptom_id`: chuẩn hóa cả câu hỏi lẫn `Symptom.name` (lowercase, bỏ dấu tiếng Việt bằng `unicodedata` NFD, đổi `đ`→`d`), rồi so khớp mờ bằng Python (`rapidfuzz.fuzz.token_set_ratio ≥ 70`, lấy điểm cao nhất) trên danh sách Symptom lấy từ graph (catalog nhỏ, D-01..D-06). Không khớp → fallback full-text index trên `Symptom.name` (tạo trong schema.cypher). Vẫn không có → template trả rỗng, retriever chỉ dùng vector + expansion.
 
-Router: output validate bằng Pydantic (`template: Literal[...] | None`, tham số theo từng template). Output sai schema hoặc template trả 0 dòng → bỏ qua bước relational, không raise.
+Router: output validate bằng Pydantic (`template: Literal[...] | None`, tham số theo từng template). Output sai schema hoặc template trả 0 dòng → bỏ qua bước relational, không raise. `process_id` do caller truyền phải áp dụng cho cả vector và graph; router không được nới phạm vi này.
 
 ## 5. Acceptance Criteria
 - **AC-01** Nạp 5 profile (3 approved, 1 draft, 1 rejected) → graph có đúng 3 `Step`, `skipped = 2`.
@@ -103,13 +110,15 @@ Router: output validate bằng Pydantic (`template: Literal[...] | None`, tham s
 - Test AC-01..04 và AC-08 chạy trên Neo4j thật (`@pytest.mark.integration`); AC-05..07, AC-09, AC-10 có bản unit với fake graph client.
 
 ## 6. Tasks
-- [ ] T05-1 `schema.cypher` + `kg init`.
-- [ ] T05-2 Loader profiles (AC-01..04) + đẩy chunk profile vào pgvector (FR-06).
-- [ ] T05-3 Loader Sigma (FR-05) — cần spec 07 xong interface.
-- [ ] T05-4 Vector search + graph expansion.
-- [ ] T05-5 Router + 6 template Cypher + khớp symptom không dấu (AC-05, AC-07, AC-09, AC-10).
+- [x] T05-1 `schema.cypher` + `kg init`.
+- [x] T05-2 Loader profiles (AC-01..04) + đẩy chunk profile vào pgvector (FR-06).
+- [x] T05-3 Loader Sigma (FR-05) với CSV adapter mock đọc-only.
+- [x] T05-4 Vector search + graph expansion.
+- [x] T05-5 Router + 6 template Cypher + khớp symptom không dấu (AC-05, AC-07, AC-09, AC-10).
 - [ ] T05-7 Integration test cho đủ 6 template trên seed (AC-08).
-- [ ] T05-6 Gộp/xếp hạng/ngân sách token + citation (AC-06).
+- [x] T05-6 Gộp/xếp hạng/ngân sách token + citation (AC-06).
+
+Integration test T05-7 đã viết và được đánh dấu `integration`; cần chạy với `KNOWHOW_TEST_NEO4J_URI` trỏ tới Neo4j 5 dùng riêng cho test. Môi trường không có dịch vụ sẽ skip. Bộ fixture `data/mock_sigma/` hiện là 6 lô synthetic tối thiểu phục vụ graph; quy mô 50 lô và generator thuộc spec 07.
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
@@ -117,3 +126,4 @@ Router: output validate bằng Pydantic (`template: Literal[...] | None`, tham s
 - v1.2 (24/9): symptom matching bỏ dấu + fuzzy trên catalog, full-text làm fallback; router validate Pydantic, lỗi → bỏ qua relational; test đủ 6 template (AC-08..10, T05-7).
 - v1.3 (27/9): vector store đổi Milvus → pgvector; hybrid = dense + full-text `simple`/`unaccent`, gộp RRF (FR-06, thuật toán bước 1, T05-2).
 - v1.4 (27/9): đường dẫn module theo layout mới (bỏ `knowhow.`/`src/knowhow/`, xem spec 01 v1.3).
+- v1.5 (02/10): rà soát với PRD/BRD và code; làm rõ reviewer/classification, thứ tự NEXT, citation theo passage, process filter, router local, và trạng thái triển khai.
