@@ -7,6 +7,7 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from mentormind.core.schemas.common import DataClassification
 from mentormind.core.schemas.vector import VectorChunk
 from mentormind.knowledge_base.store.vector_store import VectorStore
 
@@ -235,13 +236,22 @@ class KnowledgeGraphLoader:
                     log.exception("Could not restore vector chunk for %s", profile_id)
             raise
 
-    def load_sigma(self, adapter: Any) -> int:
-        """Load read-only Sigma adapter records; prevention edges need a published Step."""
+    def load_sigma(
+        self,
+        adapter: Any,
+        classification: DataClassification | str = DataClassification.FACTORY_CONFIDENTIAL,
+    ) -> int:
+        """Load read-only Sigma adapter records; prevention edges need a published Step.
+
+        ``classification`` labels the source (constitution art. 2): it is written on every Lot,
+        HAS_DEFECT, Symptom and RootCause so retrieval can keep factory data off the cloud.
+        """
+        label = DataClassification(classification).value
         transaction = getattr(self.graph, "transaction", None)
         with transaction() if transaction is not None else nullcontext():
-            return self._load_sigma(adapter)
+            return self._load_sigma(adapter, label)
 
-    def _load_sigma(self, adapter: Any) -> int:
+    def _load_sigma(self, adapter: Any, classification: str) -> int:
         count = 0
         for lot in adapter.list_lots():
             self.graph.run(
@@ -251,7 +261,8 @@ class KnowledgeGraphLoader:
                 process_id=lot.process_id,
             )
             self.graph.run(
-                "MERGE (l:Lot {lot_id: $lot_id}) SET l.product_code = $product_code "
+                "MERGE (l:Lot {lot_id: $lot_id}) "
+                "SET l.product_code = $product_code, l.data_classification = $classification "
                 "MERGE (p:Process {process_id: $process_id}) "
                 "MERGE (l)-[r:PROCESSED_AT]->(p) "
                 "SET r.date = $date, r.shift = $shift, r.operator_id = $operator_id",
@@ -261,6 +272,7 @@ class KnowledgeGraphLoader:
                 date=str(lot.date),
                 shift=lot.shift,
                 operator_id=lot.operator_id,
+                classification=classification,
             )
             count += 1
         for item in adapter.defect_catalog():
@@ -278,10 +290,12 @@ class KnowledgeGraphLoader:
                     profile_id=item.prevention_profile_id,
                 )
             self.graph.run(
-                "MERGE (s:Symptom {symptom_id: $symptom_id}) SET s.name = $name "
+                "MERGE (s:Symptom {symptom_id: $symptom_id}) "
+                "SET s.name = $name, s.data_classification = $classification "
                 "WITH s WHERE $cause_id IS NOT NULL "
                 "MERGE (c:RootCause {cause_id: $cause_id}) "
-                "SET c.description = $description, c.prevention_profile_id = $profile_id "
+                "SET c.description = $description, c.prevention_profile_id = $profile_id, "
+                "c.data_classification = $classification "
                 "MERGE (s)-[r:CAUSED_BY]->(c) SET r.source = 'sigma_catalog' "
                 "WITH c WHERE $profile_id IS NOT NULL "
                 "MATCH (step:Step {profile_id: $profile_id}) MERGE (c)-[:PREVENTED_BY]->(step)",
@@ -290,6 +304,7 @@ class KnowledgeGraphLoader:
                 cause_id=item.known_root_cause_id,
                 description=item.known_root_cause,
                 profile_id=item.prevention_profile_id,
+                classification=classification,
             )
         touched_symptoms: set[str] = set()
         for defect in adapter.list_defects():
@@ -310,8 +325,9 @@ class KnowledgeGraphLoader:
             self.graph.run(
                 "MATCH (l:Lot {lot_id: $lot_id}), (p:Process {process_id: $process_id}) "
                 "MERGE (s:Symptom {symptom_id: $symptom_id}) "
+                "ON CREATE SET s.data_classification = $classification "
                 "MERGE (l)-[r:HAS_DEFECT {defect_id: $defect_id}]->(s) "
-                "SET r.date = $date, r.qty = $qty "
+                "SET r.date = $date, r.qty = $qty, r.data_classification = $classification "
                 "MERGE (s)-[:DETECTED_AT]->(p)",
                 lot_id=defect.lot_id,
                 process_id=defect.process_id,
@@ -319,6 +335,7 @@ class KnowledgeGraphLoader:
                 defect_id=defect.defect_id,
                 date=str(defect.detected_at.date()),
                 qty=defect.qty,
+                classification=classification,
             )
         for symptom_id in touched_symptoms:
             self.graph.run(

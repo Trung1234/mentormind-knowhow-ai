@@ -5,10 +5,12 @@ from __future__ import annotations
 import json
 from collections.abc import Iterator
 from contextlib import contextmanager
+from typing import Annotated
 
 import typer
 
 from mentormind.core.config import get_settings
+from mentormind.core.schemas.common import DataClassification
 from mentormind.knowledge_base.kg.client import Neo4jGraph
 from mentormind.knowledge_base.kg.loader import KnowledgeGraphLoader
 from mentormind.knowledge_base.sigma.adapter import CsvSigmaAdapter
@@ -46,9 +48,14 @@ def load_profiles() -> None:
 
 
 @app.command("load-sigma")
-def load_sigma() -> None:
+def load_sigma(
+    classification: Annotated[
+        DataClassification,
+        typer.Option(help="Nhãn dữ liệu của nguồn Sigma; mặc định coi là dữ liệu nhà máy."),
+    ] = DataClassification.FACTORY_CONFIDENTIAL,
+) -> None:
     with _loader() as loader:
-        count = loader.load_sigma(CsvSigmaAdapter(get_settings().sigma_csv_dir))
+        count = loader.load_sigma(CsvSigmaAdapter(get_settings().sigma_csv_dir), classification)
     typer.echo(f"Loaded {count} Sigma lots")
 
 

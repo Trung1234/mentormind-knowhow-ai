@@ -130,3 +130,4 @@ Integration test T05-7 đã viết và được đánh dấu `integration`; cầ
 - v1.3 (27/9): vector store đổi Milvus → pgvector; hybrid = dense + full-text `simple`/`unaccent`, gộp RRF (FR-06, thuật toán bước 1, T05-2).
 - v1.4 (27/9): đường dẫn module theo layout mới (bỏ `knowhow.`/`src/knowhow/`, xem spec 01 v1.3).
 - v1.5 (02/10): rà soát với PRD/BRD và code; làm rõ reviewer/classification, thứ tự NEXT, citation theo passage, process filter, router local, và trạng thái triển khai.
+- v1.6 (02/10, review): nhãn Sigma theo nguồn — `load_sigma(adapter, classification)`, CLI `--classification` mặc định `factory_confidential`, fact lấy nhãn khắt khe nhất, bỏ `'synthetic'` gán cứng trong template (FR-05, §4, AC-11); router lỗi kết nối → bỏ qua relational (AC-10); full-text symptom escape Lucene (AC-10); làm rõ xếp hạng bước 4 (fact không vượt passage gốc, hit được graph chạm +0.1).

@@ -2,16 +2,24 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import unicodedata
+from dataclasses import dataclass
 from typing import Any, Literal
 
 from pydantic import BaseModel, ValidationError
 
-from mentormind.core.providers.errors import InvalidJSONError
+from mentormind.core.providers.errors import ProviderError
+from mentormind.core.providers.llm.context import strictest
 from mentormind.core.schemas.common import Citation, DataClassification
 from mentormind.knowledge_base.kg.loader import Graph
 from mentormind.knowledge_base.store.vector_store import VectorStore
+
+log = logging.getLogger(__name__)
+
+#: Spec 05 §4 step 4: score added to every node the graph touched.
+GRAPH_BONUS = 0.1
 
 Template = Literal[
     "steps_of_process",
@@ -57,12 +65,14 @@ TEMPLATES: dict[str, str] = {
         "'work_profile' AS source_type, s.profile_id AS ref_id, "
         "s.data_classification AS data_classification"
     ),
+    # Sigma facts return the labels of every node/edge they are built from (spec 05 AC-11).
     "where_symptom_occurred": (
-        "MATCH (l:Lot)-[:HAS_DEFECT]->(s:Symptom {symptom_id: $symptom_id}) "
+        "MATCH (l:Lot)-[d:HAS_DEFECT]->(s:Symptom {symptom_id: $symptom_id}) "
         "MATCH (l)-[:PROCESSED_AT]->(p:Process) "
         "WHERE $process_id IS NULL OR p.process_id = $process_id "
         "RETURN 'Lô ' + l.lot_id + ' tại ' + p.process_id + ' có lỗi ' + s.name AS fact, "
-        "'sigma' AS source_type, l.lot_id AS ref_id, 'synthetic' AS data_classification"
+        "'sigma' AS source_type, l.lot_id AS ref_id, "
+        "[l.data_classification, d.data_classification, s.data_classification] AS data_classification"
     ),
     "root_causes_of_symptom": (
         "MATCH (s:Symptom {symptom_id: $symptom_id})-[:CAUSED_BY]->(c:RootCause) "
@@ -70,16 +80,16 @@ TEMPLATES: dict[str, str] = {
         "(:Process {process_id: $process_id}) } "
         "RETURN 'Nguyên nhân của ' + s.name + ': ' + c.description AS fact, "
         "'sigma' AS source_type, 'defect_catalog.csv#' + s.symptom_id AS ref_id, "
-        "'synthetic' AS data_classification"
+        "[s.data_classification, c.data_classification] AS data_classification"
     ),
     "prevention_steps": (
-        "MATCH (s:Symptom {symptom_id: $symptom_id})-[:CAUSED_BY]->(:RootCause)"
+        "MATCH (s:Symptom {symptom_id: $symptom_id})-[:CAUSED_BY]->(c:RootCause)"
         "-[:PREVENTED_BY]->(step:Step) "
         "MATCH (p:Process)-[:HAS_STEP]->(step) "
         "WHERE $process_id IS NULL OR p.process_id = $process_id "
         "RETURN 'Bước phòng ngừa: ' + step.step AS fact, "
         "'work_profile' AS source_type, step.profile_id AS ref_id, "
-        "step.data_classification AS data_classification"
+        "[step.data_classification, s.data_classification, c.data_classification] AS data_classification"
     ),
     "lots_with_defect": (
         "MATCH (l:Lot)-[r:HAS_DEFECT]->(s:Symptom {symptom_id: $symptom_id}) "
@@ -88,7 +98,8 @@ TEMPLATES: dict[str, str] = {
         "AND ($date_to IS NULL OR r.date <= $date_to) "
         "AND ($process_id IS NULL OR p.process_id = $process_id) "
         "RETURN 'Lô ' + l.lot_id + ' có lỗi ' + s.name AS fact, "
-        "'sigma' AS source_type, l.lot_id AS ref_id, 'synthetic' AS data_classification"
+        "'sigma' AS source_type, l.lot_id AS ref_id, "
+        "[l.data_classification, r.data_classification, s.data_classification] AS data_classification"
     ),
 }
 
@@ -125,6 +136,40 @@ def normalize(value: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFD", value.lower()) if not unicodedata.combining(c))
 
 
+def token_cost(text: str) -> int:
+    """Conservative token estimate for the context budget: two per word or symbol."""
+    return max(1, len(re.findall(r"\w+|[^\w\s]", text)) * 2)
+
+
+# Characters Lucene's classic query parser treats as syntax (QueryParserBase.escape).
+_LUCENE_SPECIAL = re.compile(r'([+\-!(){}\[\]^"~*?:\\/&|])')
+
+
+def lucene_query(text: str) -> str:
+    """Plain text as a Lucene query: lower case (so no AND/OR/NOT operators), syntax escaped."""
+    return _LUCENE_SPECIAL.sub(r"\\\1", text.lower())
+
+
+def _label(value: Any) -> DataClassification:
+    """Strictest label among a graph row's parts; a missing label is factory data (fail closed)."""
+    labels = value if isinstance(value, list) else [value]
+    return strictest(DataClassification(label or DataClassification.FACTORY_CONFIDENTIAL) for label in labels or [None])
+
+
+@dataclass
+class _Candidate:
+    """One passage competing for the context budget."""
+
+    text: str
+    source_type: str
+    ref_id: str
+    score: float
+    classification: DataClassification
+    is_fact: bool
+    t_start: float | None = None
+    t_end: float | None = None
+
+
 def _score(a: str, b: str) -> float:
     try:
         from rapidfuzz.fuzz import token_set_ratio
@@ -149,7 +194,7 @@ class HybridRetriever:
 
     def match_symptom(self, text: str) -> str | None:
         catalog = self.graph.run("MATCH (s:Symptom) RETURN s.symptom_id AS symptom_id, s.name AS name")
-        if not catalog:
+        if not catalog or not text.strip():
             return None
         ranked = sorted(
             ((_score(normalize(text), normalize(row["name"])), row["symptom_id"]) for row in catalog),
@@ -160,7 +205,7 @@ class HybridRetriever:
         rows = self.graph.run(
             "CALL db.index.fulltext.queryNodes('symptom_name', $text) YIELD node, score "
             "RETURN node.symptom_id AS symptom_id ORDER BY score DESC LIMIT 1",
-            text=text,
+            text=lucene_query(text),
         )
         return rows[0]["symptom_id"] if rows else None
 
@@ -181,7 +226,9 @@ class HybridRetriever:
             if process_id is not None:
                 route.process_id = process_id
             return route
-        except (InvalidJSONError, ValidationError, ValueError, TypeError, KeyError):
+        except (ProviderError, ValidationError, ValueError, TypeError, KeyError) as exc:
+            # Spec 05 §4: a router that fails or answers badly only skips the relational step.
+            log.warning("Graph router skipped (%s); using vector + expansion only", type(exc).__name__)
             return Route()
 
     def run_template(self, template: Template, **parameters: Any) -> list[dict[str, Any]]:
@@ -207,21 +254,18 @@ class HybridRetriever:
     def retrieve(self, query: str, process_id: str | None = None, k: int = 8) -> RetrievedContext:
         filters = {"process_id": process_id} if process_id else None
         hits = self.vectors.search(query, k=k, filters=filters)
-        candidates: dict[tuple[str, str, str], tuple[str, Citation, float, bool, DataClassification]] = {}
+        candidates: dict[tuple[str, str, str], _Candidate] = {}
+        #: (source_type, ref_id) of every node the graph touched (spec 05 §4 step 4).
+        touched: set[tuple[str, str]] = set()
         for hit in hits:
             chunk = hit.chunk
-            citation = Citation(source_type=chunk.source_type, ref_id=chunk.ref_id, snippet=chunk.text, score=hit.score)
-            candidates[(chunk.source_type, chunk.ref_id, chunk.chunk_id)] = (
-                chunk.text,
-                citation,
-                hit.score,
-                False,
-                chunk.data_classification,
+            candidates[(chunk.source_type, chunk.ref_id, chunk.chunk_id)] = _Candidate(
+                chunk.text, chunk.source_type, chunk.ref_id, hit.score, chunk.data_classification, is_fact=False
             )
+            rows: list[dict[str, Any]] = []
             if chunk.source_type == "work_profile":
                 for statement in PROFILE_EXPANSIONS:
-                    rows = self.graph.run(statement, profile_id=chunk.ref_id)
-                    self._add_rows(candidates, rows, hit.score + 0.1)
+                    rows += self.graph.run(statement, profile_id=chunk.ref_id)
             elif chunk.source_type == "document":
                 rows = self.graph.run(
                     "MATCH (p:Process)-[:HAS_STEP]->(s:Step)-[:REFERENCES]->"
@@ -232,22 +276,38 @@ class HybridRetriever:
                     doc_id=chunk.ref_id,
                     process_id=process_id,
                 )
-                self._add_rows(candidates, rows, hit.score + 0.1)
+            if rows:
+                touched.add((chunk.source_type, chunk.ref_id))
+            # A hit's facts get its score with the bonus, which the hit itself gets below: they tie
+            # and the stable sort keeps them right after it, never above it.
+            self._add_rows(candidates, touched, rows, hit.score + GRAPH_BONUS)
         route = self._route(query, process_id)
         if route.template:
             rows = self.run_template(route.template, **route.model_dump(exclude={"template"}))
-            self._add_rows(candidates, rows, 0.1)
+            self._add_rows(candidates, touched, rows, GRAPH_BONUS)
+        for candidate in candidates.values():
+            if not candidate.is_fact and (candidate.source_type, candidate.ref_id) in touched:
+                candidate.score += GRAPH_BONUS
         passages, facts, citations, classifications = [], [], [], []
         budget = self.token_budget
-        for passage, citation, _, is_fact, classification in sorted(candidates.values(), key=lambda x: -x[2]):
-            cost = max(1, len(re.findall(r"\w+|[^\w\s]", passage)) * 2)
+        for candidate in sorted(candidates.values(), key=lambda c: -c.score):
+            cost = token_cost(candidate.text)
             if cost > budget:
                 continue
-            passages.append(passage)
-            citations.append(citation)
-            classifications.append(classification)
-            if is_fact:
-                facts.append(passage)
+            passages.append(candidate.text)
+            citations.append(
+                Citation(
+                    source_type=candidate.source_type,
+                    ref_id=candidate.ref_id,
+                    snippet=candidate.text,
+                    score=candidate.score,
+                    t_start=candidate.t_start,
+                    t_end=candidate.t_end,
+                )
+            )
+            classifications.append(candidate.classification)
+            if candidate.is_fact:
+                facts.append(candidate.text)
             budget -= cost
         return RetrievedContext(
             query=query,
@@ -259,22 +319,31 @@ class HybridRetriever:
         )
 
     @staticmethod
-    def _add_rows(candidates: dict, rows: list[dict[str, Any]], score: float) -> None:
+    def _add_rows(
+        candidates: dict[tuple[str, str, str], _Candidate],
+        touched: set[tuple[str, str]],
+        rows: list[dict[str, Any]],
+        score: float,
+    ) -> None:
         for row in rows:
             fact, ref_id = row.get("fact"), row.get("ref_id")
             if not fact or not ref_id:
                 continue
             source_type = row.get("source_type", "work_profile")
-            citation = Citation(
-                source_type=source_type,
-                ref_id=ref_id,
-                snippet=fact,
-                score=score,
+            touched.add((source_type, ref_id))
+            key = (source_type, ref_id, fact)
+            if key in candidates and candidates[key].score >= score:
+                continue  # duplicate fact: keep the highest score (and its first position)
+            candidates[key] = _Candidate(
+                fact,
+                source_type,
+                ref_id,
+                score,
+                _label(row.get("data_classification")),
+                is_fact=True,
                 t_start=row.get("t_start"),
                 t_end=row.get("t_end"),
             )
-            classification = DataClassification(row.get("data_classification") or "factory_confidential")
-            candidates[(source_type, ref_id, fact)] = (fact, citation, score, True, classification)
 
 
 def get_hybrid_retriever(settings: Any = None) -> HybridRetriever:

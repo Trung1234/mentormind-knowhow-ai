@@ -140,8 +140,10 @@ def test_review_event_failure_rolls_back_sqlite_and_compensates_publication(tmp_
             rollback_publish=lambda profile: actions.append("unloaded"),
         )
     assert actions == ["published", "unloaded"]
-    assert store.get_profile("WP-PACK01-001").status == "draft"
-    assert store.get_profile_with_reviews("WP-PACK01-001")["reviews"] == []
+    profile = store.get_profile("WP-PACK01-001")
+    assert profile is not None and profile.status == "draft"
+    details = store.get_profile_with_reviews("WP-PACK01-001")
+    assert details is not None and details["reviews"] == []
 
 
 def test_ac_03_review_reject_without_comment(temp_store, valid_profile_data):

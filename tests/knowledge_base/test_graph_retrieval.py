@@ -8,9 +8,9 @@ from typing import Any, cast
 import pytest
 
 from mentormind.core.config import Settings
-from mentormind.core.providers.errors import InvalidJSONError
+from mentormind.core.providers.errors import InvalidJSONError, ProviderError
 from mentormind.core.schemas import Evidence, ReviewInfo, WorkProfile
-from mentormind.core.schemas.vector import VectorChunk
+from mentormind.core.schemas.vector import VectorChunk, VectorHit
 from mentormind.knowledge_base.kg.client import Neo4jGraph
 from mentormind.knowledge_base.kg.loader import KnowledgeGraphLoader
 from mentormind.knowledge_base.retrieval.hybrid import (
@@ -18,6 +18,7 @@ from mentormind.knowledge_base.retrieval.hybrid import (
     HybridRetriever,
     Template,
     get_hybrid_retriever,
+    token_cost,
 )
 from mentormind.knowledge_base.sigma.adapter import CsvSigmaAdapter
 from mentormind.knowledge_base.store.vector_store import MemoryVectorStore
@@ -37,6 +38,45 @@ class RecordingGraph:
             if key in query:
                 return rows
         return []
+
+
+class FixedVectors(MemoryVectorStore):
+    """Returns fixed hits, so ranking can be checked against exact vector scores."""
+
+    def __init__(self, hits):
+        super().__init__()
+        self.hits = hits
+
+    def search(self, query, k=8, filters=None):
+        return self.hits[:k]
+
+
+def hit(ref_id, score, text=None):
+    chunk = VectorChunk(
+        chunk_id=ref_id,
+        source_type="work_profile",
+        ref_id=ref_id,
+        text=text or f"Bước {ref_id}",
+        data_classification="synthetic",
+    )
+    return VectorHit(chunk=chunk, score=score)
+
+
+def write_sigma(directory):
+    (directory / "lots.csv").write_text(
+        "lot_id,product_code,process_id,date,shift,operator_id,qty\nLOT-1,P1,PACK01,2026-09-28,A,O1,10\n",
+        encoding="utf-8",
+    )
+    (directory / "defects.csv").write_text(
+        "defect_id,lot_id,process_id,defect_code,description,qty,detected_at\n"
+        "DEF-1,LOT-1,PACK01,D-01,Thiếu linh kiện,2,2026-09-28T08:00:00\n",
+        encoding="utf-8",
+    )
+    (directory / "defect_catalog.csv").write_text(
+        "defect_code,symptom_name,known_root_cause_id,known_root_cause,prevention_profile_id\n"
+        "D-01,Thiếu linh kiện,RC-01,Bỏ sót,WP-PACK01-005\n",
+        encoding="utf-8",
+    )
 
 
 def profile(number=1, status="approved", version=1):
@@ -263,6 +303,65 @@ def test_bad_router_output_falls_back_to_vector():
     assert HybridRetriever(vectors, graph, router=InvalidJsonRouter()).retrieve("Kiểm tra").passages
 
 
+def test_ac_10_unreachable_router_falls_back_to_vector():
+    graph, vectors = RecordingGraph(), MemoryVectorStore()
+    KnowledgeGraphLoader(graph, vectors).load_profiles([profile()])
+
+    class DownRouter:
+        def generate_json(self, *args, **kwargs):
+            raise ProviderError("connection refused")
+
+    assert HybridRetriever(vectors, graph, router=DownRouter()).retrieve("Kiểm tra").passages
+
+
+def test_ac_10_symptom_text_is_escaped_for_the_fulltext_fallback():
+    graph = RecordingGraph()
+    graph.rows["MATCH (s:Symptom) RETURN"] = [{"symptom_id": "D-01", "name": "Thiếu linh kiện trong hộp"}]
+
+    class Router:
+        def generate_json(self, *args, **kwargs):
+            return {"template": "where_symptom_occurred", "symptom_text": 'Móp/méo (góc) "AND'}
+
+    HybridRetriever(MemoryVectorStore(), graph, router=Router()).retrieve("móp góc")
+    fulltext = [params["text"] for query, params in graph.calls if "db.index.fulltext" in query]
+    assert fulltext == [r"móp\/méo \(góc\) \"and"]
+
+
+def test_passage_ranks_before_the_graph_facts_expanded_from_it():
+    graph = RecordingGraph()
+    fact = "Video VID-1 đoạn VID-1#s1"
+    graph.rows["[r:EVIDENCED_BY]"] = [
+        {"fact": fact, "source_type": "video_segment", "ref_id": "VID-1#s1", "data_classification": "synthetic"}
+    ]
+    passage = "Kiểm tra linh kiện bước 1 trước khi đóng nắp hộp carton theo chiều nghiêng"
+    vectors = FixedVectors([hit("WP-PACK01-001", 0.03, passage)])
+    assert HybridRetriever(vectors, graph).retrieve("Kiểm tra").passages == [passage, fact]
+    # When the budget only fits one of them, the evidence itself is kept, not what it led to.
+    tight = HybridRetriever(vectors, graph, token_budget=token_cost(passage))
+    assert tight.retrieve("Kiểm tra").passages == [passage]
+
+
+def test_vector_hit_reached_by_a_template_gets_the_graph_bonus():
+    graph = RecordingGraph()
+    graph.rows["toString(s.step_order)"] = [
+        {
+            "fact": "Bước 2: Đóng nắp",
+            "source_type": "work_profile",
+            "ref_id": "WP-PACK01-002",
+            "data_classification": "synthetic",
+        }
+    ]
+
+    class Router:
+        def generate_json(self, *args, **kwargs):
+            return {"template": "steps_of_process", "process_id": "PACK01"}
+
+    vectors = FixedVectors([hit("WP-PACK01-001", 0.0328), hit("WP-PACK01-002", 0.0300)])
+    context = HybridRetriever(vectors, graph, router=Router()).retrieve("Công đoạn PACK01 gồm những bước nào?")
+    assert [c.ref_id for c in context.citations] == ["WP-PACK01-002", "WP-PACK01-002", "WP-PACK01-001"]
+    assert context.passages[1] == "Bước 2: Đóng nắp"
+
+
 def test_two_document_chunks_keep_distinct_passages_and_citations():
     vectors = MemoryVectorStore()
     vectors.upsert(
@@ -307,24 +406,52 @@ def test_root_cause_citation_identifies_catalog_row():
 
 
 def test_sigma_csv_loads_lot_defect_and_prevention_without_unapproved_step(tmp_path):
-    (tmp_path / "lots.csv").write_text(
-        "lot_id,product_code,process_id,date,shift,operator_id,qty\nLOT-1,P1,PACK01,2026-09-28,A,O1,10\n",
-        encoding="utf-8",
-    )
-    (tmp_path / "defects.csv").write_text(
-        "defect_id,lot_id,process_id,defect_code,description,qty,detected_at\n"
-        "DEF-1,LOT-1,PACK01,D-01,Thiếu linh kiện,2,2026-09-28T08:00:00\n",
-        encoding="utf-8",
-    )
-    (tmp_path / "defect_catalog.csv").write_text(
-        "defect_code,symptom_name,known_root_cause_id,known_root_cause,prevention_profile_id\n"
-        "D-01,Thiếu linh kiện,RC-01,Bỏ sót,WP-PACK01-005\n",
-        encoding="utf-8",
-    )
+    write_sigma(tmp_path)
     graph = RecordingGraph()
     assert KnowledgeGraphLoader(graph, MemoryVectorStore()).load_sigma(CsvSigmaAdapter(tmp_path)) == 1
     assert any("HAS_DEFECT" in q and p.get("symptom_id") == "D-01" for q, p in graph.calls)
     assert any("PREVENTED_BY" in q and p.get("profile_id") == "WP-PACK01-005" for q, p in graph.calls)
+
+
+def test_ac_11_sigma_records_carry_the_label_they_were_loaded_with(tmp_path):
+    write_sigma(tmp_path)
+
+    def labels_written(*classification):
+        graph = RecordingGraph()
+        KnowledgeGraphLoader(graph, MemoryVectorStore()).load_sigma(CsvSigmaAdapter(tmp_path), *classification)
+        writes = [(q, p) for q, p in graph.calls if "MERGE (l:Lot" in q or "MERGE (s:Symptom" in q]
+        assert len(writes) == 3 and all("data_classification = $classification" in q for q, _ in writes)
+        return {p["classification"] for _, p in writes}
+
+    assert labels_written("synthetic") == {"synthetic"}
+    assert labels_written() == {"factory_confidential"}
+
+
+def test_ac_11_sigma_fact_takes_the_strictest_label_of_its_parts():
+    assert "'synthetic'" not in "".join(TEMPLATES.values())
+    graph = RecordingGraph()
+    graph.rows["l.lot_id AS ref_id"] = [
+        {
+            "fact": "Lô LOT-1 tại PACK01 có lỗi Thiếu linh kiện",
+            "source_type": "sigma",
+            "ref_id": "LOT-1",
+            "data_classification": ["synthetic", "synthetic", "synthetic"],
+        },
+        {
+            "fact": "Lô LOT-2 tại PACK01 có lỗi Thiếu linh kiện",
+            "source_type": "sigma",
+            "ref_id": "LOT-2",
+            "data_classification": ["synthetic", None, "synthetic"],
+        },
+    ]
+
+    class Router:
+        def generate_json(self, *args, **kwargs):
+            return {"template": "where_symptom_occurred", "defect_code": "D-01"}
+
+    context = HybridRetriever(MemoryVectorStore(), graph, router=Router()).retrieve("Lỗi thiếu linh kiện ở lô nào?")
+    labels = {c.ref_id: label for c, label in zip(context.citations, context.classifications, strict=True)}
+    assert labels == {"LOT-1": "synthetic", "LOT-2": "factory_confidential"}
 
 
 def test_committed_sigma_fixture_is_case_and_time_linkable():
@@ -415,8 +542,11 @@ def test_neo4j_profile_lifecycle_and_all_six_templates(tmp_path):
             f"{token}-D01,Thiếu linh kiện,{token}-RC,Bỏ sót,WP-{token}-002\n",
             encoding="utf-8",
         )
-        loader.load_sigma(CsvSigmaAdapter(tmp_path))
+        loader.load_sigma(CsvSigmaAdapter(tmp_path), "synthetic")
         retriever = HybridRetriever(vectors, graph)
+        lots = retriever.run_template("where_symptom_occurred", symptom_id=f"{token}-D01", process_id=token)
+        assert [row["data_classification"] for row in lots] == [["synthetic"] * 3]
+        retriever.match_symptom('zzz (móp/méo) "AND')  # Lucene syntax must not break the fallback
         expected = {
             "steps_of_process": (dict(process_id=token), "WP-"),
             "steps_using_part": (dict(part_number=f"{token}-PART", process_id=token), "WP-"),

@@ -79,10 +79,11 @@ def review_profile(
             loader.unload_profile(profile.profile_id)
 
     def rollback_publish(profile: WorkProfile) -> None:
-        if review_req.action == ReviewAction.APPROVE:
-            loader.unload_profile(profile.profile_id)
-        elif str(getattr(existing.status, "value", existing.status)) == "approved":
+        # The review is not saved: put the graph back to what the stored profile says.
+        if str(getattr(existing.status, "value", existing.status)) == "approved":
             loader.load_profiles([existing])
+        elif review_req.action == ReviewAction.APPROVE:
+            loader.unload_profile(profile.profile_id)
 
     try:
         updated = store.record_review(profile_id, review_req, before_save=publish, rollback_publish=rollback_publish)
