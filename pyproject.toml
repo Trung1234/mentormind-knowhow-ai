@@ -88,6 +88,11 @@ warn_unused_ignores = true
 module = ["tests.*"]
 disallow_untyped_defs = false
 
+# Optional extra (kg-semantic): installed in CI via --all-extras, often absent locally.
+[[tool.mypy.overrides]]
+module = ["sentence_transformers", "sentence_transformers.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"

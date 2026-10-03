@@ -22,7 +22,7 @@ class BgeM3Embedder:
             return []
         if self._model is None:
             try:
-                from sentence_transformers import SentenceTransformer  # type: ignore[import-not-found]
+                from sentence_transformers import SentenceTransformer
             except ImportError as exc:
                 raise VectorStoreError("Install semantic KG support: uv sync --extra kg-semantic") from exc
             try:
