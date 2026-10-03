@@ -144,15 +144,14 @@ class MemoryVectorStore:
 def get_vector_store(settings: Settings | None = None, *, embedder: Embedder | None = None) -> VectorStore:
     """The backend selected by ``KNOWHOW_VECTOR_BACKEND`` (only config changes, art. 5).
 
-    Raises:
-        VectorStoreError: ``pgvector`` is selected but its backend has not landed yet.
+    PostgreSQL mode uses the table defined in ``infra/postgres/init.sql``.
     """
     settings = settings or get_settings()
     if settings.vector_backend == "memory":
         return MemoryVectorStore(embedder)
-    raise VectorStoreError(
-        "Backend pgvector chưa có (spec 02 T02-6). Đặt KNOWHOW_VECTOR_BACKEND=memory để chạy không cần Docker."
-    )
+    from mentormind.knowledge_base.store.pgvector import PgVectorStore
+
+    return PgVectorStore(settings.pg_dsn, settings.vector_table, embedder, settings.embed_model)
 
 
 def _passes(chunk: VectorChunk, filters: Mapping[str, Any]) -> bool:

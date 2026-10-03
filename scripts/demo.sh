@@ -67,7 +67,7 @@ fi
 make up
 $KNOWHOW kg init
 $KNOWHOW sigma gen-mock
-$KNOWHOW kg load-sigma
+$KNOWHOW kg load-sigma --classification synthetic
 
 # ---- 2. documents ------------------------------------------------------------------------
 $KNOWHOW ingest run "$SAMPLES/docs" --classification synthetic

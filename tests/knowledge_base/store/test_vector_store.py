@@ -91,6 +91,42 @@ def test_embedding_of_the_wrong_size_is_refused() -> None:
         store.upsert([chunk("DOC-2#p1-0", "x", embedding=[0.1, 0.2])])
 
 
-def test_pgvector_backend_is_a_clear_error_until_it_lands() -> None:
-    with pytest.raises(VectorStoreError, match="KNOWHOW_VECTOR_BACKEND=memory"):
-        get_vector_store(Settings(_env_file=None, vector_backend="pgvector"))
+def test_pgvector_backend_selected_by_settings() -> None:
+    pytest.importorskip("psycopg")
+    from mentormind.knowledge_base.store.pgvector import BgeM3Embedder, PgVectorStore
+
+    store = get_vector_store(Settings(_env_file=None, vector_backend="pgvector"))
+    assert isinstance(store, PgVectorStore)
+    assert isinstance(store.embedder, BgeM3Embedder)
+
+
+def test_pgvector_rejects_embedder_without_matching_model_identity() -> None:
+    pytest.importorskip("psycopg")
+    with pytest.raises(VectorStoreError, match="model identity"):
+        get_vector_store(Settings(_env_file=None, vector_backend="pgvector"), embedder=HashingEmbedder(dim=1024))
+
+
+def test_bge_embedder_accepts_only_1024_dimensional_dense_vectors() -> None:
+    from mentormind.knowledge_base.store.embedding import BgeM3Embedder
+
+    class Matrix:
+        def __init__(self, vectors):
+            self.vectors = vectors
+
+        def tolist(self):
+            return self.vectors
+
+    class Model:
+        def __init__(self, dimension):
+            self.dimension = dimension
+
+        def encode(self, texts, *, normalize_embeddings):
+            assert normalize_embeddings is True
+            return Matrix([[0.0] * self.dimension for _ in texts])
+
+    embedder = BgeM3Embedder()
+    embedder._model = Model(1024)
+    assert len(embedder.embed(["kiểm tra"])[0]) == 1024
+    embedder._model = Model(256)
+    with pytest.raises(VectorStoreError, match="1024"):
+        embedder.embed(["kiểm tra"])

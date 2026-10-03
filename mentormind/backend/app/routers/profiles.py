@@ -2,39 +2,17 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from mentormind.backend.app.deps import get_profile_store
+from mentormind.backend.app.deps import get_knowledge_loader, get_profile_store
 from mentormind.core.schemas import (
     ProfilePatchRequest,
     ReviewAction,
     ReviewRequest,
     WorkProfile,
 )
+from mentormind.knowledge_base.kg.loader import KnowledgeGraphLoader
 from mentormind.knowledge_base.store.profile_store import ProfileStore
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
-
-
-def hook_on_profile_approved(profile: WorkProfile) -> None:
-    """Hook to notify Knowledge Graph when a profile is approved (Spec 08 §2)."""
-    try:
-        # If knowledge_base.kg exists, import and load
-        from mentormind.knowledge_base import kg  # type: ignore
-
-        if hasattr(kg, "load_profiles"):
-            kg.load_profiles([profile])
-    except ImportError:
-        pass
-
-
-def hook_on_profile_unloaded(profile: WorkProfile) -> None:
-    """Hook to notify Knowledge Graph when an approved profile is rejected (Spec 08 §2)."""
-    try:
-        from mentormind.knowledge_base import kg  # type: ignore
-
-        if hasattr(kg, "unload_profile"):
-            kg.unload_profile(profile.profile_id)
-    except ImportError:
-        pass
 
 
 @router.get("", response_model=list[WorkProfile])
@@ -85,6 +63,7 @@ def review_profile(
     profile_id: str,
     review_req: ReviewRequest,
     store: ProfileStore = Depends(get_profile_store),
+    loader: KnowledgeGraphLoader = Depends(get_knowledge_loader),
 ) -> WorkProfile:
     existing = store.get_profile(profile_id)
     if not existing:
@@ -93,19 +72,25 @@ def review_profile(
             detail=f"WorkProfile {profile_id} không tồn tại",
         )
 
-    was_approved = str(getattr(existing.status, "value", existing.status)) == "approved"
+    def publish(profile: WorkProfile) -> None:
+        if review_req.action == ReviewAction.APPROVE:
+            loader.load_profiles([profile])
+        else:
+            loader.unload_profile(profile.profile_id)
+
+    def rollback_publish(profile: WorkProfile) -> None:
+        # The review is not saved: put the graph back to what the stored profile says.
+        if str(getattr(existing.status, "value", existing.status)) == "approved":
+            loader.load_profiles([existing])
+        elif review_req.action == ReviewAction.APPROVE:
+            loader.unload_profile(profile.profile_id)
 
     try:
-        updated = store.record_review(profile_id, review_req)
+        updated = store.record_review(profile_id, review_req, before_save=publish, rollback_publish=rollback_publish)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e),
         )
-
-    if review_req.action == ReviewAction.APPROVE:
-        hook_on_profile_approved(updated)
-    elif review_req.action == ReviewAction.REJECT and was_approved:
-        hook_on_profile_unloaded(updated)
 
     return updated

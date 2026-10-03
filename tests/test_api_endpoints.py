@@ -1,7 +1,8 @@
 """Integration tests for FastAPI endpoints (Spec 08).
 
 Acceptance Criteria tested:
-- AC-01: PATCH /profiles/{id} increments version and sets status to in_review
+- AC-01: PATCH /profiles/{id} increments version and sets status to in_review; the graph keeps
+  the approved version until it is re-approved
 - AC-02: POST /profiles/{id}/review approve sets status to approved
 - AC-03: POST /profiles/{id}/review reject without comment -> 422
 - AC-04: GET /media/../../etc/passwd -> 400 (path traversal blocked)
@@ -12,7 +13,7 @@ Acceptance Criteria tested:
 import pytest
 from fastapi.testclient import TestClient
 
-from mentormind.backend.app.deps import get_profile_store
+from mentormind.backend.app.deps import get_knowledge_loader, get_profile_store
 from mentormind.backend.app.main import app
 from mentormind.core.schemas import WorkProfile
 from mentormind.knowledge_base.store.profile_store import ProfileStore
@@ -57,6 +58,15 @@ def mock_store(tmp_path):
 @pytest.fixture
 def client(mock_store):
     app.dependency_overrides[get_profile_store] = lambda: mock_store
+
+    class FakeLoader:
+        def load_profiles(self, profiles):
+            return None
+
+        def unload_profile(self, profile_id):
+            return None
+
+    app.dependency_overrides[get_knowledge_loader] = lambda: FakeLoader()
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
@@ -92,6 +102,20 @@ def test_ac_02_review_approve(client):
     assert res.json()["review"]["reviewer"] == "expert_01"
 
 
+def test_review_does_not_commit_approval_if_publication_fails(client, mock_store):
+    class FailingLoader:
+        def load_profiles(self, profiles):
+            raise RuntimeError("graph unavailable")
+
+        def unload_profile(self, profile_id):
+            return None
+
+    app.dependency_overrides[get_knowledge_loader] = lambda: FailingLoader()
+    with pytest.raises(RuntimeError, match="graph unavailable"):
+        client.post("/profiles/WP-PACK01-001/review", json={"action": "approve", "reviewer": "expert_01"})
+    assert mock_store.get_profile("WP-PACK01-001").status == "draft"
+
+
 def test_ac_03_review_reject_without_comment(client):
     """AC-03: review reject không kèm comment -> 422."""
     res = client.post(
@@ -117,6 +141,50 @@ def test_ac_01_patch_profile(client):
     assert data["version"] == 2
     assert data["status"] == "in_review"
     assert data["step"] == "Lấy hộp carton từ kệ số 3"
+
+
+class TrackingLoader:
+    """What the graph holds: profile_id -> (version, reviewer) of the published profile."""
+
+    def __init__(self) -> None:
+        self.published: dict[str, tuple[int, str]] = {}
+
+    def load_profiles(self, profiles):
+        for profile in profiles:
+            self.published[profile.profile_id] = (profile.version, profile.review.reviewer)
+
+    def unload_profile(self, profile_id):
+        self.published.pop(profile_id, None)
+
+
+def test_ac_01_patch_keeps_the_published_version_until_reapproved(client, mock_store):
+    """AC-01: the graph keeps serving the approved version while the edit waits for review."""
+    loader = TrackingLoader()
+    app.dependency_overrides[get_knowledge_loader] = lambda: loader
+    approve = {"action": "approve", "reviewer": "expert_01"}
+    assert client.post("/profiles/WP-PACK01-001/review", json=approve).status_code == 200
+    assert client.patch("/profiles/WP-PACK01-001", json={"step": "Bước mới"}).status_code == 200
+    edited = mock_store.get_profile("WP-PACK01-001")
+    assert (edited.status, edited.version) == ("in_review", 2)
+    assert loader.published == {"WP-PACK01-001": (1, "expert_01")}
+    assert client.post("/profiles/WP-PACK01-001/review", json=approve).status_code == 200
+    assert loader.published == {"WP-PACK01-001": (2, "expert_01")}
+
+
+def test_failed_reapproval_restores_the_published_version(client, mock_store, monkeypatch):
+    loader = TrackingLoader()
+    app.dependency_overrides[get_knowledge_loader] = lambda: loader
+    approve = {"action": "approve", "reviewer": "expert_01"}
+    assert client.post("/profiles/WP-PACK01-001/review", json=approve).status_code == 200
+
+    def failing_review_event(*args):
+        raise RuntimeError("review event write failed")
+
+    monkeypatch.setattr(mock_store, "_write_review_event", failing_review_event)
+    with pytest.raises(RuntimeError, match="review event write failed"):
+        client.post("/profiles/WP-PACK01-001/review", json={"action": "approve", "reviewer": "expert_02"})
+    assert mock_store.get_profile("WP-PACK01-001").status == "approved"
+    assert loader.published == {"WP-PACK01-001": (1, "expert_01")}
 
 
 def test_ac_04_media_path_traversal_blocked(client):
