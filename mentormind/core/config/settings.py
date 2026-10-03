@@ -39,6 +39,24 @@ class Settings(BaseSettings):
     vector_table: str = "knowhow_chunks"
     embed_dim: int = 1024
     embed_model: str = "BAAI/bge-m3"
+    # "hashing" is a no-model stand-in for dev; it must not fill a table that bge-m3 will later use.
+    embedder: Literal["bge-m3", "hashing"] = "bge-m3"
+
+    # --- Document ingest (spec 02) ----------------------------------------------------------
+    process_id_regex: str = r"\b[A-Z]{3,5}\d{2}\b"
+    # Default matches DENSO-style numbers (AA123456-7890); confirm against the samples (spec 02b §4.4).
+    part_number_regex: str = r"\b[A-Z]{2}\d{6}-\d{4}\b"
+    # Matches of process_id_regex that are not processes (ISO27, REV01...).
+    process_id_stoplist: list[str] = []
+    # Command of the mmore install used as the degraded PDF fallback (not a project extra).
+    mmore_bin: str = "mmore"
+    # bge-m3 matches the embedder; "whitespace" is for offline runs and undercounts CJK.
+    token_counter: Literal["bge-m3", "whitespace"] = "bge-m3"
+    chunk_min_tokens: int = 300
+    chunk_max_tokens: int = 800
+    chunk_overlap_tokens: int = 50
+    # Share of IPA/Greek letters above which a page's text layer is reported as mis-encoded (FR-02b).
+    text_quality_max_odd_ratio: float = 0.05
 
     # --- VLM (spec 04) ----------------------------------------------------------------------
     # Registry name of the provider (``knowhow vlm providers`` lists them).

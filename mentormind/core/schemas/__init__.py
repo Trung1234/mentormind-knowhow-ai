@@ -15,6 +15,7 @@ from mentormind.core.schemas.api import (
     WhyStep,
 )
 from mentormind.core.schemas.common import Citation, DataClassification
+from mentormind.core.schemas.document import ChunkKind, DocumentChunk
 from mentormind.core.schemas.vector import VectorChunk, VectorHit
 from mentormind.core.schemas.video import Segment, TranscriptSegment, VideoAsset
 from mentormind.core.schemas.work_profile import (
@@ -44,9 +45,11 @@ __all__ = [
     "Actor",
     "AskRequest",
     "AssistantAnswer",
+    "ChunkKind",
     "Citation",
     "ContractValidationError",
     "DataClassification",
+    "DocumentChunk",
     "ErrorTag",
     "Evidence",
     "ExceptionCase",
