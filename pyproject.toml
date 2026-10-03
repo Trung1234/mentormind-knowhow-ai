@@ -27,7 +27,11 @@ vlm = [
     "numpy>=1.26",
     "rapidfuzz>=3.9",
 ]
-kg = []
+kg = [
+    "neo4j>=5.26,<6",
+    "psycopg[binary]>=3.2,<4",
+    "rapidfuzz>=3.9",
+]
 api = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
@@ -89,4 +93,6 @@ disallow_untyped_defs = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
-markers = ["integration: needs PostgreSQL/pgvector (`make up`); skipped when it is unreachable"]
+markers = [
+    "integration: needs PostgreSQL/pgvector or a disposable Neo4j 5 instance (`make up`); skipped when unreachable",
+]
