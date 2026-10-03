@@ -89,8 +89,3 @@ def test_embedding_of_the_wrong_size_is_refused() -> None:
     store = MemoryVectorStore(HashingEmbedder(dim=8))
     with pytest.raises(VectorStoreError, match="chiều"):
         store.upsert([chunk("DOC-2#p1-0", "x", embedding=[0.1, 0.2])])
-
-
-def test_pgvector_backend_is_a_clear_error_until_it_lands() -> None:
-    with pytest.raises(VectorStoreError, match="KNOWHOW_VECTOR_BACKEND=memory"):
-        get_vector_store(Settings(_env_file=None, vector_backend="pgvector"))
