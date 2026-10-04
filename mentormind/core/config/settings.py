@@ -99,6 +99,14 @@ class Settings(BaseSettings):
     # Site-specific codes to mask, entity -> regex, e.g. {"EQUIPMENT": "SIGMA-EQ-\\d+"}.
     guard_extra_patterns: dict[str, str] = {}
 
+    # --- Agents (spec 06) -----------------------------------------------------------------
+    # Work Assistant refuses when the best retrieval score is below this.
+    assist_min_score: float = 0.35
+    # One JSON line per agent call (spec 06 FR-04). Empty = no trace.
+    trace_dir: Path | None = REPO_ROOT / "data" / "work" / "traces"
+    # /assistant/ask and /rca/investigate: mock = the routers' demo answers, live = the agents.
+    api_agents: Literal["mock", "live"] = "mock"
+
     # --- REST API (spec 08) -----------------------------------------------------------------
     app_name: str = "MentorMind Know-How API"
     # Spec 08 FR-05: only the UI's origin (Vite dev server by default).
