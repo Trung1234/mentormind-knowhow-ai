@@ -20,11 +20,10 @@ from pathlib import Path
 from typing import Protocol
 
 from mentormind.core.config import REPO_ROOT
-from mentormind.core.providers.llm import LLMProvider
 from mentormind.core.schemas import DataClassification
 from mentormind.core.schemas.agents import AskRequest, AssistantAnswer
 from mentormind.core.schemas.evaluation import GoldenQuestion
-from mentormind.evaluation.ragas.judges import JudgeSample, Scores
+from mentormind.evaluation.ragas.judges import Judge, JudgeSample
 from mentormind.evaluation.ragas.results import (
     RAGAS_METRICS,
     THRESHOLDS,
@@ -38,16 +37,6 @@ class Answerer(Protocol):
     """What the runner asks: the spec 06 ``WorkAssistant`` (or a fake)."""
 
     def ask(self, request: AskRequest) -> AssistantAnswer: ...
-
-
-class Judge(Protocol):
-    """What scores the answers: ``RagasJudge`` or ``BuiltinJudge`` (``KNOWHOW_EVAL_JUDGE``), or a fake."""
-
-    kind: str
-    llm: LLMProvider
-    failures: int
-
-    def score(self, samples: Sequence[JudgeSample], label: DataClassification) -> list[Scores]: ...
 
 
 def run_golden(

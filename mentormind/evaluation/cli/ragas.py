@@ -24,7 +24,7 @@ def ragas_cmd(
         typer.Option(help="Nhãn dữ liệu đưa cho judge; mặc định coi là dữ liệu nhà máy."),
     ] = DataClassification.FACTORY_CONFIDENTIAL,
 ) -> None:
-    from mentormind.agents.factory import AgentWiringError, build_work_assistant
+    from mentormind.agents.adapters.factory import AgentWiringError, build_work_assistant
     from mentormind.core.config import get_settings
     from mentormind.core.guard import ConfidentialDataError
     from mentormind.core.providers.errors import ProviderError

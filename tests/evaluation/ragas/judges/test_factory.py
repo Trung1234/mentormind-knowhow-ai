@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import pytest
 
 from mentormind.core.config import Settings
 from mentormind.core.schemas import DataClassification
-from mentormind.evaluation.ragas import JUDGES, JudgeConfigError, JudgeSample, build_judge
+from mentormind.evaluation.ragas import JUDGES, Judge, JudgeConfigError, JudgeSample, build_judge
 from mentormind.evaluation.ragas.judges import factory
 from tests.evaluation.fakes import SameVectorEmbedder, ScriptedJudge
 
@@ -26,7 +28,7 @@ def test_the_ragas_package_is_the_default_judge() -> None:
 
 
 def test_an_unknown_judge_is_refused() -> None:
-    with pytest.raises(JudgeConfigError, match="ragas, builtin"):
+    with pytest.raises(JudgeConfigError, match="builtin, ragas"):
         build_judge("gpt", ScriptedJudge(), SameVectorEmbedder())
 
 
@@ -34,3 +36,19 @@ def test_the_ragas_judge_without_the_eval_extra_says_how_to_fix_it(monkeypatch: 
     monkeypatch.setattr(factory, "find_spec", lambda name: None)
     with pytest.raises(JudgeConfigError, match="--extra eval"):
         build_judge("ragas", ScriptedJudge(), SameVectorEmbedder())
+
+
+def test_a_new_judge_is_one_subclass_and_its_gaps_are_counted() -> None:
+    class Half(Judge):
+        kind = "half-test"
+
+        def _score(self, samples: Sequence[JudgeSample], label: DataClassification) -> list[dict[str, float | None]]:
+            return [{"faithfulness": 0.5, "answer_relevancy": None} for _ in samples]
+
+    try:
+        judge = build_judge("half-test", ScriptedJudge(), SameVectorEmbedder())
+        assert isinstance(judge, Half)
+        assert judge.score([SAMPLE, SAMPLE], DataClassification.SYNTHETIC)[0]["faithfulness"] == 0.5
+        assert judge.failures == 2 and judge.score([], DataClassification.SYNTHETIC) == []
+    finally:
+        Judge.registry.pop("half-test")

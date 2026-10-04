@@ -3,6 +3,7 @@
 from mentormind.evaluation.ragas.judges import (
     JUDGES,
     BuiltinJudge,
+    Judge,
     JudgeConfigError,
     JudgeSample,
     RagasJudge,
@@ -17,7 +18,7 @@ from mentormind.evaluation.ragas.results import (
     read_results,
     write_rows,
 )
-from mentormind.evaluation.ragas.runner import Answerer, Judge, run_golden
+from mentormind.evaluation.ragas.runner import Answerer, run_golden
 
 __all__ = [
     "JUDGES",

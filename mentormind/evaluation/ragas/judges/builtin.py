@@ -12,7 +12,7 @@ Same definitions as the ``ragas`` package (spec 09 §3B), without ragas or langc
 One call per metric and question, Vietnamese prompts in ``prompts/``, the JSON shape enforced by the
 endpoint's ``response_format``. Every call goes through ``LLMProvider`` (DataGuard, PII masking,
 audit); a guard refusal stops the run. A metric the judge cannot answer (bad JSON, provider error
-after retries) is ``None`` for that question, never a made-up number; ``failures`` counts them.
+after retries) is ``None`` for that question; ``Judge.score`` counts them in ``failures``.
 """
 
 from __future__ import annotations
@@ -24,9 +24,8 @@ from pathlib import Path
 from typing import Any
 
 from mentormind.core.providers.errors import ProviderError
-from mentormind.core.providers.llm import LLMProvider
 from mentormind.core.schemas import DataClassification
-from mentormind.evaluation.ragas.judges.base import JudgeSample, Scores, TextEmbedder, round_score
+from mentormind.evaluation.ragas.judges.base import Judge, JudgeSample, Scores, round_score
 
 log = logging.getLogger(__name__)
 PROMPTS = Path(__file__).resolve().parent / "prompts"
@@ -52,25 +51,13 @@ SCHEMAS: dict[str, dict[str, Any]] = {
 }
 
 
-class BuiltinJudge:
-    #: ``KNOWHOW_EVAL_JUDGE`` value, recorded in ``summary.json``.
+class BuiltinJudge(Judge):
     kind = "builtin"
 
-    def __init__(self, llm: LLMProvider, embedder: TextEmbedder) -> None:
-        self.llm = llm
-        self.embedder = embedder
-        self.failures = 0
+    def _score(self, samples: Sequence[JudgeSample], label: DataClassification) -> list[Scores]:
+        return [self._score_one(sample, label) for sample in samples]
 
-    def score(self, samples: Sequence[JudgeSample], label: DataClassification) -> list[Scores]:
-        """One dict of the four metrics per sample, in order. Raises ``ConfidentialDataError``."""
-        rows = [self._score(sample, label) for sample in samples]
-        missing = sum(value is None for row in rows for value in row.values())
-        if missing:
-            log.warning("builtin judge could not compute %d metric values", missing)
-        self.failures += missing
-        return rows
-
-    def _score(self, s: JudgeSample, label: DataClassification) -> Scores:
+    def _score_one(self, s: JudgeSample, label: DataClassification) -> Scores:
         return {
             "faithfulness": round_score(self._faithfulness(s, label)),
             "answer_relevancy": round_score(self._answer_relevancy(s, label)),

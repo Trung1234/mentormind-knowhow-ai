@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from mentormind.agents import factory
+from mentormind.agents.adapters import factory
 from mentormind.core.cli import app
 from mentormind.core.schemas import DataClassification
 from mentormind.evaluation.golden import load_golden

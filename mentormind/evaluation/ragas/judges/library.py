@@ -7,21 +7,18 @@ local bge-m3 (``adapters``), so DataGuard still sees every judge prompt. ``ragas
 is imported only when a run starts, so the builtin judge works without it.
 
 A metric ragas cannot compute for a question (unreadable judge answer, timeout) is ``None`` for that
-question, never a made-up number; ``failures`` counts them.
+question; ``Judge.score`` counts them in ``failures``.
 """
 
 from __future__ import annotations
 
-import logging
 import warnings
 from collections.abc import Sequence
 
 from mentormind.core.providers.errors import ProviderError
 from mentormind.core.providers.llm import LLMProvider
 from mentormind.core.schemas import DataClassification
-from mentormind.evaluation.ragas.judges.base import JudgeSample, Scores, TextEmbedder, round_score
-
-log = logging.getLogger(__name__)
+from mentormind.evaluation.ragas.judges.base import Judge, JudgeSample, Scores, TextEmbedder, round_score
 
 #: Ragas metric name -> column of ``ragas_results.csv``.
 COLUMNS = {
@@ -32,22 +29,16 @@ COLUMNS = {
 }
 
 
-class RagasJudge:
-    #: ``KNOWHOW_EVAL_JUDGE`` value, recorded in ``summary.json``.
+class RagasJudge(Judge):
     kind = "ragas"
 
     def __init__(self, llm: LLMProvider, embedder: TextEmbedder, *, max_workers: int = 4, timeout_s: int = 180) -> None:
-        self.llm = llm
-        self.embedder = embedder
+        super().__init__(llm, embedder)
         #: Parallel judge calls; keep it at the vLLM server's ``max_num_seqs``.
         self.max_workers = max_workers
         self.timeout_s = timeout_s
-        self.failures = 0
 
-    def score(self, samples: Sequence[JudgeSample], label: DataClassification) -> list[Scores]:
-        """One dict of the four metrics per sample, in order. Raises ``ConfidentialDataError``."""
-        if not samples:
-            return []
+    def _score(self, samples: Sequence[JudgeSample], label: DataClassification) -> list[Scores]:
         with warnings.catch_warnings():
             # ragas 0.4 flags its legacy metric imports and ``evaluate`` for 1.0; pinned to 0.4.3.
             warnings.simplefilter("ignore", DeprecationWarning)
@@ -93,9 +84,4 @@ class RagasJudge:
         if llm.blocked is not None:
             raise llm.blocked
         assert isinstance(result, EvaluationResult)  # return_executor=False
-        rows = [{column: round_score(row.get(name)) for name, column in COLUMNS.items()} for row in result.scores]
-        missing = sum(value is None for row in rows for value in row.values())
-        if missing:
-            log.warning("ragas could not compute %d metric values", missing)
-        self.failures += missing
-        return rows
+        return [{column: round_score(row.get(name)) for name, column in COLUMNS.items()} for row in result.scores]
