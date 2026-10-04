@@ -15,12 +15,12 @@ from mentormind.processing.vlm.pipeline import DescribePipeline, read_profiles
 from tests.processing.vlm.passes.test_describe import fake_sampler, segments, step
 
 
-def run(vlm: FakeVLM, tmp_path: Path, llm: FakeLLM | None = None, **kwargs: Any) -> Any:
+def run(vlm: FakeVLM, tmp_path: Path, llm: FakeLLM | None = None, transcript: Any = (), **kwargs: Any) -> Any:
     pipeline = DescribePipeline(
         vlm, llm=llm, process_id="PACK01", default_fps=4.0, max_frames=48, sampler=fake_sampler,
         **kwargs,
     )  # fmt: skip
-    return pipeline.run(segments(2), tmp_path / "run")
+    return pipeline.run(segments(2), tmp_path / "run", transcript)
 
 
 # Segment 1 then 2 for the first pass-A run, the same two again for the second run.
@@ -98,3 +98,36 @@ def test_one_pass_can_run_on_its_own(tmp_path: Path) -> None:
     assert pipeline.pass_b(first, first).steps  # a run agrees with itself
     with pytest.raises(ValueError, match="LLM"):
         pipeline.pass_c(first, segments(2), tmp_path)
+
+
+def test_the_expert_words_reach_the_profiles_and_propose_reasons(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mentormind.processing.vlm.passes.reasons import propose_reasons
+    from tests.processing.vlm.transcript.fakes import install_spec03, line
+
+    install_spec03(monkeypatch)
+    said = [
+        line("Nhặt cốc lên nhé.", 0.5, 1.5),
+        line("Đặt cốc vào thùng, xếp nghiêng để cốc không bị nứt.", 8, 10, label="factory_confidential"),
+    ]
+    result = run(FakeVLM(RUN_1), tmp_path, consistency=False, transcript=said)
+    excerpts = {p.step: p.evidence.transcript_excerpt for p in result.profiles}
+    assert excerpts["Nhặt cốc từ khay"] == "Nhặt cốc lên nhé. Đặt cốc vào thùng, xếp nghiêng để cốc không bị nứt."
+    assert excerpts["Kiểm tra nhãn"] is None  # segment 2: the expert said nothing
+    # A profile quoting factory words is factory data, whatever its segment's label.
+    quoting = {p.data_classification for p in result.profiles if p.evidence.transcript_excerpt}
+    assert quoting == {"factory_confidential"}
+    reasoned = propose_reasons([result.profiles[0]], FakeLLM([{"reason": "để cốc không bị nứt"}]))[0]
+    assert (reasoned.reason, reasoned.reason_source, reasoned.status) == (
+        "để cốc không bị nứt",
+        "expert_verbal",
+        "in_review",
+    )
+
+
+def test_without_spec_03_the_profiles_have_no_excerpt_as_before(tmp_path: Path) -> None:
+    from tests.processing.vlm.transcript.fakes import line
+
+    result = run(FakeVLM(RUN_1), tmp_path, consistency=False, transcript=[line("Nhặt cốc lên nhé.", 0.5, 1.5)])
+    assert {p.evidence.transcript_excerpt for p in result.profiles} == {None}

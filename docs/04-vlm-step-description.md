@@ -60,7 +60,7 @@ Một đoạn có thể có 0..n bước. `actor` = ai/cái gì làm bước đ�
 
 **Hậu xử lý bắt buộc**
 - Ép `reason = None`, `reason_source = None`, `generated_by = "vlm"`, `status = "draft"`.
-- Gán `evidence` = video_id, t_start/t_end tuyệt đối, `segment_ids` (mọi đoạn mà bước gộp từ đó), keyframes của đoạn, `transcript_excerpt` từ `align_transcript` (spec 03) nếu có.
+- Gán `evidence` = video_id, t_start/t_end tuyệt đối, `segment_ids` (mọi đoạn mà bước gộp từ đó), keyframes của đoạn, `transcript_excerpt` từ `align_transcript` (spec 03) nếu có: `describe` đọc `data/work/video/<video_id>/transcript.json` (spec 03 FR-07, list `TranscriptSegment`) và gọi `align_transcript` của spec 03 (FR-08, giả định ở `mentormind.capture.video`, hằng `SPEC03_MODULE`). Thiếu file, file không đọc được, hoặc chưa có hàm của spec 03 → không có excerpt (`None`, chỉ ghi log), `describe` vẫn chạy. Excerpt của bước = các câu spec 03 gán cho mọi đoạn mà bước lấy từ đó, theo thời gian. Nhãn của profile = nhãn khắt khe nhất của các đoạn **và** các câu được trích. Code ở `processing/vlm/transcript/` (`loader`, `excerpt`); spec 04 không tự gán câu vào đoạn.
 - Gán `model_info` = provider, model, fps.
 - Validate bằng `validate_against_contract`. JSON lỗi → gọi lại 1 lần với prompt sửa (`prompts/repair_json.md`); vẫn lỗi → ghi segment vào `failed_segments.json`, không crash.
 
@@ -160,7 +160,7 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - [x] T04-4 Lượt B tự nhất quán (AC-04).
 - [x] T04-5 Lượt C tổng hợp (AC-05).
 - [x] T04-6 `sweep` + `key_point_recall` (AC-07).
-- [x] T04-7 `propose-reasons` + hậu kiểm trích dẫn (AC-08, AC-09). *(Cần `transcript_excerpt` từ spec 03; chưa có thì lệnh không làm gì.)*
+- [x] T04-7 `propose-reasons` + hậu kiểm trích dẫn (AC-08, AC-09). *(`describe` điền `transcript_excerpt` khi có `transcript.json` của spec 03; chưa có thì lệnh không làm gì.)*
 - [x] T04-8 Registry provider dùng chung (`core.providers`) + cloud `openrouter`/`siliconflow` + key từ `.env` + `knowhow vlm providers|ping` (AC-11, AC-12, AC-13).
 - [x] T04-9 Server tự host `3rdparty/vlm_server` (vLLM, Qwen3-VL-8B-Instruct, 1 GPU) + smoke test (AC-14, AC-15).
 - [x] T04-10 Outbound guard cho VLM cloud: che PII + LeakGuard + làm mờ mặt + audit (AC-16, AC-17).
@@ -183,3 +183,4 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - v1.13 (28/9, Phúc): guard ảnh thành package `core.guard.image` (`face_blur` là cách đầu tiên; chỗ để thêm cách khác).
 - v1.14 (29/9, Phúc): FR-06 lưu vào profile store của spec 08 khi có (`KNOWHOW_PROFILE_SINK=auto|store|file`), không ghi đè profile của video khác.
 - v1.15 (29/9, review): FR-06 sửa lỗi mất dữ liệu — profile vừa đổi `profile_id` trong cùng một lần lưu không còn bị profile sau của cùng video ghi đè.
+- v1.16 (4/10, Phúc): hậu xử lý điền `transcript_excerpt` từ `transcript.json` của spec 03 (§3), viết trước theo đúng output spec 03 (`transcript.json` + `align_transcript` gọi qua import, thiếu thì `None`) để `propose-reasons` chạy được ngay khi spec 03 xong.
