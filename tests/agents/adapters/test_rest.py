@@ -17,7 +17,16 @@ from mentormind.backend.app.routers import rca as rca_router
 from mentormind.core.config import Settings
 from mentormind.core.providers.llm.backends.fake import FakeLLM
 from mentormind.core.schemas import AskRequest, DataClassification, RcaRequest
-from tests.agents.fakes import REASON_PROFILE, FakeExperts, FakeGraph, FakeRetriever, FakeSigma, context
+from tests.agents.fakes import (
+    REASON_PROFILE,
+    FakeEmbedder,
+    FakeExperts,
+    FakeGraph,
+    FakeRetriever,
+    FakeSigma,
+    context,
+    reply,
+)
 from tests.agents.rca.test_agent import D03, GRAPH_ROWS, LOT, WHY
 
 SYNTHETIC = DataClassification.SYNTHETIC
@@ -51,7 +60,8 @@ def test_by_default_the_routers_keep_their_demo_answers(monkeypatch: pytest.Monk
 def test_live_ask_answers_with_the_work_assistant(monkeypatch: pytest.MonkeyPatch) -> None:
     assistant = WorkAssistant(
         FakeRetriever(context((*REASON_PROFILE, 0.8, SYNTHETIC))),
-        FakeLLM(["Đặt nghiêng để tránh trầy bề mặt [1]."]),
+        FakeLLM([reply("Đặt nghiêng để tránh trầy bề mặt [1].", [1])]),
+        embedder=FakeEmbedder(),
     )
     live(monkeypatch, _assistant=assistant)
     answer = assistant_router.ask_assistant(AskRequest(process_id="PACK01", question="Vì sao đặt nghiêng?"))
@@ -60,7 +70,9 @@ def test_live_ask_answers_with_the_work_assistant(monkeypatch: pytest.MonkeyPatc
 
 
 def test_live_refusal_names_the_expert(monkeypatch: pytest.MonkeyPatch) -> None:
-    assistant = WorkAssistant(FakeRetriever(context()), FakeLLM([]), experts=FakeExperts({"PACK01": "Anh Tuấn"}))
+    assistant = WorkAssistant(
+        FakeRetriever(context()), FakeLLM([]), embedder=FakeEmbedder(), experts=FakeExperts({"PACK01": "Anh Tuấn"})
+    )
     live(monkeypatch, _assistant=assistant)
     answer = assistant_router.ask_assistant(AskRequest(process_id="PACK01", question="Ai làm?"))
     assert answer.refused and answer.suggested_expert == "Anh Tuấn" and answer.citations == []

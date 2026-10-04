@@ -29,10 +29,12 @@ ResponseT = TypeVar("ResponseT", bound=BaseModel)
 
 @dataclass
 class AgentRun:
-    """What one call used: every prompt sent to the LLM and the ids of the context it was shown."""
+    """What one call used: every prompt sent to the LLM, the context ids it was shown, and the
+    numbers behind the agent's decision (e.g. the Work Assistant's guard scores) for the trace."""
 
     prompts: list[str] = field(default_factory=list)
     context_ids: list[str] = field(default_factory=list)
+    metrics: dict[str, Any] = field(default_factory=dict)
 
 
 class Agent(ABC, Generic[RequestT, ResponseT]):
@@ -58,6 +60,7 @@ class Agent(ABC, Generic[RequestT, ResponseT]):
             response=response,
             latency_s=time.perf_counter() - started,
             llm=self.llm.name,
+            metrics=call.metrics,
         )
         return response
 

@@ -102,8 +102,13 @@ class Settings(BaseSettings):
     guard_extra_patterns: dict[str, str] = {}
 
     # --- Agents (spec 06) -----------------------------------------------------------------
-    # Work Assistant refuses when the best retrieval score is below this.
-    assist_min_score: float = 0.35
+    # Work Assistant guard 1: refuse when the best spec 05 score is below this. That score is RRF
+    # (1/(60+vector rank) + 1/(60+keyword rank) + 0.1 graph bonus, ~0.133 at most), so it only
+    # stops "nothing found": 0.02 ~ no passage near the top of either ranking.
+    assist_min_score: float = 0.02
+    # Work Assistant guard 2: refuse (no LLM call) when the best bge-m3 cosine between the
+    # question and a passage is below this. Tuned on the LASI golden set.
+    assist_min_cosine: float = 0.45
     # One JSON line per agent call (spec 06 FR-04). Empty = no trace.
     trace_dir: Path | None = REPO_ROOT / "data" / "work" / "traces"
     # /assistant/ask and /rca/investigate: mock = the routers' demo answers, live = the agents.

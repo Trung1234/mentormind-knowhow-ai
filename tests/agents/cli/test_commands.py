@@ -13,7 +13,7 @@ from mentormind.agents.work_assistant import WorkAssistant
 from mentormind.core.cli import app
 from mentormind.core.providers.llm.backends.fake import FakeLLM
 from mentormind.core.schemas import DataClassification
-from tests.agents.fakes import REASON_PROFILE, FakeGraph, FakeRetriever, FakeSigma, context
+from tests.agents.fakes import REASON_PROFILE, FakeEmbedder, FakeGraph, FakeRetriever, FakeSigma, context, reply
 
 runner = CliRunner()
 
@@ -21,7 +21,8 @@ runner = CliRunner()
 def test_ask_prints_the_answer_and_its_sources(monkeypatch: pytest.MonkeyPatch) -> None:
     fixed = WorkAssistant(
         FakeRetriever(context((*REASON_PROFILE, 0.8, DataClassification.SYNTHETIC))),
-        FakeLLM(["Đặt nghiêng để tránh trầy bề mặt [1]."]),
+        FakeLLM([reply("Đặt nghiêng để tránh trầy bề mặt [1].", [1])]),
+        embedder=FakeEmbedder(),
     )
     monkeypatch.setattr(factory, "build_work_assistant", lambda settings: fixed)
     result = runner.invoke(app, ["agent", "ask", "Vì sao đặt nghiêng?", "--process", "PACK01"])

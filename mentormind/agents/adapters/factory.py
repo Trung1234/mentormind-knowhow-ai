@@ -7,10 +7,11 @@ The graph, vector store and Sigma modules are imported when an agent is built, s
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from mentormind.agents.adapters.experts import GraphExperts
 from mentormind.agents.base import TraceLog
+from mentormind.agents.ports import Embedder
 from mentormind.agents.rca import RcaAgent
 from mentormind.agents.work_assistant import WorkAssistant
 from mentormind.core.config import Settings
@@ -33,10 +34,22 @@ def build_work_assistant(settings: Settings) -> WorkAssistant:
     return WorkAssistant(
         retriever,
         get_llm_provider(settings),
+        embedder=_embedder(retriever, settings),
         experts=GraphExperts(retriever.graph),
         min_score=settings.assist_min_score,
+        min_cosine=settings.assist_min_cosine,
         trace=TraceLog(settings.trace_dir),
     )
+
+
+def _embedder(retriever: Any, settings: Settings) -> Embedder:
+    """The vector store's own bge-m3 when it has one (one model in memory), else a new one."""
+    shared = getattr(getattr(retriever, "vectors", None), "embedder", None)
+    if shared is not None:
+        return cast(Embedder, shared)
+    from mentormind.knowledge_base.store.embedding import BgeM3Embedder
+
+    return BgeM3Embedder(settings.embed_model)
 
 
 def build_rca_agent(settings: Settings) -> RcaAgent:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 from mentormind.core.schemas import Citation, DataClassification
@@ -75,3 +76,21 @@ class FakeSigma:
 
     def get_defects(self, lot_id: str) -> list[DefectRecord]:
         return [d for d in self.defects if d.lot_id == lot_id]
+
+
+class FakeEmbedder:
+    """bge-m3 stand-in: texts about packing point one way, anything else at right angles (cosine 0)."""
+
+    TOPIC = ("hộp", "thùng", "linh kiện", "sản phẩm", "nắp", "đặt", "bỏ", "nghiêng", "xếp")
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def embed(self, texts: Sequence[str]) -> list[list[float]]:
+        self.calls += 1
+        return [[1.0, 0.0] if any(w in t.lower() for w in self.TOPIC) else [0.0, 1.0] for t in texts]
+
+
+def reply(answer: str, used: Sequence[int], *, answerable: bool = True) -> dict[str, Any]:
+    """The Work Assistant's JSON answer (spec 06 §3 guard 3)."""
+    return {"answerable": answerable, "answer": answer, "used_sources": list(used)}

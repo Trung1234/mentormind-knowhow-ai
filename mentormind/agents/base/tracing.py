@@ -1,7 +1,7 @@
 """Traces of agent calls (spec 06 FR-04): one JSON line per call under ``data/work/traces/``.
 
-Each line: request, the context ids the agent used, a hash of every prompt sent, the response and
-the latency — enough to debug an answer and to feed the evaluation of spec 09.
+Each line: request, the context ids the agent used, a hash of every prompt sent, the response, the
+latency and the agent's own metrics — enough to debug an answer and to feed the evaluation of spec 09.
 """
 
 from __future__ import annotations
@@ -32,6 +32,8 @@ class TraceRecord(BaseModel):
     response: dict[str, Any]
     latency_s: float
     llm: str
+    #: The agent's own numbers (Work Assistant: max_rrf, max_cosine, blocked_by).
+    metrics: dict[str, Any] = Field(default_factory=dict)
 
 
 class TraceLog:
@@ -50,6 +52,7 @@ class TraceLog:
         response: BaseModel,
         latency_s: float,
         llm: str,
+        metrics: dict[str, Any] | None = None,
     ) -> TraceRecord:
         record = TraceRecord(
             kind=kind,
@@ -59,6 +62,7 @@ class TraceLog:
             response=response.model_dump(mode="json"),
             latency_s=round(latency_s, 3),
             llm=llm,
+            metrics=dict(metrics or {}),
         )
         if self._directory is not None:
             self._directory.mkdir(parents=True, exist_ok=True)

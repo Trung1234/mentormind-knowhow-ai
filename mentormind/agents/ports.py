@@ -6,10 +6,17 @@ and ``CsvSigmaAdapter`` (spec 07) satisfy them structurally, and tests hand in f
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any, Protocol
 
 from mentormind.knowledge_base.retrieval.hybrid import RetrievedContext, Template
 from mentormind.knowledge_base.sigma.adapter import DefectRecord, LotRecord
+
+
+class Embedder(Protocol):
+    """spec 05's text embedder (``BgeM3Embedder``): one vector per text, same model as the index."""
+
+    def embed(self, texts: Sequence[str]) -> list[list[float]]: ...
 
 
 class Retriever(Protocol):
