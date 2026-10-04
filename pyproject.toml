@@ -16,7 +16,10 @@ dependencies = [
 
 # spec 01 FR-02: one extra per module. Each spec's owner adds the dependencies its tasks need.
 [project.optional-dependencies]
-ingest = []
+# spec 02: Docling is the main extractor. mmore (the degraded PDF fallback) is NOT an extra: its
+# `process` extra pins numpy<2 / pillow 10 and would downgrade the VLM stack, so install it in a
+# separate venv and point `MmoreFastExtractor(binary=...)` at it (docs/plans/02-spike-notes.md).
+ingest = ["docling>=2.132", "psycopg[binary]>=3.2", "transformers>=4.44", "torch>=2.2"]
 video = []
 vlm = [
     "pillow>=10.3",
@@ -96,4 +99,6 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
-markers = ["integration: requires a disposable Neo4j 5 instance"]
+markers = [
+    "integration: requires external services such as PostgreSQL/pgvector or Neo4j 5; skipped when unavailable",
+]

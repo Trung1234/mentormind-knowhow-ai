@@ -5,11 +5,14 @@ Backends, chosen by ``KNOWHOW_VECTOR_BACKEND``:
 * ``memory`` — in-process: dense cosine over the store's embedder plus BM25 over accent-folded
   tokens, fused by Reciprocal Rank Fusion (k=60, the fusion of spec 05). For unit tests / CI
   without Docker (AC-08).
-* ``pgvector`` — ``public.knowhow_chunks`` of ``infra/postgres/init.sql``; lands with spec 02
-  T02-6 (it needs a Postgres driver and the bge-m3 embedder).
+* ``pgvector`` — ``public.knowhow_chunks`` of ``infra/postgres/init.sql``
+  (:mod:`mentormind.knowledge_base.store.pgvector_store`); needs the ``ingest`` extra and a
+  running Postgres (``make up``).
 
-Filters are exact matches on ``source_type``, ``kind``, ``ref_id`` and ``data_classification``;
-``process_id`` / ``part_number`` match when the chunk lists that value.
+Filters are exact matches on ``source_type``, ``kind``, ``ref_id`` (alias ``doc_id``) and
+``data_classification``; ``process_ids`` / ``part_numbers`` (singular spellings accepted) match when
+the chunk lists the value. Every filter value may be a single value or a list ("any of"); an empty
+list matches nothing; several keys combine with AND.
 """
 
 from __future__ import annotations
@@ -20,6 +23,7 @@ import re
 import unicodedata
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any, Protocol
 
 from mentormind.core.config import Settings, get_settings
@@ -29,8 +33,53 @@ RRF_K = 60
 _BM25_K1 = 1.5
 _BM25_B = 0.75
 _TOKEN = re.compile(r"\w+")
-_EXACT_FILTERS = ("source_type", "kind", "ref_id", "data_classification")
-_LIST_FILTERS = {"process_id": "process_ids", "part_number": "part_numbers"}
+_EXACT_FILTERS = {
+    "source_type": "source_type",
+    "kind": "kind",
+    "ref_id": "ref_id",
+    "doc_id": "ref_id",  # for document chunks ref_id is the doc_id (spec 02 FR-07)
+    "data_classification": "data_classification",
+}
+_ARRAY_FILTERS = {
+    "process_id": "process_ids",
+    "process_ids": "process_ids",
+    "part_number": "part_numbers",
+    "part_numbers": "part_numbers",
+}
+
+
+@dataclass(frozen=True)
+class FilterClause:
+    """One validated filter: ``column`` is a ``VectorChunk`` field, never user text."""
+
+    column: str
+    values: list[str]
+    is_array: bool
+
+
+def parse_filters(filters: Mapping[str, Any]) -> list[FilterClause]:
+    """Validate ``filters`` once for every backend; values may be one value or a list ("any of").
+
+    Raises:
+        ValueError: a key is not a supported filter (also what keeps raw text out of SQL).
+    """
+    clauses = []
+    for key, wanted in filters.items():
+        if key not in _EXACT_FILTERS and key not in _ARRAY_FILTERS:
+            raise ValueError(f"Filter không hỗ trợ: {key!r}")
+        values = [str(wanted)] if isinstance(wanted, str) else [str(v) for v in wanted]
+        if key in _EXACT_FILTERS:
+            clauses.append(FilterClause(_EXACT_FILTERS[key], values, False))
+        else:
+            clauses.append(FilterClause(_ARRAY_FILTERS[key], values, True))
+    return clauses
+
+
+def require_filters(filters: Mapping[str, Any]) -> list[FilterClause]:
+    """:func:`parse_filters` for destructive calls: an empty filter is refused, never "everything"."""
+    if not filters:
+        raise ValueError("delete_where cần ít nhất một filter (không xóa cả bảng).")
+    return parse_filters(filters)
 
 
 class VectorStoreError(RuntimeError):
@@ -59,6 +108,14 @@ class VectorStore(Protocol):
 
     def delete(self, ids: Iterable[str]) -> int:
         """Remove chunks by ``chunk_id``; returns how many existed."""
+        ...
+
+    def delete_where(self, filters: Mapping[str, Any]) -> int:
+        """Remove every chunk passing ``filters`` (same syntax as ``search``); returns how many.
+
+        Raises:
+            ValueError: ``filters`` is empty (that would wipe the table) or has an unsupported key.
+        """
         ...
 
 
@@ -96,6 +153,27 @@ class HashingEmbedder:
         return [v / norm for v in vector] if norm else vector
 
 
+def embed_missing(chunks: Iterable[VectorChunk], embedder: Embedder) -> list[VectorChunk]:
+    """Fill ``embedding`` where absent; a supplied one must have the embedder's dimension.
+
+    Raises:
+        VectorStoreError: a supplied embedding has the wrong size.
+    """
+    batch = list(chunks)
+    missing = [c for c in batch if c.embedding is None]
+    vectors = iter(embedder.embed([c.text for c in missing]))
+    out = []
+    for chunk in batch:
+        if chunk.embedding is None:
+            chunk = chunk.model_copy(update={"embedding": next(vectors)})
+        elif len(chunk.embedding) != embedder.dim:
+            raise VectorStoreError(
+                f"Chunk {chunk.chunk_id}: embedding có {len(chunk.embedding)} chiều, store cần {embedder.dim}."
+            )
+        out.append(chunk)
+    return out
+
+
 class MemoryVectorStore:
     """In-process :class:`VectorStore`: cosine + BM25, fused by RRF."""
 
@@ -104,22 +182,14 @@ class MemoryVectorStore:
         self._chunks: dict[str, VectorChunk] = {}
 
     def upsert(self, chunks: Iterable[VectorChunk]) -> int:
-        batch = list(chunks)
-        missing = [c for c in batch if c.embedding is None]
-        vectors = iter(self._embedder.embed([c.text for c in missing]))
+        batch = embed_missing(chunks, self._embedder)
         for chunk in batch:
-            if chunk.embedding is None:
-                chunk = chunk.model_copy(update={"embedding": next(vectors)})
-            elif len(chunk.embedding) != self._embedder.dim:
-                raise VectorStoreError(
-                    f"Chunk {chunk.chunk_id}: embedding có {len(chunk.embedding)} chiều, "
-                    f"store cần {self._embedder.dim}."
-                )
             self._chunks[chunk.chunk_id] = chunk
         return len(batch)
 
     def search(self, query: str, k: int = 8, filters: Mapping[str, Any] | None = None) -> list[VectorHit]:
-        candidates = [c for c in self._chunks.values() if _passes(c, filters or {})]
+        clauses = parse_filters(filters or {})
+        candidates = [c for c in self._chunks.values() if _passes(c, clauses)]
         if not candidates or k <= 0:
             return []
         query_vector = self._embedder.embed([query])[0]
@@ -140,30 +210,46 @@ class MemoryVectorStore:
     def delete(self, ids: Iterable[str]) -> int:
         return sum(self._chunks.pop(i, None) is not None for i in ids)
 
+    def delete_where(self, filters: Mapping[str, Any]) -> int:
+        clauses = require_filters(filters)
+        doomed = [cid for cid, c in self._chunks.items() if _passes(c, clauses)]
+        return self.delete(doomed)
+
 
 def get_vector_store(settings: Settings | None = None, *, embedder: Embedder | None = None) -> VectorStore:
     """The backend selected by ``KNOWHOW_VECTOR_BACKEND`` (only config changes, art. 5).
 
     PostgreSQL mode uses the table defined in ``infra/postgres/init.sql``.
+
+    Raises:
+        VectorStoreError: ``pgvector`` is selected but its driver, embedder or table is not usable.
     """
     settings = settings or get_settings()
     if settings.vector_backend == "memory":
         return MemoryVectorStore(embedder)
-    from mentormind.knowledge_base.store.pgvector import PgVectorStore
+    try:
+        from mentormind.knowledge_base.store.pgvector_store import PgVectorStore
+    except ImportError as exc:
+        raise VectorStoreError("Thiếu psycopg: cài extra `ingest` (uv sync --extra ingest).") from exc
+    return PgVectorStore(settings.pg_dsn, settings.vector_table, embedder or _default_embedder(settings))
 
-    return PgVectorStore(settings.pg_dsn, settings.vector_table, embedder, settings.embed_model)
+
+def _default_embedder(settings: Settings) -> Embedder:
+    if settings.embedder == "hashing":
+        return HashingEmbedder(settings.embed_dim)
+    from mentormind.knowledge_base.store.embedder import BgeM3Embedder
+
+    return BgeM3Embedder(settings.embed_model, dim=settings.embed_dim)
 
 
-def _passes(chunk: VectorChunk, filters: Mapping[str, Any]) -> bool:
-    for key, wanted in filters.items():
-        if key in _EXACT_FILTERS:
-            if getattr(chunk, key) != wanted:
+def _passes(chunk: VectorChunk, clauses: Sequence[FilterClause]) -> bool:
+    for clause in clauses:
+        held = getattr(chunk, clause.column)
+        if clause.is_array:
+            if not any(value in held for value in clause.values):
                 return False
-        elif key in _LIST_FILTERS:
-            if wanted not in getattr(chunk, _LIST_FILTERS[key]):
-                return False
-        else:
-            raise ValueError(f"Filter không hỗ trợ: {key!r}")
+        elif held not in clause.values:
+            return False
     return True
 
 
