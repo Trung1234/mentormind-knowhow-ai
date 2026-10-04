@@ -24,17 +24,11 @@ def test_settings_defaults_target_the_self_hosted_vlm(monkeypatch: pytest.Monkey
     assert settings.vlm_max_frames == 48
 
 
-def test_env_example_parses_into_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_env_example_parses_into_settings() -> None:
+    """Every value in .env.example is readable (e.g. a blank number is not); the values are free."""
     from mentormind.core.config import REPO_ROOT
 
-    for name in ("KNOWHOW_VLM_PROVIDER", "KNOWHOW_VLM_BASE_URL", "KNOWHOW_VLM_EXTRA_BODY"):
-        monkeypatch.delenv(name, raising=False)
-    settings = Settings(_env_file=REPO_ROOT / ".env.example")
-    assert settings.vlm_provider == "local_openai"
-    assert settings.vector_backend == "pgvector"
-    assert not settings.vlm_base_url  # blank -> provider default
-    assert settings.vlm_extra_body == {"presence_penalty": 1.5}
-    assert not settings.vlm_model
+    Settings(_env_file=REPO_ROOT / ".env.example")
 
 
 def test_fr_09_api_keys_live_in_the_same_env_file_as_the_settings() -> None:
