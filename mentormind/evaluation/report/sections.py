@@ -4,9 +4,9 @@ LIMITS = [
     "## Hạn chế",
     "",
     "- Golden set và ground truth video còn ở trạng thái draft, cần chuyên gia duyệt.",
-    "- Bốn chỉ số Ragas chấm bằng LLM judge theo định nghĩa của Ragas, gọi qua provider của dự án "
+    "- Bốn chỉ số Ragas tính bằng thư viện `ragas` (0.4.3), judge LLM gọi qua provider của dự án "
     "(để đi qua DataGuard); judge ~8B cho điểm dao động, nên dùng judge mạnh cho số liệu báo cáo.",
-    "- `answer_relevancy` so câu hỏi bằng độ giống chữ (`token_set_ratio`) cho tới khi có embedder của spec 05.",
+    "- `answer_relevancy` dùng embedding bge-m3 chạy local.",
     "- Mỗi cấu hình chạy một lần (`temperature` > 0): chênh lệch nhỏ chưa có ý nghĩa thống kê.",
     "",
 ]

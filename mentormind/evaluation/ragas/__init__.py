@@ -1,6 +1,6 @@
-"""Answer quality on the golden set (spec 09 §3B): LLM judge, runner, results."""
+"""Answer quality on the golden set (spec 09 §3B): ragas judge, runner, results."""
 
-from mentormind.evaluation.ragas.judge import LlmJudge
+from mentormind.evaluation.ragas.judge import JudgeSample, RagasJudge
 from mentormind.evaluation.ragas.results import (
     RAGAS_METRICS,
     RESULT_COLUMNS,
@@ -10,7 +10,7 @@ from mentormind.evaluation.ragas.results import (
     read_results,
     write_rows,
 )
-from mentormind.evaluation.ragas.runner import Answerer, run_golden
+from mentormind.evaluation.ragas.runner import Answerer, Judge, run_golden
 
 __all__ = [
     "RAGAS_METRICS",
@@ -18,8 +18,10 @@ __all__ = [
     "THRESHOLDS",
     "Answerer",
     "EvalSummary",
-    "LlmJudge",
+    "Judge",
+    "JudgeSample",
     "QuestionResult",
+    "RagasJudge",
     "read_results",
     "run_golden",
     "write_rows",

@@ -10,8 +10,8 @@ import pytest
 
 from mentormind.core.schemas import DataClassification
 from mentormind.evaluation.golden import load_golden
-from mentormind.evaluation.ragas import RAGAS_METRICS, EvalSummary, LlmJudge, run_golden
-from tests.evaluation.fakes import REFUSED, ScriptedAssistant, ScriptedJudge, answered
+from mentormind.evaluation.ragas import RAGAS_METRICS, EvalSummary, RagasJudge, run_golden
+from tests.evaluation.fakes import REFUSED, SameVectorEmbedder, ScriptedAssistant, ScriptedJudge, answered
 
 FIXTURE = Path(__file__).resolve().parents[2] / "fixtures" / "eval" / "qa_5.jsonl"
 
@@ -33,7 +33,7 @@ def run(tmp_path: Path, **kwargs: bool) -> EvalSummary:
     return run_golden(
         load_golden(FIXTURE),
         assistant(**kwargs),
-        LlmJudge(ScriptedJudge()),
+        RagasJudge(ScriptedJudge(), SameVectorEmbedder()),
         out_dir=tmp_path,
         classification=DataClassification.SYNTHETIC,
         golden_path=FIXTURE,
@@ -76,7 +76,7 @@ def test_a_factory_label_never_reaches_a_cloud_judge(tmp_path: Path) -> None:
         run_golden(
             load_golden(FIXTURE),
             assistant(),
-            LlmJudge(judge_llm),
+            RagasJudge(judge_llm, SameVectorEmbedder()),
             out_dir=tmp_path,
             classification=DataClassification.FACTORY_CONFIDENTIAL,
             golden_path=FIXTURE,

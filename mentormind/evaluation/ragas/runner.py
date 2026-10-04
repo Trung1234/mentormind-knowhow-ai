@@ -3,7 +3,8 @@
 Every golden question goes to the Work Assistant. Out-of-scope questions only test refusal and are
 written apart (``out_of_scope.csv``); the others get the four Ragas metrics (contexts = the
 snippets of the citations the answer carries) plus ``citation_hit``. A refused in-scope answer has
-no Ragas scores (nothing to judge) and counts against ``refusal_accuracy``.
+no Ragas scores (nothing to judge) and counts against ``refusal_accuracy``. Answers are collected
+first, then the answered in-scope ones are judged in one ``ragas.evaluate`` run.
 
 Outputs in ``out_dir``: ``ragas_results.csv`` (one row per in-scope question), ``out_of_scope.csv``,
 ``summary.json`` (means, the two own metrics, thresholds, run id, time, models, commit).
@@ -19,10 +20,11 @@ from pathlib import Path
 from typing import Protocol
 
 from mentormind.core.config import REPO_ROOT
+from mentormind.core.providers.llm import LLMProvider
 from mentormind.core.schemas import DataClassification
 from mentormind.core.schemas.agents import AskRequest, AssistantAnswer
 from mentormind.core.schemas.evaluation import GoldenQuestion
-from mentormind.evaluation.ragas.judge import LlmJudge
+from mentormind.evaluation.ragas.judge import JudgeSample
 from mentormind.evaluation.ragas.results import (
     RAGAS_METRICS,
     THRESHOLDS,
@@ -38,10 +40,19 @@ class Answerer(Protocol):
     def ask(self, request: AskRequest) -> AssistantAnswer: ...
 
 
+class Judge(Protocol):
+    """What scores the answers: ``RagasJudge`` (or a fake)."""
+
+    llm: LLMProvider
+    failures: int
+
+    def score(self, samples: Sequence[JudgeSample], label: DataClassification) -> list[dict[str, float | None]]: ...
+
+
 def run_golden(
     questions: Sequence[GoldenQuestion],
     assistant: Answerer,
-    judge: LlmJudge,
+    judge: Judge,
     *,
     out_dir: Path,
     classification: DataClassification,
@@ -50,7 +61,11 @@ def run_golden(
 ) -> EvalSummary:
     """Run and score every question; write the three output files (spec 09 FR-01)."""
     started = datetime.now(UTC)
-    results = [_score(q, assistant, judge, classification) for q in questions]
+    answers = [(q, _ask(q, assistant)) for q in questions]
+    results = [result for _, (result, _) in answers]
+    judged = [(result, sample) for _, (result, sample) in answers if sample is not None]
+    for (result, _), scores in zip(judged, judge.score([s for _, s in judged], classification), strict=True):
+        result.scores = scores
     scored = [r for r in results if r.type != "out_of_scope"]
     oos = [r for r in results if r.type == "out_of_scope"]
     metrics: dict[str, float | None] = {name: _mean(r.scores.get(name) for r in scored) for name in RAGAS_METRICS}
@@ -81,7 +96,8 @@ def run_golden(
     return summary
 
 
-def _score(q: GoldenQuestion, assistant: Answerer, judge: LlmJudge, label: DataClassification) -> QuestionResult:
+def _ask(q: GoldenQuestion, assistant: Answerer) -> tuple[QuestionResult, JudgeSample | None]:
+    """The question's result row, and what to judge when it is an answered in-scope question."""
     answer = assistant.ask(AskRequest(question=q.question, process_id=q.process_id))
     result = QuestionResult(
         qid=q.qid,
@@ -94,18 +110,12 @@ def _score(q: GoldenQuestion, assistant: Answerer, judge: LlmJudge, label: DataC
         expected_citations=list(q.expected_citations),
     )
     if q.type == "out_of_scope":
-        return result
+        return result, None
     result.citation_hit = bool(set(result.cited_ids) & set(q.expected_citations))
     if answer.refused:
-        return result
+        return result, None
     contexts = [c.snippet for c in answer.citations]
-    result.scores = {
-        "faithfulness": judge.faithfulness(answer.answer, contexts, label),
-        "answer_relevancy": judge.answer_relevancy(q.question, answer.answer, label),
-        "context_precision": judge.context_precision(q.question, contexts, q.ground_truth, label),
-        "context_recall": judge.context_recall(contexts, q.ground_truth, label),
-    }
-    return result
+    return result, JudgeSample(q.question, answer.answer, contexts, q.ground_truth)
 
 
 def _mean(values: object) -> float | None:

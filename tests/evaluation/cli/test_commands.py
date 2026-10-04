@@ -11,8 +11,8 @@ from mentormind.agents import factory
 from mentormind.core.cli import app
 from mentormind.core.schemas import DataClassification
 from mentormind.evaluation.golden import load_golden
-from mentormind.evaluation.ragas import LlmJudge, run_golden
-from tests.evaluation.fakes import ScriptedJudge
+from mentormind.evaluation.ragas import RagasJudge, run_golden
+from tests.evaluation.fakes import SameVectorEmbedder, ScriptedJudge
 from tests.evaluation.ragas.test_runner import FIXTURE, assistant
 
 runner = CliRunner()
@@ -22,7 +22,7 @@ def test_report_is_written_from_a_ragas_run(tmp_path: Path) -> None:
     run_golden(
         load_golden(FIXTURE),
         assistant(),
-        LlmJudge(ScriptedJudge()),
+        RagasJudge(ScriptedJudge(), SameVectorEmbedder()),
         out_dir=tmp_path,
         classification=DataClassification.SYNTHETIC,
         golden_path=FIXTURE,

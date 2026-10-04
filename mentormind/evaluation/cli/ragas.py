@@ -30,7 +30,9 @@ def ragas_cmd(
     from mentormind.core.providers.errors import ProviderError
     from mentormind.core.providers.llm import get_llm_provider
     from mentormind.evaluation.golden import GoldenSetError, check_distribution, load_golden
-    from mentormind.evaluation.ragas import LlmJudge, run_golden
+    from mentormind.evaluation.ragas import RagasJudge, run_golden
+    from mentormind.knowledge_base.store.embedding import BgeM3Embedder
+    from mentormind.knowledge_base.store.vector_store import VectorStoreError
 
     settings = get_settings()
     try:
@@ -38,7 +40,7 @@ def ragas_cmd(
         for missing in check_distribution(questions):
             typer.secho(f"Cảnh báo golden set: {missing}", fg=typer.colors.YELLOW, err=True)
         assistant = build_work_assistant(settings)
-        judge = LlmJudge(get_llm_provider(_judge_settings(settings)))
+        judge = RagasJudge(get_llm_provider(_judge_settings(settings)), BgeM3Embedder(settings.embed_model))
         summary = run_golden(
             questions,
             assistant,
@@ -48,7 +50,7 @@ def ragas_cmd(
             golden_path=golden,
             assistant_llm=f"{assistant.llm.name}:{assistant.llm.model}",
         )
-    except (GoldenSetError, AgentWiringError, ProviderError, ConfidentialDataError) as exc:
+    except (GoldenSetError, AgentWiringError, ProviderError, ConfidentialDataError, VectorStoreError) as exc:
         typer.secho(f"Lỗi: {exc}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1) from exc
     typer.echo(json.dumps(summary.metrics, ensure_ascii=False, indent=2))

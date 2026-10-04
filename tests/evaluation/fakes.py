@@ -11,24 +11,29 @@ from mentormind.core.providers.models import TokenUsage
 from mentormind.core.schemas import Citation
 from mentormind.core.schemas.agents import AskRequest, AssistantAnswer
 
-#: What the judge answers for each metric prompt (the tag on the prompt's first line).
-JUDGE: dict[str, Any] = {
-    "faithfulness": {
-        "claims": [
-            {"claim": "a", "supported": True},
-            {"claim": "b", "supported": True},
-            {"claim": "c", "supported": False},
-            {"claim": "d", "supported": True},
-        ]
-    },
-    "answer_relevancy": {"questions": ["q"], "noncommittal": False},
-    "context_precision": {"verdicts": [True, False]},
-    "context_recall": {"sentences": [{"sentence": "s", "attributed": True}]},
-}
+#: (instruction text of a ragas prompt, JSON the judge answers). The answers give faithfulness 3/4,
+#: context precision 1, context recall 1.
+RAGAS_ANSWERS: list[tuple[str, dict[str, Any]]] = [
+    (
+        "judge the faithfulness of a series of statements",
+        {
+            "statements": [
+                {"statement": s, "reason": "r", "verdict": v} for s, v in (("a", 1), ("b", 1), ("c", 0), ("d", 1))
+            ]
+        },
+    ),
+    ("analyze the complexity of each sentence", {"statements": ["a", "b", "c", "d"]}),
+    ("Generate a question for the given answer", {"question": "q", "noncommittal": 0}),
+    ("verify if the context was useful", {"reason": "r", "verdict": 1}),
+    (
+        "classify if the sentence can be attributed",
+        {"classifications": [{"statement": "s", "reason": "r", "attributed": 1}]},
+    ),
+]
 
 
 class ScriptedJudge(FakeLLM):
-    """Answers by metric; ``answer_relevancy`` echoes the question so the similarity is 1."""
+    """Answers each ragas metric prompt with the fixed JSON of ``RAGAS_ANSWERS``."""
 
     def _complete(
         self,
@@ -46,12 +51,15 @@ class ScriptedJudge(FakeLLM):
             temperature=temperature,
             max_tokens=max_tokens,
         )
-        tag = prompt.split("]", 1)[0].lstrip("[")
-        answer = dict(JUDGE[tag])
-        if tag == "answer_relevancy":
-            question = prompt.split("CÂU HỎI GỐC: ", 1)[1].splitlines()[0]
-            answer = {"questions": [question], "noncommittal": False}
+        answer = next(answer for marker, answer in RAGAS_ANSWERS if marker in prompt)
         return json.dumps(answer, ensure_ascii=False), None
+
+
+class SameVectorEmbedder:
+    """Every text gets the same vector: any generated question is as similar as can be (1.0)."""
+
+    def embed(self, texts: Sequence[str]) -> list[list[float]]:
+        return [[1.0, 0.0, 0.0] for _ in texts]
 
 
 def cite(*refs: str) -> list[Citation]:
