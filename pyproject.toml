@@ -27,7 +27,12 @@ vlm = [
     "numpy>=1.26",
     "rapidfuzz>=3.9",
 ]
-kg = []
+kg = [
+    "neo4j>=5.26,<6",
+    "psycopg[binary]>=3.2,<4",
+    "rapidfuzz>=3.9",
+]
+kg-semantic = ["sentence-transformers>=3,<6"]
 api = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
@@ -86,7 +91,15 @@ warn_unused_ignores = true
 module = ["tests.*"]
 disallow_untyped_defs = false
 
+# Optional extra (kg-semantic): installed in CI via --all-extras, often absent locally.
+[[tool.mypy.overrides]]
+module = ["sentence_transformers", "sentence_transformers.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
-markers = ["integration: needs PostgreSQL/pgvector (`make up`); skipped when it is unreachable"]
+[tool.pytest.ini_options]
+markers = [
+    "integration: requires external services such as PostgreSQL/pgvector or Neo4j 5; skipped when unavailable",
+]

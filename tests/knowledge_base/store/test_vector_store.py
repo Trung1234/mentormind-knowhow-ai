@@ -82,10 +82,15 @@ def test_delete_returns_how_many_existed() -> None:
     store = MemoryVectorStore()
     store.upsert(CHUNKS)
     assert store.delete(["WP-PACK01-003", "missing"]) == 1
-    assert all(h.chunk.chunk_id != "WP-PACK01-003" for h in store.search("thiếu linh kiện"))
+    assert all(
+        h.chunk.chunk_id != "WP-PACK01-003"
+        for h in store.search("thiếu linh kiện")
+    )
 
 
 def test_embedding_of_the_wrong_size_is_refused() -> None:
     store = MemoryVectorStore(HashingEmbedder(dim=8))
     with pytest.raises(VectorStoreError, match="chiều"):
-        store.upsert([chunk("DOC-2#p1-0", "x", embedding=[0.1, 0.2])])
+        store.upsert(
+            [chunk("DOC-2#p1-0", "x", embedding=[0.1, 0.2])]
+        )

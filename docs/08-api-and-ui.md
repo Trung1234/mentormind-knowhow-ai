@@ -55,7 +55,7 @@ Cấu hình: `layout="wide"`, cỡ chữ ≥ 16px, nút bấm lớn; UI chỉ g�
 - Chọn lot (từ `/sigma/lots`) hoặc nhập triệu chứng → bảng giả thuyết (màu theo likelihood), bảng 5-Why (cột "Đã xác minh"), danh sách lô liên quan, bước phòng ngừa, disclaimer.
 
 ## 4. `make demo` — `scripts/demo.sh`
-1. `make up` và chờ healthy → `knowhow kg init` → `knowhow sigma gen-mock` → `knowhow kg load-sigma`.
+1. `make up` và chờ healthy → `knowhow kg init` → `knowhow sigma gen-mock` → `knowhow kg load-sigma --classification synthetic`.
 2. `knowhow ingest run data/samples/docs --classification synthetic` → `knowhow ingest index`.
 3. Với mỗi video trong `data/samples/video/`: segment → describe.
    - `KNOWHOW_DEMO_OFFLINE=1` (mặc định khi không có API key) → dùng `FakeVLM`/`FakeLLM` với fixture, chạy được không cần mạng.
@@ -92,3 +92,4 @@ Cấu hình: `layout="wide"`, cỡ chữ ≥ 16px, nút bấm lớn; UI chỉ g�
 - v1.1 (27/9): `/health` báo `postgres` thay cho `milvus`.
 - v1.2 (27/9): đường dẫn module theo layout mới (bỏ `knowhow.`/`src/knowhow/`, xem spec 01 v1.3).
 - v1.3 (29/9, review): cấu hình API (`app_name`, `cors_origins`) nằm trong `core.config.Settings` (spec 01 FR-03); khung `scripts/demo.sh` (T08-6 chưa xong).
+- v1.4 (02/10, review): review hoàn tác thất bại khôi phục graph theo bản đang lưu (profile đã approved được nạp lại, không bị gỡ khỏi graph); test AC-01 kiểm graph giữ bản cũ tới khi approve lại; demo nạp Sigma mock bằng `--classification synthetic` (spec 05 FR-05).
