@@ -12,6 +12,7 @@ Post-processing into WorkProfiles lives in :mod:`processing.vlm.passes.postproce
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
@@ -25,6 +26,7 @@ from mentormind.core.providers.vlm.base import VLMProvider
 from mentormind.core.providers.vlm.models import VLMResponse
 from mentormind.core.schemas.video import Segment
 from mentormind.processing.vlm.frames.sampler import SampledFrames, sample_frames
+from mentormind.processing.vlm.passes.language import english_fields
 from mentormind.processing.vlm.passes.models import (
     FailedSegment,
     PassAOutput,
@@ -34,6 +36,9 @@ from mentormind.processing.vlm.passes.models import (
 from mentormind.processing.vlm.passes.prompting import render_prompt
 
 PASS_A_TEMPERATURE = 0.2
+#: Repair reason when pass A answered in English (spec 04 §3): the steps become Vietnamese SOPs.
+LANGUAGE_ERROR = "các trường chữ phải viết bằng tiếng Việt có dấu, đang là tiếng Anh ở {fields}"
+log = logging.getLogger(__name__)
 
 PASS_A_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -126,6 +131,7 @@ def _describe_one(
         timestamps=", ".join(f"{t:.1f}" for t in sampled.timestamps),
     )
     output: PassAOutput | None = None
+    english: PassAOutput | None = None  # a valid answer in English, kept if the repair fails
     error = ""
     raw_text = ""
     for attempt in range(2):  # the answer, then at most ONE repair (spec 04 §3)
@@ -141,10 +147,19 @@ def _describe_one(
         raw_text = response.text
         _save_raw(work_dir, segment, attempt, text_prompt, response, sampled)
         try:
-            output = PassAOutput.model_validate(parse_json_object(response.text))
-            break
+            candidate = PassAOutput.model_validate(parse_json_object(response.text))
         except (InvalidJSONError, ValidationError) as exc:
             error = _short_error(exc)
+            continue
+        fields = english_fields(candidate)
+        if fields and attempt == 0:
+            english, error = candidate, LANGUAGE_ERROR.format(fields=", ".join(fields[:3]))
+            continue
+        if fields:
+            log.warning("pass A %s still answered in English after the repair: %s", segment.segment_id, fields)
+        output = candidate
+        break
+    output = output or english
     if output is None:
         result.failed.append(FailedSegment(segment_id=segment.segment_id, error=error, raw_text=raw_text))
         return

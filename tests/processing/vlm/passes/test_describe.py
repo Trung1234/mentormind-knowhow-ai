@@ -179,3 +179,28 @@ def test_ac_18_pass_a_asks_for_the_actor() -> None:
     assert "actor" in item["required"]
     prompt = render_prompt("pass_a_describe.md", process_id="PACK01", duration="10.0", fps="4", timestamps="0.0")
     assert '"actor"' in prompt and "human" in prompt and "robot" in prompt
+
+
+def test_ac_20_an_english_answer_is_asked_again_in_vietnamese(tmp_path: Path) -> None:
+    # LASI sweep 2026-10-04: the Q4 model on Ollama answered 63-83% of the step names in English.
+    english = {"scene": "x", "steps": [step("Pick product", 0, 1, hand_action="right hand picks it")]}
+    vietnamese = {"scene": "x", "steps": [step("Nhặt sản phẩm", 0, 1)]}
+    vlm = FakeVLM([english, vietnamese, {"steps": []}, {"steps": []}])
+    result = run(vlm, tmp_path)
+    assert [s.step for s in result.steps] == ["Nhặt sản phẩm"]
+    assert "tiếng Việt" in vlm.calls[1].prompt and "steps[0].step" in vlm.calls[1].prompt
+    assert len(vlm.calls) == 4  # one repair, for the first segment only
+
+
+def test_ac_20_an_english_answer_is_kept_when_the_repair_fails(tmp_path: Path) -> None:
+    english = {"scene": "x", "steps": [step("Pick product", 0, 1)]}
+    vlm = FakeVLM([english, "không phải JSON", {"steps": []}, {"steps": []}])
+    result = run(vlm, tmp_path)
+    assert [s.step for s in result.steps] == ["Pick product"] and result.failed == []
+
+
+def test_ac_20_pass_a_asks_for_vietnamese() -> None:
+    from mentormind.processing.vlm.passes.prompting import render_prompt
+
+    prompt = render_prompt("pass_a_describe.md", process_id="PACK01", duration="10.0", fps="4", timestamps="0.0")
+    assert "TIẾNG VIỆT" in prompt

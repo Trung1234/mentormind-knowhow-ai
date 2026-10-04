@@ -13,5 +13,6 @@ Quy tắc:
 - key_point_observed: chi tiết kỹ thuật NHÌN THẤY được (hướng, vị trí, thứ tự), null nếu không có.
 - t_start_rel, t_end_rel: giây tính từ đầu đoạn (0 đến {duration}), dựa vào mốc thời gian của ảnh.
 - Nếu không chắc, hạ confidence (< 0.5) thay vì bỏ qua hoặc bịa.
+- Viết TẤT CẢ nội dung chữ (scene, step, hand_action, objects, key_point_observed) bằng TIẾNG VIỆT có dấu, kể cả khi bạn suy nghĩ bằng tiếng Anh. Chỉ giữ nguyên tên riêng/mã (VD SCARA). VD đúng: "Nhặt sản phẩm từ băng tải"; sai: "Pick product".
 - Cảnh chỉ có người nói chuyện, logo, chữ hoặc bảng số liệu thì không phải thao tác: "steps" rỗng.
 Trả về DUY NHẤT một đối tượng JSON với hai khóa "scene" và "steps", không markdown, không giải thích.

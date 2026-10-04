@@ -63,6 +63,7 @@ Một đoạn có thể có 0..n bước. `actor` = ai/cái gì làm bước đ�
 - Gán `evidence` = video_id, t_start/t_end tuyệt đối, `segment_ids` (mọi đoạn mà bước gộp từ đó), keyframes của đoạn, `transcript_excerpt` từ `align_transcript` (spec 03) nếu có: `describe` đọc `data/work/video/<video_id>/transcript.json` (spec 03 FR-07, list `TranscriptSegment`) và gọi `align_transcript` của spec 03 (FR-08, giả định ở `mentormind.capture.video`, hằng `SPEC03_MODULE`). Thiếu file, file không đọc được, hoặc chưa có hàm của spec 03 → không có excerpt (`None`, chỉ ghi log), `describe` vẫn chạy. Excerpt của bước = các câu spec 03 gán cho mọi đoạn mà bước lấy từ đó, theo thời gian. Nhãn của profile = nhãn khắt khe nhất của các đoạn **và** các câu được trích. Code ở `processing/vlm/transcript/` (`loader`, `excerpt`); spec 04 không tự gán câu vào đoạn.
 - Gán `model_info` = provider, model, fps.
 - Validate bằng `validate_against_contract`. JSON lỗi → gọi lại 1 lần với prompt sửa (`prompts/repair_json.md`); vẫn lỗi → ghi segment vào `failed_segments.json`, không crash.
+- **Ngôn ngữ:** mọi trường chữ của lượt A (scene, step, hand_action, objects, key_point_observed) phải là tiếng Việt (prompt ghi rõ). Một `step`/`hand_action`/`key_point_observed` từ 2 từ Latin trở lên mà không có chữ cái tiếng Việt nào (`passes/language.py`) → câu trả lời coi như không hợp lệ, dùng chung lượt sửa duy nhất ở trên (lý do: "phải viết bằng tiếng Việt"); lượt sửa vẫn tiếng Anh hoặc hỏng JSON → giữ câu trả lời tiếng Anh, ghi log, không bỏ segment. Đo trên LASI 4/10: model Q4 trên Ollama trả 63–83% tên bước bằng tiếng Anh khi prompt chưa có luật này.
 
 ## 4. Prompt lượt A (nội dung chuẩn, lưu tại `processing/vlm/prompts/pass_a_describe.md`)
 ```
@@ -154,6 +155,7 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - **AC-17** Khung hình gửi provider cloud bị làm mờ vùng mặt (vùng khác giữ nguyên), audit ghi `faces_blurred`; khung gửi provider tự host giữ nguyên byte; không có model làm mờ mặt → từ chối gửi (fail closed).
 - **AC-18** Lượt A: mỗi bước có `actor` ∈ {`human`, `robot`, `machine`, `null`}; từ đồng nghĩa ("công nhân", "kỹ sư", "robot SCARA", "máy dựng thùng") được chuẩn hóa, từ không nhận ra → `null`, segment không bị loại; WorkProfile mang `actor`, hợp lệ contract; `actor` ngoài enum bị cả Pydantic lẫn contract từ chối.
 - **AC-19** Lượt B: hai lần chạy khác `actor` → `actor=null`. Lượt C: không gộp hai bước khác `actor`; bước gộp giữ `actor` của nguồn dù LLM trả gì.
+- **AC-20** Lượt A trả tên bước tiếng Anh (vd. "Pick product") → hỏi lại 1 lần với prompt sửa nêu yêu cầu tiếng Việt và trường sai; lần 2 tiếng Việt → giữ bản tiếng Việt; lần 2 hỏng → giữ bản tiếng Anh, segment không bị đánh dấu lỗi.
 
 ## 9. Tasks
 - [x] T04-1 Provider protocol + `OpenAICompatVLM` + `FakeVLM` + factory + DataGuard (AC-03).
@@ -165,9 +167,10 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - [x] T04-7 `propose-reasons` + hậu kiểm trích dẫn (AC-08, AC-09). *(`describe` điền `transcript_excerpt` khi có `transcript.json` của spec 03; chưa có thì lệnh không làm gì.)*
 - [x] T04-8 Registry provider dùng chung (`core.providers`) + cloud `openrouter`/`siliconflow` + key từ `.env` + `knowhow vlm providers|ping` (AC-11, AC-12, AC-13).
 - [x] T04-9 Server tự host `3rdparty/vlm_server` (vLLM, Qwen3-VL-8B-Instruct, 1 GPU) + smoke test (AC-14, AC-15).
-- [x] T04-10 Chuyển server tự host sang Ollama (`qwen3-vl:8b` Q4, `image-min-tokens` chỉnh được, script macOS/Linux + ngrok) (FR-08, AC-14, AC-15).
 - [x] T04-10 Outbound guard cho VLM cloud: che PII + LeakGuard + làm mờ mặt + audit (AC-16, AC-17).
 - [x] T04-11 Trường `actor` (human/robot/machine) qua lượt A → B → C → WorkProfile + `actor_accuracy` trong sweep (AC-18, AC-19).
+- [x] T04-12 Chuyển server tự host sang Ollama (`qwen3-vl:8b` Q4, `image-min-tokens` chỉnh được, script macOS/Linux + ngrok) (FR-08, AC-14, AC-15).
+- [x] T04-13 Lượt A trả lời bằng tiếng Việt: luật trong prompt + hậu kiểm ngôn ngữ dùng chung lượt sửa (AC-20).
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
@@ -187,4 +190,5 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - v1.14 (29/9, Phúc): FR-06 lưu vào profile store của spec 08 khi có (`KNOWHOW_PROFILE_SINK=auto|store|file`), không ghi đè profile của video khác.
 - v1.15 (29/9, review): FR-06 sửa lỗi mất dữ liệu — profile vừa đổi `profile_id` trong cùng một lần lưu không còn bị profile sau của cùng video ghi đè.
 - v1.16 (4/10, Phúc): hậu xử lý điền `transcript_excerpt` từ `transcript.json` của spec 03 (§3), viết trước theo đúng output spec 03 (`transcript.json` + `align_transcript` gọi qua import, thiếu thì `None`) để `propose-reasons` chạy được ngay khi spec 03 xong.
-- v1.17 (4/10, Phúc): FR-08 server tự host chuyển sang Ollama + `qwen3-vl:8b` Q4 (demo chạy trên Ollama); `VLM_SERVER_IMAGE_MIN_TOKENS` thay mức 1024 Ollama tự ép; FR-07 timeout mặc định 900 s, `KNOWHOW_VLM_MAX_TOKENS` 16384 cho phần thinking; T04-10.
+- v1.17 (4/10, Phúc): FR-08 server tự host chuyển sang Ollama + `qwen3-vl:8b` Q4 (demo chạy trên Ollama); `VLM_SERVER_IMAGE_MIN_TOKENS` thay mức 1024 Ollama tự ép; FR-07 timeout mặc định 900 s, `KNOWHOW_VLM_MAX_TOKENS` 16384 cho phần thinking; T04-12.
+- v1.18 (4/10, Phúc): §3 lượt A phải trả tiếng Việt (prompt + hậu kiểm `passes/language.py`, dùng chung lượt sửa), AC-20, T04-13; đo LASI: model Q4 trả 63–83% tên bước bằng tiếng Anh.
