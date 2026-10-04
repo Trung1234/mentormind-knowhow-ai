@@ -4,6 +4,7 @@
     pass B   pass A a second time; keep steps both runs report     passes/consistency.py
     pass C   merge steps cut by segment boundaries (text LLM)      passes/merge.py
     post     reason=None, status=draft, evidence, contract check   passes/postprocess.py
+             + the expert's words from spec 03's transcript         transcript/
 
 Artefacts under ``work_dir`` (FR-06): ``pass_a/`` (run 1 raw answers), ``pass_b/pass_a/`` (run 2),
 ``pass_c.json``, ``failed_segments.json``, ``predictions.json`` (final steps), ``profiles.json``.
@@ -21,7 +22,7 @@ from pydantic import BaseModel
 
 from mentormind.core.providers.llm import LLMProvider
 from mentormind.core.providers.vlm.base import VLMProvider
-from mentormind.core.schemas.video import Segment
+from mentormind.core.schemas.video import Segment, TranscriptSegment
 from mentormind.core.schemas.work_profile import WorkProfile
 from mentormind.processing.vlm.frames.sampler import SampledFrames, sample_frames
 from mentormind.processing.vlm.passes import describe_segments, to_work_profiles
@@ -29,6 +30,7 @@ from mentormind.processing.vlm.passes.consistency import self_consistent
 from mentormind.processing.vlm.passes.describe import Sampler
 from mentormind.processing.vlm.passes.merge import MergeReport, merge_steps
 from mentormind.processing.vlm.passes.models import PassAResult
+from mentormind.processing.vlm.transcript import align
 
 
 class DescribeResult(BaseModel):
@@ -69,8 +71,17 @@ class DescribePipeline:
         self.consistency = consistency
         self._sampler = sampler
 
-    def run(self, segments: Sequence[Segment], work_dir: Path) -> DescribeResult:
-        """All passes over one video's ``segments``; artefacts go to ``work_dir`` (FR-06)."""
+    def run(
+        self,
+        segments: Sequence[Segment],
+        work_dir: Path,
+        transcript: Sequence[TranscriptSegment] = (),
+    ) -> DescribeResult:
+        """All passes over one video's ``segments``; artefacts go to ``work_dir`` (FR-06).
+
+        ``transcript``: spec 03's lines for the video, aligned by spec 03's ``align_transcript``
+        into each profile's ``transcript_excerpt`` (none, or no spec 03 yet: no excerpt).
+        """
         work_dir.mkdir(parents=True, exist_ok=True)
         sampler = _cache(self._sampler)  # both pass-A runs see the same frames
         first = self.pass_a(segments, work_dir, sampler=sampler)
@@ -81,7 +92,7 @@ class DescribePipeline:
         report = None
         if self.llm is not None:
             steps, report = self.pass_c(steps, segments, work_dir)
-        profiles = self.postprocess(steps, segments)
+        profiles = self.postprocess(steps, segments, transcript)
         self._save(steps, profiles, work_dir)
         return DescribeResult(
             profiles=profiles,
@@ -115,14 +126,17 @@ class DescribePipeline:
             raise ValueError("Pass C needs an LLM.")
         return merge_steps(steps, segments, self.llm, process_id=self.process_id, work_dir=work_dir)
 
-    def postprocess(self, steps: PassAResult, segments: Sequence[Segment]) -> list[WorkProfile]:
-        """reason=None, status=draft, evidence, model_info, contract check."""
+    def postprocess(
+        self, steps: PassAResult, segments: Sequence[Segment], transcript: Sequence[TranscriptSegment] = ()
+    ) -> list[WorkProfile]:
+        """reason=None, status=draft, evidence (+ transcript excerpt), model_info, contract check."""
         return to_work_profiles(
             steps,
             segments=segments,
             process_id=self.process_id,
             provider=self.vlm,
             model=self.vlm.model,
+            aligned_transcript=align(segments, transcript),
         )
 
     @staticmethod

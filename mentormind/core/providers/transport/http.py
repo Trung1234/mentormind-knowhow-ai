@@ -9,6 +9,7 @@ from __future__ import annotations
 import time
 from collections.abc import Callable, Mapping
 from typing import Any, Protocol
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
@@ -32,6 +33,14 @@ class HttpClient(Protocol):
         ...
 
 
+def redact_url(url: str | httpx.URL) -> str:
+    """``url`` without ``user:password@``: a base URL may carry basic-auth (e.g. an ngrok tunnel)."""
+    parts = urlsplit(str(url))
+    if "@" not in parts.netloc:
+        return str(url)
+    return urlunsplit(parts._replace(netloc=parts.netloc.rpartition("@")[2]))
+
+
 def _retry_after_seconds(response: httpx.Response) -> float | None:
     value = response.headers.get("Retry-After", "").strip()
     return float(value) if value.isdigit() else None
@@ -42,12 +51,12 @@ def _decode_object(response: httpx.Response) -> dict[str, Any]:
         body = response.json()
     except ValueError as exc:
         raise ProviderError(
-            f"Non-JSON response from {response.request.url}: {response.text[:300]}",
+            f"Non-JSON response from {redact_url(response.request.url)}: {response.text[:300]}",
             status_code=response.status_code,
         ) from exc
     if not isinstance(body, dict):
         raise ProviderError(
-            f"Expected a JSON object from {response.request.url}, got {type(body).__name__}",
+            f"Expected a JSON object from {redact_url(response.request.url)}, got {type(body).__name__}",
             status_code=response.status_code,
         )
     return body
@@ -84,18 +93,19 @@ class HttpxClient:
         headers: Mapping[str, str] | None,
         json: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        shown = redact_url(url)
         last_error: ProviderError | None = None
         for attempt in range(self._retry.max_retries + 1):
             retry_after: float | None = None
             try:
                 response = self._client.request(method, url, headers=headers, json=json)
             except httpx.TransportError as exc:  # timeouts, refused connections, DNS...
-                last_error = ProviderError(f"{method} {url} failed: {exc!r}")
+                last_error = ProviderError(f"{method} {shown} failed: {exc!r}")
             else:
                 if response.is_success:
                     return _decode_object(response)
                 last_error = ProviderError(
-                    f"{method} {url} -> HTTP {response.status_code}: {response.text[:500]}",
+                    f"{method} {shown} -> HTTP {response.status_code}: {response.text[:500]}",
                     status_code=response.status_code,
                 )
                 if response.status_code not in self._retry.retriable_statuses:

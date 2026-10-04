@@ -66,7 +66,7 @@ mentormind-knowhow-ai/
 │   ├── golden_set/             # spec 09, được commit
 │   └── work/                   # output trung gian, KHÔNG commit
 ├── scripts/demo.sh
-└── 3rdparty/vlm_server/        # submodule vlm-engine: server Qwen3-VL tự host (spec 04 FR-08) — Phúc
+└── 3rdparty/vlm_server/        # submodule vlm-engine: Ollama + Qwen3-VL-8B Q4 tự host (spec 04 FR-08) — Phúc
 ```
 
 > **Quy ước tên module trong các spec:** mọi đường dẫn module viết tắt, bỏ tiền tố package gốc — `core.schemas` nghĩa là `mentormind.core.schemas`, `core.providers.vlm` là `mentormind.core.providers.vlm`; đường dẫn file `core/guard/data_guard.py` là `mentormind/core/guard/data_guard.py`. Tên CLI (`knowhow`) và prefix biến môi trường (`KNOWHOW_`) không đổi.
@@ -96,7 +96,7 @@ KNOWHOW_PG_DSN=postgresql://knowhow:change-me@localhost:5432/knowhow
 KNOWHOW_VECTOR_TABLE=knowhow_chunks
 KNOWHOW_EMBED_DIM=1024                 # bge-m3 dense
 KNOWHOW_VLM_PROVIDER=local_openai      # local_openai | openrouter | siliconflow | qwen_api | openai_compatible | fake
-# trống = endpoint mặc định của provider (local_openai: http://127.0.0.1:8100/v1) và tên Qwen3-VL-8B-Instruct của provider đó
+# trống = endpoint mặc định của provider (local_openai: Ollama http://127.0.0.1:11434/v1, qwen3-vl:8b) và tên Qwen3-VL-8B của provider đó
 KNOWHOW_VLM_BASE_URL=
 KNOWHOW_VLM_MODEL=
 KNOWHOW_VLM_FPS=4
@@ -126,7 +126,7 @@ KNOWHOW_SIGMA_CSV_DIR=data/mock_sigma
 - **AC-04** Một WorkProfile mẫu hợp lệ pass cả Pydantic lẫn `validate_against_contract`; một profile VLM `draft` có `reason` khác null bị cả hai từ chối.
 - **AC-05** `DataGuard.check("factory_confidential", cloud_provider)` raise; với `local_provider` không raise.
 - **AC-06** `git add data/raw/x.mp4` bị `.gitignore` bỏ qua; `data/samples/demo.mp4` thì không; `.env` (chứa mọi key) bị bỏ qua, `.env.example` và `.secrets/README.md` thì không.
-- **AC-07** `docker compose config` cho thấy mọi service có `mem_limit`; tổng của stack demo lite (`mentormind` + `postgres` + `neo4j`) ≤ 4 GB. `vlm-server` (GPU, tùy chọn — có thể thay bằng provider cloud) có giới hạn riêng.
+- **AC-07** `docker compose config` cho thấy mọi service có `mem_limit`; tổng của stack demo lite (`mentormind` + `postgres` + `neo4j`) ≤ 4 GB. `vlm-server` (Ollama trên GPU, tùy chọn — có thể thay bằng provider cloud) có giới hạn riêng.
 - **AC-08** `Settings` với `KNOWHOW_VECTOR_BACKEND=memory` → `get_vector_store()` trả store dùng được (upsert + search) mà không cần docker.
 - **AC-09** Masking văn bản khớp bộ ca của bankassist-mcp: SĐT (`0…`, `+84…`, có dấu cách) → cùng một `[PHONE_n]`; CCCD, email, thẻ hợp lệ Luhn bị che; số tiền `500000000`, ngày `15082026`, mã 16 số sai Luhn giữ nguyên; tên đã biết bị che không phân biệt hoa thường; hoàn nguyên trả đúng chuỗi gốc; vault cô lập theo phiên.
 - **AC-10** LeakGuard phát hiện SĐT/CCCD/email còn sót; tắt masking mà text còn PII → vẫn bị chặn và audit ghi `SecurityAlert` không kèm giá trị.

@@ -10,7 +10,7 @@ router = APIRouter(prefix="/rca", tags=["rca"])
 def investigate(req: RcaRequest) -> RcaReport:
     # Try calling actual agent if available
     try:
-        from mentormind.agents import rca  # type: ignore
+        from mentormind.agents import rca
 
         if hasattr(rca, "investigate"):
             return rca.investigate(req)

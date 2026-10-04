@@ -2,24 +2,26 @@
 
 ``reason``/``reason_source`` are forced to None whatever the model said (constitution art. 3,
 AC-02), ``status="draft"``, evidence and model_info filled, every profile validated against the
-contract before it is returned.
+contract before it is returned. ``evidence.transcript_excerpt`` = what the expert said during the
+step's segments (spec 03's transcript and alignment), the input of propose-reasons (§5).
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 
 from mentormind.core.guard import SupportsCloudFlag
 from mentormind.core.providers.llm.context import strictest
-from mentormind.core.schemas.video import Segment
+from mentormind.core.schemas.video import Segment, TranscriptSegment
 from mentormind.core.schemas.work_profile import (
     SCHEMA_VERSION,
     WorkProfile,
     validate_against_contract,
 )
 from mentormind.processing.vlm.passes.models import PassAResult
+from mentormind.processing.vlm.transcript import excerpt_for, lines_for
 
 
 def to_work_profiles(
@@ -29,9 +31,15 @@ def to_work_profiles(
     process_id: str,
     provider: SupportsCloudFlag,
     model: str,
+    aligned_transcript: Mapping[str, Sequence[TranscriptSegment]] | None = None,
     created_at: datetime | None = None,
 ) -> list[WorkProfile]:
-    """Post-processing (spec 04 §3): draft profiles in time order, each validated by contract."""
+    """Post-processing (spec 04 §3): draft profiles in time order, each validated by contract.
+
+    ``aligned_transcript``: the WHOLE video's transcript lines, grouped by segment_id by spec 03's
+    ``align_transcript`` (see ``transcript.align``); None = no excerpts. Each profile only quotes the
+    lines of the segments its step comes from.
+    """
     by_id = {s.segment_id: s for s in segments}
     code = re.sub(r"[^A-Z0-9]", "", process_id.upper()) or "UNKNOWN"
     created = created_at or datetime.now(UTC)
@@ -40,6 +48,8 @@ def to_work_profiles(
     for order, step in enumerate(ordered, start=1):
         segment = by_id[step.segment_id]
         sources = [by_id[sid] for sid in step.sources()]
+        source_ids = [s.segment_id for s in sources]
+        said = lines_for(source_ids, aligned_transcript)
         profile = WorkProfile(
             schema_version=SCHEMA_VERSION,
             profile_id=f"WP-{code}-{order:03d}",
@@ -57,16 +67,18 @@ def to_work_profiles(
                 "video_id": segment.video_id,
                 "t_start": step.t_start,
                 "t_end": step.t_end,
-                "segment_ids": [s.segment_id for s in sources],
+                "segment_ids": source_ids,
                 "keyframes": [kf for s in sources for kf in s.keyframes],
-                "transcript_excerpt": None,
+                "transcript_excerpt": excerpt_for(source_ids, aligned_transcript),
                 "document_refs": [],
             },
             confidence=step.confidence,
             generated_by="vlm",
             model_info={"provider": provider.name, "model": model, "fps": step.fps},
-            # A step merged across segments is as sensitive as the strictest of them.
-            data_classification=strictest(s.data_classification for s in sources),
+            # As sensitive as the strictest segment it comes from and the words it quotes.
+            data_classification=strictest(
+                [*(s.data_classification for s in sources), *(t.data_classification for t in said)]
+            ),
             status="draft",
             created_at=created,
         )

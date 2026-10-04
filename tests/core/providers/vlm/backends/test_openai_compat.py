@@ -27,8 +27,8 @@ def test_frames_are_sent_in_order_as_base64_images_after_the_prompt(
     response = vlm.generate(frames, "Các ảnh sau...", classification="synthetic", temperature=0.2)
 
     url, payload, _ = http.posts[0]
-    assert url == "http://127.0.0.1:8100/v1/chat/completions"
-    assert payload["model"] == "Qwen/Qwen3-VL-8B-Instruct"
+    assert url == "http://127.0.0.1:11434/v1/chat/completions"
+    assert payload["model"] == "qwen3-vl:8b"
     assert payload["temperature"] == 0.2
     parts = payload["messages"][-1]["content"]
     assert parts[0] == {"type": "text", "text": "Các ảnh sau..."}
@@ -37,7 +37,7 @@ def test_frames_are_sent_in_order_as_base64_images_after_the_prompt(
         assert prefix == "data:image/jpeg;base64"
         assert base64.b64decode(encoded) == path.read_bytes()
     assert response.usage == TokenUsage(prompt_tokens=1200, completion_tokens=40)
-    assert (response.provider, response.model) == ("local_openai", "Qwen/Qwen3-VL-8B-Instruct")
+    assert (response.provider, response.model) == ("local_openai", "qwen3-vl:8b")
 
 
 @pytest.mark.parametrize(

@@ -58,6 +58,7 @@ def describe_cmd(
     from mentormind.core.providers.vlm import get_vlm_provider
     from mentormind.processing.vlm.pipeline import DescribePipeline
     from mentormind.processing.vlm.profiles import ProfileSinkError, get_profile_sink
+    from mentormind.processing.vlm.transcript import load_transcript
 
     settings = get_settings()
     if provider:
@@ -68,6 +69,7 @@ def describe_cmd(
         sink = get_profile_sink(settings, work_dir=WORK)  # fail before any VLM call
         loaded = _segments(video_id, video, segments, classification, window)
         vid = loaded[0].video_id
+        transcript = load_transcript(WORK, vid)  # spec 03 transcript.json; none -> no excerpts
         vlm = get_vlm_provider(settings)
         llm = _llm(settings) if merge else None
         label = strictest(s.data_classification for s in loaded)
@@ -84,7 +86,7 @@ def describe_cmd(
             max_frames=settings.vlm_max_frames,
             consistency=consistency,
         )
-        result = pipeline.run(loaded, work_dir)
+        result = pipeline.run(loaded, work_dir, transcript)
     except ConfidentialDataError as exc:
         typer.secho(
             f"Lỗi: {exc}\nDữ liệu nhà máy chỉ chạy với provider tự host: KNOWHOW_VLM_PROVIDER="
@@ -113,6 +115,9 @@ def describe_cmd(
     if result.failed_segments:
         typer.secho(f"{len(result.failed_segments)} đoạn lỗi JSON: {work_dir}/failed_segments.json",
                     fg=typer.colors.YELLOW)  # fmt: skip
+    if transcript:
+        quoted = sum(p.evidence.transcript_excerpt is not None for p in result.profiles)
+        typer.echo(f"transcript: {len(transcript)} câu → {quoted} profile có lời chuyên gia (vlm propose-reasons)")
     note = f" ({moved} đổi profile_id vì trùng profile của video khác)" if moved else ""
     typer.echo(f"{len(stored)} WorkProfile (draft) → {sink.where}{note}")
 

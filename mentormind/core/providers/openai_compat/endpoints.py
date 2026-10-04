@@ -14,9 +14,9 @@ from mentormind.core.config import JsonMode
 
 #: Registry name of the generic "any OpenAI-compatible server" provider.
 GENERIC_OPENAI_COMPATIBLE = "openai_compatible"
-#: Registry name of the self-hosted server in ``3rdparty/vlm_server`` (spec 04 FR-08).
+#: Registry name of the self-hosted server in ``3rdparty/vlm_server`` (spec 04 FR-08): Ollama.
 LOCAL_OPENAI = "local_openai"
-LOCAL_VLM_BASE_URL = "http://127.0.0.1:8100/v1"
+LOCAL_VLM_BASE_URL = "http://127.0.0.1:11434/v1"
 
 
 class Endpoint(BaseModel):
@@ -43,7 +43,7 @@ OPENAI_COMPAT_ENDPOINTS: dict[str, Endpoint] = {
         is_cloud=False,
         api_key_env="VLM_SERVER_API_KEY",
         json_mode="json_schema",
-        console_url="3rdparty/vlm_server/README.md",
+        console_url="3rdparty/vlm_server/scripts/README.md",
     ),
     # Alibaba Model Studio (DashScope), Singapore. Retires qwen3-vl-8b-instruct on 2026-10-10.
     # New Singapore keys (sk-ws...) come with a workspace host shown next to the key. Put

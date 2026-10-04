@@ -59,13 +59,29 @@ Thêm hai chỉ số tự tính:
 - **AC-06** Fixture có 2 câu dưới ngưỡng cùng trích `WP-PACK01-003` → bảng "Profile cần xem lại" có dòng `WP-PACK01-003` với số câu = 2.
 - **AC-07** `review-stats` trên fixture 5 profile approved `synthetic` (3 có `reason`) + 2 `public` (0 có `reason`) → `reason_coverage.synthetic = 0.6` (✅), `reason_coverage.public = 0.0` (không so ngưỡng).
 
+## 5b. Cách hiện thực (chốt khi làm T09-1..4, cần Đạt xem)
+- Code ở `evaluation/`, mỗi package một chức năng: `golden/` (`loader`: báo mọi dòng sai kèm số dòng + trường; `distribution`: chỉ cảnh báo thiếu câu), `ragas/` (`judges/`: `base.Judge` lớp nền trừu tượng — template method `score` đếm chỉ số không tính được, lớp con tự đăng ký theo `kind`; `library` = `RagasJudge` + `adapters`, `builtin` = `BuiltinJudge` + `prompts/`, `factory.build_judge`; `runner`, `results`), `review/` (`stats`, `store`), `report/` (`builder`, `sections`), `cli/` (mỗi lệnh 1 module). Model `GoldenQuestion`, `ReviewEvent` ở `core.schemas.evaluation`.
+- **Hai judge, chọn bằng `KNOWHOW_EVAL_JUDGE`** (`evaluation/ragas/judges/`, `build_judge`; `summary.json` ghi `judge`): `ragas` (mặc định, `RagasJudge`) = thư viện ragas như dưới; `builtin` (`BuiltinJudge`) = prompt tiếng Việt của dự án, cùng định nghĩa 4 chỉ số, mỗi chỉ số 1 lượt gọi có `json_schema`, `answer_relevancy` = cosine bge-m3, không cần ragas/langchain. Cả hai gọi judge LLM qua `LLMProvider` (DataGuard, che PII, audit); lỗi guard dừng cả lượt chạy. Judge `ragas` chạy song song `KNOWHOW_EVAL_MAX_WORKERS` (mặc định 4; Ollama một luồng: 1), mỗi job tối đa `KNOWHOW_EVAL_TIMEOUT_S` (trống = timeout của judge LLM).
+- **Judge `ragas`: 4 chỉ số tính bằng thư viện `ragas` (0.4.3, pin cứng; langchain < 1)**: `ragas.evaluate` với `Faithfulness`, `ResponseRelevancy`, `LLMContextPrecisionWithReference`, `LLMContextRecall`. Judge LLM cắm vào ragas qua `adapters.GuardedRagasLLM` = `LLMProvider` của dự án, nên mọi prompt chấm vẫn qua DataGuard, che PII, audit (client riêng của ragas không được dùng); lỗi guard không bị ragas retry/nuốt mà dừng cả lượt chạy. Embedding (`answer_relevancy`) = bge-m3 local (`adapters.ProjectEmbeddings`), **dùng chung instance của Work Assistant** (vốn dùng chung với vector store): nạp bản thứ hai cho judge đã làm container `mentormind` (1 GiB) bị OOM-kill khi chạy thật trên LASI 4/10. Tắt telemetry của ragas (`RAGAS_DO_NOT_TRACK=true`). Chỉ số ragas không tính được (judge trả sai định dạng, timeout) → để trống, không bịa; đếm vào `judge_failures`.
+- Ngữ cảnh chấm = `snippet` của các citation trong câu trả lời. Câu trong phạm vi mà trợ lý từ chối: không chấm Ragas, tính vào `refusal_accuracy`.
+- `refusal_accuracy` = (số câu `out_of_scope` bị từ chối + số câu trong phạm vi được trả lời) / tổng số câu; `summary.json` ghi thêm hai tỷ lệ thành phần. `citation_hit_rate` tính trên câu trong phạm vi (từ chối = trượt).
+- Câu `out_of_scope` ghi riêng ra `out_of_scope.csv`. `eval ragas --classification` là nhãn dữ liệu đưa cho judge (mặc định `factory_confidential`, fail closed); judge đọc `KNOWHOW_EVAL_LLM_PROVIDER|BASE_URL|MODEL`, trống thì dùng `KNOWHOW_LLM_*`.
+- `review-stats`: "duyệt sau khi sửa" = profile có `version > 1` (spec 08: mỗi lần sửa tăng version); đọc SQLite của spec 08 ở chế độ read-only. `report`: câu "dưới ngưỡng" = có chỉ số dưới ngưỡng, hoặc bị từ chối, hoặc không trích nguồn kỳ vọng.
+
 ## 6. Tasks
-- [ ] T09-1 Schema golden set + validator (AC-01) — Đạt viết nội dung, Phúc viết validator.
-- [ ] T09-2 Runner Ragas + chỉ số tự tính (AC-02, AC-03).
-- [ ] T09-3 `review-stats` + `reason_coverage` (AC-04, AC-07).
-- [ ] T09-4 `report` (AC-05, AC-06).
+- [x] T09-1 Schema golden set + validator (AC-01) — Đạt viết nội dung, Phúc viết validator.
+- [x] T09-2 Runner Ragas + chỉ số tự tính (AC-02, AC-03).
+- [x] T09-3 `review-stats` + `reason_coverage` (AC-04, AC-07).
+- [x] T09-4 `report` (AC-05, AC-06).
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
 - v1.1 (23/9): làm rõ `expected_citations` nhận mọi `ref_id`; khuyến nghị judge LLM; FR-04 thêm bảng "Profile cần xem lại" (AC-06).
 - v1.2 (24/9): nhóm A thêm `reason_coverage` (ngưỡng ≥ 60% trên synthetic) và `key_point_recall` từ sweep (AC-07).
+- v1.3 (28/9, Phúc): T09-1..T09-4 xong (validator golden set, runner + LLM judge theo định nghĩa Ragas, review-stats + reason_coverage, report); cách hiện thực ở §5b.
+- v1.4 (4/10, Phúc): đưa lên `main` cùng spec 06; schema ở `core.schemas.evaluation`, đọc `review_events` từ store SQLite của spec 08.
+- v1.5 (4/10, Phúc): chuyển sang thư viện `ragas` (extra `eval`), judge vẫn qua `LLMProvider` + DataGuard; embedding bge-m3 local.
+- v1.6 (4/10, Phúc): hai judge chọn bằng `KNOWHOW_EVAL_JUDGE=ragas|builtin` (§5b); `summary.json` + báo cáo ghi judge đã dùng.
+- v1.7 (4/10, Phúc): `Judge` thành lớp nền trừu tượng (`judges/base.py`), judge mới = 1 lớp con đặt `kind` + `_score`.
+- v1.8 (4/10, Phúc): `KNOWHOW_EVAL_MAX_WORKERS`, `KNOWHOW_EVAL_TIMEOUT_S` cho judge `ragas` (chạy thật trên Ollama: 4 luồng × 180 s → 10/12 chỉ số timeout).
+- v1.9 (4/10, Phúc): judge dùng chung bge-m3 của Work Assistant (hết OOM trong container 1 GiB).

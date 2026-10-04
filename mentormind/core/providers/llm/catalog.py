@@ -8,7 +8,7 @@ Providers without an entry (``siliconflow``, ``openai_compatible``) need ``KNOWH
 from __future__ import annotations
 
 DEFAULT_LLM_MODELS: dict[str, str] = {
-    "local_openai": "Qwen/Qwen3-VL-8B-Instruct",
+    "local_openai": "qwen3-vl:8b",
     "qwen_api": "qwen-plus",
     "openrouter": "qwen/qwen-plus",
 }

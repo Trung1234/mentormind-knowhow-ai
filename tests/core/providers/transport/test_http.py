@@ -66,3 +66,17 @@ def test_retry_after_header_is_honoured() -> None:
     client, sleeps = client_for([httpx.Response(429, headers={"Retry-After": "7"}), httpx.Response(200, json={})])
     client.post_json(URL, {})
     assert sleeps == [7.0]
+
+
+def test_basic_auth_in_the_base_url_is_sent_but_never_shown_in_errors() -> None:
+    seen: list[str | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers.get("Authorization"))
+        return httpx.Response(401, text="401 Unauthorized")
+
+    client = HttpxClient(retry=RetryPolicy(max_retries=0), transport=httpx.MockTransport(handler))
+    with pytest.raises(ProviderError) as caught:
+        client.post_json("https://admin:s3cret@tunnel.example/v1/chat/completions", {})
+    assert seen == ["Basic YWRtaW46czNjcmV0"]  # base64("admin:s3cret")
+    assert "s3cret" not in str(caught.value) and "https://tunnel.example/v1/chat/completions" in str(caught.value)

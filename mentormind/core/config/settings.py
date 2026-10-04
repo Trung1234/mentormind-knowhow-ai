@@ -68,24 +68,29 @@ class Settings(BaseSettings):
     vlm_api_key: SecretStr | None = None
     vlm_fps: float = 4.0
     vlm_max_frames: int = 48
-    vlm_timeout_s: float = 90.0  # FR-07
+    # FR-07. The default server is Ollama with the Q4 model, which thinks (~8k tokens for a few
+    # frames) before it answers: 2048 tokens left the JSON empty, 90 s was too short.
+    vlm_timeout_s: float = 900.0
     vlm_max_retries: int = 3  # FR-07
     vlm_json_mode: JsonMode = "auto"
-    vlm_max_tokens: int = 2048
+    vlm_max_tokens: int = 16384
     # JSON merged into every request body: vendor sampling knobs (e.g. {"presence_penalty": 1.5},
-    # which stops Qwen3-VL from looping step lists — see 3rdparty/vlm_server/README.md).
+    # which stops Qwen3-VL from looping step lists).
     vlm_extra_body: dict[str, Any] = {}
 
     # --- LLM (spec 06; also spec 04 pass C / propose-reasons) ---------------------------------
-    llm_provider: str = "qwen_api"
-    # Empty = the provider's default (qwen_api: qwen-plus, local_openai: the Qwen3-VL server).
+    # Empty = the LLM is the VLM: same provider, server, model and key as KNOWHOW_VLM_* (the
+    # Qwen3-VL server answers text too). Set it to use another LLM; then empty base URL / model
+    # = that provider's default (qwen_api: qwen-plus, local_openai: the Ollama qwen3-vl:8b).
+    llm_provider: str | None = None
     llm_base_url: str | None = None
     llm_model: str | None = None
     llm_api_key: SecretStr | None = None
-    llm_timeout_s: float = 90.0
+    # Room for the thinking and the answer of the Q4 model on Ollama (agents, pass C, ragas judge).
+    llm_timeout_s: float = 900.0
     llm_max_retries: int = 3
     llm_json_mode: JsonMode = "auto"
-    llm_max_tokens: int = 1024
+    llm_max_tokens: int = 8192
     llm_extra_body: dict[str, Any] = {}
 
     # --- Outbound guard for cloud calls (spec 01 FR-09b, spec 04 FR-02c) ---------------------
@@ -98,6 +103,34 @@ class Settings(BaseSettings):
     guard_audit_dir: Path | None = REPO_ROOT / "data" / "work" / "audit"
     # Site-specific codes to mask, entity -> regex, e.g. {"EQUIPMENT": "SIGMA-EQ-\\d+"}.
     guard_extra_patterns: dict[str, str] = {}
+
+    # --- Agents (spec 06) -----------------------------------------------------------------
+    # Work Assistant guard 1: refuse when the best spec 05 score is below this. That score is RRF
+    # (1/(60+vector rank) + 1/(60+keyword rank) + 0.1 graph bonus, ~0.133 at most), so it only
+    # stops "nothing found": 0.02 ~ no passage near the top of either ranking.
+    assist_min_score: float = 0.02
+    # Work Assistant guard 2: refuse (no LLM call) when the best bge-m3 cosine between the
+    # question and a passage is below this. LASI golden set 2026-10-04: on-topic >= 0.435, 3 of 5
+    # off-topic < 0.40 (the other two go on to guard 3, the LLM's answerable=false).
+    assist_min_cosine: float = 0.40
+    # One JSON line per agent call (spec 06 FR-04). Empty = no trace.
+    trace_dir: Path | None = REPO_ROOT / "data" / "work" / "traces"
+    # /assistant/ask and /rca/investigate: mock = the routers' demo answers, live = the agents.
+    api_agents: Literal["mock", "live"] = "mock"
+
+    # --- Evaluation (spec 09) --------------------------------------------------------------
+    # Who computes the four Ragas metrics: ragas = the ``ragas`` package (``eval`` extra),
+    # builtin = the project's own prompts with the same definitions (no ragas/langchain needed).
+    eval_judge: Literal["ragas", "builtin"] = "ragas"
+    # ragas judge only: parallel judge calls (match the server: vLLM max_num_seqs; Ollama runs one
+    # request at a time unless OLLAMA_NUM_PARALLEL is raised) and the time one ragas job may take
+    # (empty = the judge LLM's own timeout, so ragas never gives up before the provider does).
+    eval_max_workers: int = 4
+    eval_timeout_s: float | None = None
+    # Judge LLM of the Ragas metrics; empty = the agent's KNOWHOW_LLM_* (FR-02).
+    eval_llm_provider: str | None = None
+    eval_llm_base_url: str | None = None
+    eval_llm_model: str | None = None
 
     # --- REST API (spec 08) -----------------------------------------------------------------
     app_name: str = "MentorMind Know-How API"

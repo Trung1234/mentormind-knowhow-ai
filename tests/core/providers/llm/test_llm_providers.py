@@ -105,10 +105,10 @@ def test_local_llm_uses_the_self_hosted_server(settings: Settings) -> None:
     assert (llm.name, llm.is_cloud, llm.model) == (
         "local_openai",
         False,
-        "Qwen/Qwen3-VL-8B-Instruct",
+        "qwen3-vl:8b",
     )
     llm.generate("hỏi", classification="factory_confidential")
-    assert http.posts[0][0] == "http://127.0.0.1:8100/v1/chat/completions"
+    assert http.posts[0][0] == "http://127.0.0.1:11434/v1/chat/completions"
 
 
 def test_siliconflow_llm_needs_an_explicit_model(settings: Settings) -> None:
@@ -124,3 +124,37 @@ def test_cloud_llm_prompt_is_masked_and_answer_restored(settings: Settings) -> N
     answer = llm.generate_text("Tổ trưởng: 0987654321. Hỏi cách báo thiếu hàng.", classification="public")
     assert "0987654321" not in http.posts[0][1]["messages"][-1]["content"]
     assert answer == "Gọi 0987654321 để báo thiếu hàng"
+
+
+def test_llm_is_the_vlm_when_no_llm_provider_is_set(settings: Settings) -> None:
+    vlm = {
+        "llm_provider": None,
+        "vlm_provider": "local_openai",
+        "vlm_base_url": "http://gpu-box:11434/v1",
+        "vlm_model": "qwen3-vl:8b",
+        "vlm_api_key": SecretStr("k"),
+        "vlm_extra_body": {"presence_penalty": 1.5},
+    }
+    http = RecordingHttp(content="ok")
+    llm = get_llm_provider(settings.model_copy(update=vlm), http=http)
+    assert (llm.name, llm.model, llm.is_cloud) == ("local_openai", "qwen3-vl:8b", False)
+    llm.generate("hỏi", classification="factory_confidential")
+    url, payload, headers = http.posts[0]
+    assert url == "http://gpu-box:11434/v1/chat/completions" and headers["Authorization"] == "Bearer k"
+    # The LLM keeps its own knobs: no VLM sampling extras, its own max_tokens.
+    assert payload["max_tokens"] == settings.llm_max_tokens and "presence_penalty" not in payload
+
+
+def test_an_llm_setting_wins_over_the_vlm_it_follows(settings: Settings) -> None:
+    update = {"llm_provider": None, "vlm_model": "qwen3-vl:8b", "llm_model": "qwen3:8b"}
+    assert get_llm_provider(settings.model_copy(update=update), http=RecordingHttp()).model == "qwen3:8b"
+
+
+def test_an_explicit_llm_provider_does_not_follow_the_vlm(settings: Settings) -> None:
+    update = {"llm_provider": "qwen_api", "llm_api_key": SecretStr("k"), "vlm_model": "qwen3-vl:8b"}
+    assert get_llm_provider(settings.model_copy(update=update), http=RecordingHttp()).model == "qwen-plus"
+
+
+def test_default_settings_put_the_llm_on_the_self_hosted_vlm() -> None:
+    settings = Settings(_env_file=None)
+    assert settings.llm_provider is None and settings.vlm_provider == "local_openai"

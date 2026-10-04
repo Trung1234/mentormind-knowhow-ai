@@ -1,10 +1,11 @@
 # Mentor Mind — development environment (spec 01 FR-05, task D3).
 #
-#   docker compose up -d --build               mentormind (dev) + vlm-server (1 GPU, server idle)
-#   VLM_SERVER_AUTOSTART=true docker compose up -d     ... and start Qwen3-VL-8B right away
+#   docker compose up -d --build               mentormind (dev) + vlm-server (Ollama, Qwen3-VL-8B Q4)
 #   docker compose --profile lite up -d        + PostgreSQL/pgvector + Neo4j (= make up)
 #   docker compose exec mentormind bash        then: uv run knowhow vlm ping
-#   docker compose exec vlm-server python -m vlm_server serve   start the VLM server on demand
+# vlm-server = vlm-engine's Ollama image (3rdparty/vlm_server/docker/Dockerfile.ollama): it pulls
+# qwen3-vl:8b on first start; VLM_SERVER_IMAGE_MIN_TOKENS sets the token floor of one image.
+# Without Docker (macOS too): bash 3rdparty/vlm_server/scripts/serve-ollama.sh
 #
 # Overrides live in infra/docker/ and are added with -f (or `make up PLATFORM=<name>`):
 #   infra/docker/docker-compose.rocm.yml     AMD GPU, e.g. one MI250 GCD   (PLATFORM=rocm)
@@ -29,7 +30,7 @@ services:
     environment:
       # The code only calls the VLM over HTTP: the vlm-server container by default.
       KNOWHOW_VLM_PROVIDER: ${KNOWHOW_VLM_PROVIDER:-local_openai}
-      KNOWHOW_VLM_BASE_URL: ${KNOWHOW_VLM_BASE_URL:-http://vlm-server:8100/v1}
+      KNOWHOW_VLM_BASE_URL: ${KNOWHOW_VLM_BASE_URL:-http://vlm-server:11434/v1}
       KNOWHOW_NEO4J_URI: bolt://neo4j:7687
       KNOWHOW_NEO4J_PASSWORD: ${KNOWHOW_NEO4J_PASSWORD:-change-me}
       KNOWHOW_PG_DSN: postgresql://knowhow:${KNOWHOW_PG_PASSWORD:-change-me}@postgres:5432/knowhow
@@ -54,27 +55,23 @@ services:
   vlm-server:
     build:
       context: 3rdparty/vlm_server
-      dockerfile: docker/Dockerfile.cuda
+      dockerfile: docker/Dockerfile.ollama
       network: host
-    image: vlm-engine:cuda
+      args:
+        BASE: ollama/ollama:0.35.1
+    image: vlm-engine:ollama
     environment:
-      # true = start Qwen3-VL-8B with the container; false = idle, start it on demand.
-      VLM_SERVER_AUTOSTART: ${VLM_SERVER_AUTOSTART:-false}
-      VLM_SERVER_PLATFORM: cuda
-      VLM_SERVER_PORT: "8100"
-      # Only the reserved GPU is visible inside the container, so "auto" means that one.
-      VLM_SERVER_GPU: auto
-    # VLM_SERVER_API_KEY / HF_TOKEN and friends: one .env for the whole repo (spec 01 FR-09).
-    env_file:
-      - path: .env
-        required: false
+      VLM_SERVER_OLLAMA_MODEL: ${VLM_SERVER_OLLAMA_MODEL:-qwen3-vl:8b}
+      # Prompt + answer per request: 64 frames at 512 tokens (~35k) + the thinking answer fit.
+      VLM_SERVER_CONTEXT_LENGTH: ${VLM_SERVER_CONTEXT_LENGTH:-98304}
+      # Tokens one image costs at least (Ollama alone: 1024; a 448x252 frame is 112 at its size).
+      VLM_SERVER_IMAGE_MIN_TOKENS: ${VLM_SERVER_IMAGE_MIN_TOKENS:-512}
     volumes:
-      - ${HF_CACHE:-~/.cache/huggingface}:/root/.cache/huggingface
+      - ollama:/root/.ollama
     ports:
-      - "127.0.0.1:${VLM_SERVER_PORT:-8100}:8100"
-    ipc: host
-    # vLLM maps the 17 GB checkpoint while loading; this is host RAM, not VRAM.
-    mem_limit: ${VLM_SERVER_MEM_LIMIT:-32g}
+      - "127.0.0.1:${VLM_SERVER_PORT:-11434}:11434"
+    # The Q4 weights (6 GB) are memory-mapped while loading; this is host RAM, not VRAM.
+    mem_limit: ${VLM_SERVER_MEM_LIMIT:-16g}
     deploy:
       resources:
         reservations:
@@ -129,3 +126,4 @@ services:
 volumes:
   pgdata:
   neo4jdata:
+  ollama:
