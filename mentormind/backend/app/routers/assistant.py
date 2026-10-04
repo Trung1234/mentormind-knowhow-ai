@@ -9,7 +9,7 @@ router = APIRouter(prefix="/assistant", tags=["assistant"])
 def ask_assistant(req: AskRequest) -> AssistantAnswer:
     # Try calling actual agent if available
     try:
-        from mentormind.agents import supervisor  # type: ignore
+        from mentormind.agents import supervisor
 
         if hasattr(supervisor, "ask"):
             return supervisor.ask(req)
