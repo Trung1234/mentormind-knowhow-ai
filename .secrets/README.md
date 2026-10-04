@@ -25,8 +25,7 @@ uv run knowhow vlm providers  # cột "api key" hiện ✓ khi đã nhận key
 |---|---|---|
 | `KNOWHOW_*` (vd. `KNOWHOW_VLM_API_KEY`) | `mentormind.core.config.Settings` | `.env` → biến môi trường (biến môi trường thắng) |
 | Key theo vendor (`OPENROUTER_API_KEY`, ...) | `mentormind.core.config.secrets.lookup_secret` | biến môi trường → `.env` |
-| `VLM_SERVER_API_KEY` | server `3rdparty/vlm_server` **và** client `local_openai` | biến môi trường → `.env` của repo chính → `3rdparty/vlm_server/.env` |
-| `HF_TOKEN` | `huggingface_hub` khi tải model | chỉ biến môi trường: container `vlm-server` nhận từ `.env` qua `env_file`; chạy ngoài Docker thì `set -a; source .env; set +a` (mục 4.5) |
+| `VLM_SERVER_API_KEY` | client `local_openai` (gửi dạng Bearer khi server đứng sau proxy có token) | biến môi trường → `.env` |
 
 - Key được chọn theo provider đang dùng (`KNOWHOW_VLM_PROVIDER`). Có thể để sẵn key của nhiều vendor;
   đổi provider thì chỉ cần đổi `KNOWHOW_VLM_PROVIDER`.
@@ -89,21 +88,12 @@ màn hình và cách tránh bị trừ tiền nằm trong `guidance/alibaba-sing
    `<API Host>` có dạng `{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com`. Key chỉ dùng được đúng ở region của nó.
 6. Kiểm tra: `KNOWHOW_VLM_PROVIDER=qwen_api uv run knowhow vlm ping`.
 
-### 4.4 Server tự host (`VLM_SERVER_API_KEY`) — tùy chọn
-Server `3rdparty/vlm_server` chỉ nghe trên `127.0.0.1`, nên thường không cần token. Nếu mở cho người
-khác qua SSH tunnel hoặc LAN và muốn khóa lại:
-```bash
-echo "VLM_SERVER_API_KEY=$(openssl rand -hex 24)" >> .env
-```
-Khởi động lại server. Client `local_openai` tự gửi token này, không cần cấu hình thêm.
-
-### 4.5 Hugging Face (`HF_TOKEN`) — tùy chọn
-Model Qwen3-VL-8B-Instruct là public, tải không cần token. Token chỉ giúp tránh bị giới hạn tốc độ.
-Lấy token ở https://huggingface.co/settings/tokens (quyền **Read**). Lệnh `hf` không tự đọc file này,
-nên cần nạp vào shell trước:
-```bash
-set -a; source .env; set +a; cd 3rdparty/vlm_server && uv run hf download Qwen/Qwen3-VL-8B-Instruct
-```
+### 4.4 Server tự host (Ollama) — không cần key
+Server `3rdparty/vlm_server` (Ollama) chỉ nghe trên `127.0.0.1` và không có cơ chế token riêng. Mở cho người khác
+thì dùng `bash 3rdparty/vlm_server/scripts/serve-ollama.sh --ngrok` với `NGROK_BASIC_AUTH=user:matkhau`: user:pass
+nằm ngay trong URL (`KNOWHOW_VLM_BASE_URL=https://user:matkhau@<host>.ngrok-free.dev/v1`), code tự gửi dạng basic
+auth và không in mật khẩu ra log lỗi. Nếu đặt server sau một proxy kiểm Bearer token thì để token ở
+`VLM_SERVER_API_KEY`; client `local_openai` tự gửi. Model `qwen3-vl:8b` tải từ registry của Ollama, không cần token.
 
 ## 5. Thêm provider mới
 

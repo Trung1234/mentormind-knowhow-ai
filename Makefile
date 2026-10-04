@@ -1,4 +1,4 @@
-.PHONY: start demo-ui up down dev-up dev-shell check test demo fmt vlm-server-sync vlm-server vlm-server-smoke
+.PHONY: start demo-ui up down dev-up dev-shell check test demo fmt vlm-server vlm-server-stop vlm-server-smoke
 
 # Khởi động toàn bộ Backend + Tablet Frontend chỉ bằng 1 lệnh
 start:
@@ -24,7 +24,7 @@ up:
 down:
 	$(COMPOSE) --profile lite down
 
-# Only the two dev containers; VLM_SERVER_AUTOSTART=true also starts the VLM server.
+# Only the two dev containers (vlm-server = Ollama; it pulls qwen3-vl:8b on first start).
 dev-up:
 	$(COMPOSE) up -d --build mentormind vlm-server
 
@@ -49,12 +49,14 @@ fmt:
 	uv run ruff format .
 	uv run ruff check --fix .
 
-# spec 04 FR-08: self-hosted Qwen3-VL server, its own uv project under 3rdparty/vlm_server.
-vlm-server-sync:
-	cd 3rdparty/vlm_server && uv sync
-
+# spec 04 FR-08: self-hosted Qwen3-VL-8B (Q4) on Ollama without Docker, macOS or Linux
+# (vlm-engine, 3rdparty/vlm_server). Settings: VLM_SERVER_* in .env, or flags (--help).
 vlm-server:
-	cd 3rdparty/vlm_server && uv run python -m vlm_server serve
+	env $$(grep -sE '^(VLM_SERVER_[A-Z_]+|VLM_GPU)=[^[:space:]]' .env | sed 's/[[:space:]]*#.*//') \
+		bash 3rdparty/vlm_server/scripts/serve-ollama.sh
+
+vlm-server-stop:
+	bash 3rdparty/vlm_server/scripts/serve-ollama.sh --stop
 
 vlm-server-smoke:
-	cd 3rdparty/vlm_server && uv run python -m vlm_server smoke
+	uv run knowhow vlm ping --frames 8

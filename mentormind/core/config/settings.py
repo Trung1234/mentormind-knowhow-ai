@@ -68,26 +68,29 @@ class Settings(BaseSettings):
     vlm_api_key: SecretStr | None = None
     vlm_fps: float = 4.0
     vlm_max_frames: int = 48
-    vlm_timeout_s: float = 90.0  # FR-07
+    # FR-07. The default server is Ollama with the Q4 model, which thinks (~8k tokens for a few
+    # frames) before it answers: 2048 tokens left the JSON empty, 90 s was too short.
+    vlm_timeout_s: float = 900.0
     vlm_max_retries: int = 3  # FR-07
     vlm_json_mode: JsonMode = "auto"
-    vlm_max_tokens: int = 2048
+    vlm_max_tokens: int = 16384
     # JSON merged into every request body: vendor sampling knobs (e.g. {"presence_penalty": 1.5},
-    # which stops Qwen3-VL from looping step lists — see 3rdparty/vlm_server/README.md).
+    # which stops Qwen3-VL from looping step lists).
     vlm_extra_body: dict[str, Any] = {}
 
     # --- LLM (spec 06; also spec 04 pass C / propose-reasons) ---------------------------------
     # Empty = the LLM is the VLM: same provider, server, model and key as KNOWHOW_VLM_* (the
     # Qwen3-VL server answers text too). Set it to use another LLM; then empty base URL / model
-    # = that provider's default (qwen_api: qwen-plus, local_openai: the Qwen3-VL server).
+    # = that provider's default (qwen_api: qwen-plus, local_openai: the Ollama qwen3-vl:8b).
     llm_provider: str | None = None
     llm_base_url: str | None = None
     llm_model: str | None = None
     llm_api_key: SecretStr | None = None
-    llm_timeout_s: float = 90.0
+    # Room for the thinking and the answer of the Q4 model on Ollama (agents, pass C, ragas judge).
+    llm_timeout_s: float = 900.0
     llm_max_retries: int = 3
     llm_json_mode: JsonMode = "auto"
-    llm_max_tokens: int = 1024
+    llm_max_tokens: int = 8192
     llm_extra_body: dict[str, Any] = {}
 
     # --- Outbound guard for cloud calls (spec 01 FR-09b, spec 04 FR-02c) ---------------------

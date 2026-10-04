@@ -57,7 +57,7 @@ def resolve_endpoint(config: ProviderConfig, *, default_model: str | None, env_p
     base_url = config.base_url or (endpoint.base_url if endpoint else None)
     if not base_url:
         raise ProviderConfigError(
-            f"Provider '{name}' cần địa chỉ server: đặt KNOWHOW_{env_prefix}_BASE_URL (vd. http://gpu-box:8100/v1)."
+            f"Provider '{name}' cần địa chỉ server: đặt KNOWHOW_{env_prefix}_BASE_URL (vd. http://gpu-box:11434/v1)."
         )
     model = config.model or default_model
     if not model:

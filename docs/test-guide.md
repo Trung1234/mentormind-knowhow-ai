@@ -90,23 +90,16 @@ cd mentormind/frontend && npm ci && npm run dev                       # VITE_API
 | Cách chạy | Cấu hình | Ghi chú |
 |---|---|---|
 | Giả lập (mặc định cho test và demo offline) | `KNOWHOW_VLM_PROVIDER=fake`, `KNOWHOW_LLM_PROVIDER=fake` | Không mạng, kết quả tất định |
-| Tự host trên GPU | `make vlm-server` rồi `uv run knowhow vlm ping --frames 48` (spec 04 AC-15) | Cần submodule: `git submodule update --init 3rdparty/vlm_server` |
-| Mac không có GPU rời (Ollama) | `KNOWHOW_VLM_PROVIDER=local_openai`, `KNOWHOW_VLM_BASE_URL=http://127.0.0.1:11434/v1`, `KNOWHOW_VLM_MODEL=qwen3-vl-8b-16k` | Xem bên dưới |
+| Tự host (Ollama, macOS hoặc Linux) | `make vlm-server` rồi `uv run knowhow vlm ping --frames 48` (spec 04 AC-15); `.env` mặc định đã trỏ `http://127.0.0.1:11434/v1`, model `qwen3-vl:8b` | Cần submodule: `git submodule update --init 3rdparty/vlm_server`. Xem bên dưới |
 | Cloud (OpenRouter, SiliconFlow, Qwen API) | Key trong `.env` (`uv run knowhow vlm providers`) | Không bao giờ dùng với dữ liệu mật |
 
-Tạo model Ollama trên máy mới. Context mặc định 4096 của Ollama không đủ: riêng `vlm ping` đã cần
-khoảng 8.4k token.
+Chạy server bằng `bash 3rdparty/vlm_server/scripts/serve-ollama.sh` (hướng dẫn: `3rdparty/vlm_server/scripts/README.md`).
+Script tải Ollama 0.35.1, đặt context (macOS 49152, Linux 98304; Ollama mặc định chỉ 4096) và
+**số token tối thiểu mỗi ảnh** (`--image-min-tokens`, mặc định 512): Ollama tự ép 1024 token cho mỗi ảnh Qwen-VL,
+nên trước đây 48 khung đã cần khoảng 50k token. Thêm `--ngrok` để mở cho máy khác.
 
-```bash
-ollama pull qwen3-vl:8b
-printf 'FROM qwen3-vl:8b\nPARAMETER num_ctx 16384\n' > Modelfile
-ollama create qwen3-vl-8b-16k -f Modelfile
-```
-
-Mốc đo ngày 04/10 trên Mac mini M4 16 GB: `vlm ping` **PASS**, 8 khung, khoảng 87 s, chạy 100% GPU. Context
-32k tràn 29% sang CPU nên không dùng. Với `KNOWHOW_VLM_MAX_FRAMES=48`, prompt có thể vượt 16k; nếu gặp lỗi
-`exceeds the available context size` thì giảm còn khoảng 16 khung. Cách này quá chậm cho demo trực tiếp,
-chỉ dùng để thử chất lượng.
+Mốc đo ngày 04/10 trên Mac mini M4 16 GB (bản cũ, 1024 token/ảnh, context 16k): `vlm ping` **PASS**, 8 khung,
+khoảng 87 s, chạy 100% GPU; context 32k tràn 29% sang CPU. Với 512 token/ảnh, 40 khung (một đoạn 10 s) khoảng 22k token.
 
 ## 5. Dữ liệu kiểm thử
 

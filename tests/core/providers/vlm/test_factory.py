@@ -75,7 +75,7 @@ def test_extra_body_is_merged_but_never_overrides_the_call(settings: Settings, h
     payload = http.posts[0][1]
     assert payload["presence_penalty"] == 1.5
     assert payload["temperature"] == 0.2
-    assert payload["model"] == "Qwen/Qwen3-VL-8B-Instruct"
+    assert payload["model"] == "qwen3-vl:8b"
 
 
 def test_ac_12_blank_knowhow_key_falls_back_to_vendor_key(settings: Settings, http: RecordingHttp) -> None:

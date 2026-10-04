@@ -89,16 +89,19 @@ def test_dev_containers_start_without_a_profile() -> None:
         assert "profiles" not in services()[name], name
 
 
-def test_vlm_server_gets_one_gpu_and_starts_only_on_request() -> None:
+def test_vlm_server_is_ollama_on_one_gpu_with_a_configurable_image_floor() -> None:
     vlm = services()["vlm-server"]
-    assert default(vlm["environment"]["VLM_SERVER_AUTOSTART"]) == "false"
+    assert vlm["build"]["dockerfile"] == "docker/Dockerfile.ollama"
+    assert default(vlm["environment"]["VLM_SERVER_OLLAMA_MODEL"]) == "qwen3-vl:8b"
+    assert int(default(vlm["environment"]["VLM_SERVER_IMAGE_MIN_TOKENS"])) < 1024  # Ollama alone: 1024
+    assert int(default(vlm["environment"]["VLM_SERVER_CONTEXT_LENGTH"])) >= 32768
     [device] = vlm["deploy"]["resources"]["reservations"]["devices"]
     assert len(device["device_ids"]) == 1
 
 
 def test_mentormind_calls_the_vlm_server_over_a_local_url() -> None:
     url = default(services()["mentormind"]["environment"]["KNOWHOW_VLM_BASE_URL"])
-    assert url == "http://vlm-server:8100/v1"
+    assert url == "http://vlm-server:11434/v1"
     assert is_private_url(url)  # counts as self-hosted: factory data may be sent
 
 
@@ -127,6 +130,6 @@ def test_overrides_live_in_infra_docker_and_merge_into_the_root_file() -> None:
 def test_rocm_override_gives_the_vlm_server_one_amd_gcd() -> None:
     """spec 04 FR-08 on AMD: device nodes instead of the nvidia driver, still exactly one GPU."""
     vlm = load(OVERRIDES_DIR / "docker-compose.rocm.yml")["services"]["vlm-server"]
-    assert vlm["build"]["dockerfile"] == "docker/Dockerfile.rocm"
+    assert vlm["build"]["args"]["BASE"].endswith("-rocm")
     assert set(vlm["devices"]) == {"/dev/kfd", "/dev/dri"}
-    assert default(vlm["environment"]["VLM_SERVER_GPU"]) == "0"
+    assert default(vlm["environment"]["ROCR_VISIBLE_DEVICES"]) == "0"

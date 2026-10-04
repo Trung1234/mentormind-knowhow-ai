@@ -121,13 +121,15 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - **FR-04** Hậu xử lý + validate như mục 3.
 - **FR-05** CLI: `knowhow vlm describe <video_id> | --segments <file> | --video <file>` (`<video_id>` đọc `data/work/video/<video_id>/segments.json` của spec 03; `--video` cắt `fixed_window` 10 s khi chưa có spec 03, như `sweep`; `--no-consistency` bỏ lượt B, `--no-merge` bỏ lượt C; kiểm DataGuard cho cả VLM lẫn LLM **trước** lời gọi đầu tiên), `knowhow vlm propose-reasons <video_id>`, `knowhow vlm sweep ...`; chẩn đoán: `knowhow vlm providers` (registry + key) và `knowhow vlm ping [--provider] [--video --classification]` (clip tổng hợp phụ thuộc thứ tự khung, hoặc video thật; `--classification` mặc định `factory_confidential` để fail-closed).
 - **FR-06** Kết quả lưu vào profile store (spec 08) với `status=draft`; lưu raw response mỗi lượt tại `data/work/vlm/<video_id>/` để debug. Nơi lưu chọn bằng `KNOWHOW_PROFILE_SINK` (`processing.vlm.profiles`): `auto` (mặc định) = `ProfileStore` của spec 08 (`knowledge_base.store.profile_store`) nếu có, không thì `data/work/vlm/<video_id>/profiles.json`; `store`/`file` ép một bên. Ghi vào store chỉ thay bản nháp của chính video đó; `profile_id` trùng với profile khác (video khác, hoặc đã duyệt) được dời sang số trống kế tiếp của công đoạn, không bao giờ ghi đè; raw từng lượt ở `data/work/vlm/<video_id>/describe-<provider>/` (`pass_a/`, `pass_b/pass_a/`, `pass_c.json`, `predictions.json`, `failed_segments.json`).
-- **FR-07** Retry mạng: tối đa 3 lần, backoff mũ; timeout 90s/lời gọi.
-- **FR-08** Server tự host tại `3rdparty/vlm_server/` — uv project riêng (vLLM 0.16.0 + torch 2.9.1 cu126,
-  vì driver máy dev là CUDA 12.6), API OpenAI-compatible, phục vụ `Qwen/Qwen3-VL-8B-Instruct` BF16 trên
-  **đúng 1 GPU** (`VLM_SERVER_GPU` = một index hoặc `auto`; `CUDA_VISIBLE_DEVICES` một index;
-  `--tensor-parallel-size 1`). Mặc định nghe `127.0.0.1:8100` (8000 là backend spec 08), máy khác vào
-  qua SSH tunnel. Token tùy chọn `VLM_SERVER_API_KEY` truyền qua biến môi trường, không qua argv. Code
-  chính chỉ gọi HTTP qua provider `local_openai`, không import server.
+- **FR-07** Retry mạng: tối đa 3 lần, backoff mũ; timeout `KNOWHOW_VLM_TIMEOUT_S` (mặc định 900 s: model Q4 trên Ollama nghĩ khoảng 8k token trước khi trả lời).
+- **FR-08** Server tự host tại `3rdparty/vlm_server/` (submodule vlm-engine), mặc định **Ollama + `qwen3-vl:8b` (Q4_K_M)**,
+  API OpenAI-compatible ở `127.0.0.1:11434`. `bash 3rdparty/vlm_server/scripts/serve-ollama.sh` (macOS và Linux,
+  `make vlm-server`; tùy chọn `--ngrok`) hoặc service `vlm-server` của docker-compose (`docker/Dockerfile.ollama`).
+  Cấu hình: `VLM_SERVER_CONTEXT_LENGTH` (mặc định 98304; macOS 49152), `VLM_SERVER_IMAGE_MIN_TOKENS` (mặc định **512**) — số token tối
+  thiểu của một ảnh: Ollama tự ép 1024 cho Qwen-VL (frame 448×252 chỉ cần 112), vlm-engine bọc `llama-server` để chỉnh
+  được. Chạy trên **đúng 1 GPU** (`VLM_GPU`/`--gpu`). Backend vLLM (BF16) vẫn còn trong vlm-engine
+  (`VLM_SERVER_BACKEND=vllm`), không còn là mặc định. Code chính chỉ gọi HTTP qua provider `local_openai`, không import
+  server.
 - **FR-09b** URL theo tài khoản: endpoint có thể khai biến secret cho base URL; `qwen_api` đọc `DASHSCOPE_BASE_URL` (key Singapore mới `sk-ws...` đi kèm host `{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com`), không có thì dùng `dashscope-intl.aliyuncs.com`.
 - **FR-09** Secret nằm trong `.env` ở gốc repo (bị `.gitignore` chặn; chỉ `.env.example` được commit;
   `.secrets/README.md` là hướng dẫn lấy key). Cloud provider thiếu key → lỗi nêu đúng tên biến và `.secrets/README.md`.
@@ -146,8 +148,8 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - **AC-11** Thêm provider mới = 1 class + `@register_vlm("ten")`, dựng được bằng tên qua registry mà không sửa code nghiệp vụ; tên chưa đăng ký → `ProviderConfigError` liệt kê tên có sẵn.
 - **AC-12** Provider cloud thiếu key → `ProviderConfigError` nêu tên biến (vd. `OPENROUTER_API_KEY`) và `.secrets/README.md`; key chỉ có trong `.env` vẫn được dùng; `KNOWHOW_VLM_API_KEY` khác rỗng thắng key của vendor, rỗng thì bị bỏ qua.
 - **AC-13** `local_openai` trỏ `KNOWHOW_VLM_BASE_URL` tới host public → `is_cloud=True`, dữ liệu `factory_confidential` bị chặn.
-- **AC-14** Launcher server: `VLM_SERVER_GPU="0,1"` bị từ chối; môi trường chạy vLLM có `CUDA_VISIBLE_DEVICES` đúng 1 index, lệnh có `--tensor-parallel-size 1`; token không xuất hiện trong argv.
-- **AC-15** (thủ công, cần GPU) `make vlm-server` rồi `uv run knowhow vlm ping --frames 48` → `PASS` (model nhận ra hình vuông đỏ đi từ trái sang phải vào hộp).
+- **AC-14** Launcher server (vlm-engine): backend mặc định `ollama` gọi `scripts/serve-ollama.sh` với `--image-min-tokens`/`--context` từ `VLM_SERVER_*`; backend `vllm`: `VLM_SERVER_GPU="0,1"` bị từ chối, môi trường có `CUDA_VISIBLE_DEVICES` đúng 1 index, lệnh có `--tensor-parallel-size 1`; token không xuất hiện trong argv.
+- **AC-15** (thủ công) `make vlm-server` rồi `uv run knowhow vlm ping --frames 48` → `PASS` (model nhận ra hình vuông đỏ đi từ trái sang phải vào hộp); script in `one 448x252 frame = N tokens` với N ≈ `VLM_SERVER_IMAGE_MIN_TOKENS`.
 - **AC-16** Provider cloud nhận prompt đã che PII (vd. số điện thoại → `[PHONE_1]`), câu trả lời được hoàn nguyên, audit ghi số lượng đã che; provider tự host nhận prompt nguyên bản; tắt che PII mà prompt còn PII → `SensitiveDataLeakError`, không có HTTP request nào.
 - **AC-17** Khung hình gửi provider cloud bị làm mờ vùng mặt (vùng khác giữ nguyên), audit ghi `faces_blurred`; khung gửi provider tự host giữ nguyên byte; không có model làm mờ mặt → từ chối gửi (fail closed).
 - **AC-18** Lượt A: mỗi bước có `actor` ∈ {`human`, `robot`, `machine`, `null`}; từ đồng nghĩa ("công nhân", "kỹ sư", "robot SCARA", "máy dựng thùng") được chuẩn hóa, từ không nhận ra → `null`, segment không bị loại; WorkProfile mang `actor`, hợp lệ contract; `actor` ngoài enum bị cả Pydantic lẫn contract từ chối.
@@ -163,6 +165,7 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - [x] T04-7 `propose-reasons` + hậu kiểm trích dẫn (AC-08, AC-09). *(`describe` điền `transcript_excerpt` khi có `transcript.json` của spec 03; chưa có thì lệnh không làm gì.)*
 - [x] T04-8 Registry provider dùng chung (`core.providers`) + cloud `openrouter`/`siliconflow` + key từ `.env` + `knowhow vlm providers|ping` (AC-11, AC-12, AC-13).
 - [x] T04-9 Server tự host `3rdparty/vlm_server` (vLLM, Qwen3-VL-8B-Instruct, 1 GPU) + smoke test (AC-14, AC-15).
+- [x] T04-10 Chuyển server tự host sang Ollama (`qwen3-vl:8b` Q4, `image-min-tokens` chỉnh được, script macOS/Linux + ngrok) (FR-08, AC-14, AC-15).
 - [x] T04-10 Outbound guard cho VLM cloud: che PII + LeakGuard + làm mờ mặt + audit (AC-16, AC-17).
 - [x] T04-11 Trường `actor` (human/robot/machine) qua lượt A → B → C → WorkProfile + `actor_accuracy` trong sweep (AC-18, AC-19).
 
@@ -184,3 +187,4 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - v1.14 (29/9, Phúc): FR-06 lưu vào profile store của spec 08 khi có (`KNOWHOW_PROFILE_SINK=auto|store|file`), không ghi đè profile của video khác.
 - v1.15 (29/9, review): FR-06 sửa lỗi mất dữ liệu — profile vừa đổi `profile_id` trong cùng một lần lưu không còn bị profile sau của cùng video ghi đè.
 - v1.16 (4/10, Phúc): hậu xử lý điền `transcript_excerpt` từ `transcript.json` của spec 03 (§3), viết trước theo đúng output spec 03 (`transcript.json` + `align_transcript` gọi qua import, thiếu thì `None`) để `propose-reasons` chạy được ngay khi spec 03 xong.
+- v1.17 (4/10, Phúc): FR-08 server tự host chuyển sang Ollama + `qwen3-vl:8b` Q4 (demo chạy trên Ollama); `VLM_SERVER_IMAGE_MIN_TOKENS` thay mức 1024 Ollama tự ép; FR-07 timeout mặc định 900 s, `KNOWHOW_VLM_MAX_TOKENS` 16384 cho phần thinking; T04-10.

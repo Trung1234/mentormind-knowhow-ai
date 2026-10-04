@@ -105,10 +105,10 @@ def test_local_llm_uses_the_self_hosted_server(settings: Settings) -> None:
     assert (llm.name, llm.is_cloud, llm.model) == (
         "local_openai",
         False,
-        "Qwen/Qwen3-VL-8B-Instruct",
+        "qwen3-vl:8b",
     )
     llm.generate("hỏi", classification="factory_confidential")
-    assert http.posts[0][0] == "http://127.0.0.1:8100/v1/chat/completions"
+    assert http.posts[0][0] == "http://127.0.0.1:11434/v1/chat/completions"
 
 
 def test_siliconflow_llm_needs_an_explicit_model(settings: Settings) -> None:

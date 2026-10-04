@@ -23,11 +23,11 @@ Repo này phát triển theo **Spec-Driven Development**. Spec là nguồn sự 
 ```bash
 uv sync                 # cài dependency
 make up                 # docker compose: mentormind + vlm-server + PostgreSQL/pgvector + Neo4j (profile lite)
-make dev-up / dev-shell # chỉ 2 container dev; VLM_SERVER_AUTOSTART=true để bật luôn Qwen3-VL
+make dev-up / dev-shell # chỉ 2 container dev (vlm-server = Ollama, tự pull qwen3-vl:8b lần đầu)
 make check              # ruff + mypy + pytest
 make demo               # chạy luồng end-to-end trên dữ liệu mẫu
 uv run knowhow --help   # CLI chính
-make vlm-server         # Qwen3-VL-8B tự host trên 1 GPU (submodule 3rdparty/vlm_server = vlm-engine)
+make vlm-server         # Ollama + Qwen3-VL-8B Q4 không cần Docker, macOS/Linux (3rdparty/vlm_server/scripts/README.md)
 uv run knowhow vlm ping # kiểm tra VLM đang cấu hình (provider: uv run knowhow vlm providers)
 ```
 Cấu hình và API key đều nằm trong `.env` ở gốc repo (gitignored; mẫu `.env.example`).
