@@ -31,7 +31,6 @@ def ragas_cmd(
     from mentormind.core.providers.llm import get_llm_provider
     from mentormind.evaluation.golden import GoldenSetError, check_distribution, load_golden
     from mentormind.evaluation.ragas import JudgeConfigError, build_judge, run_golden
-    from mentormind.knowledge_base.store.embedding import BgeM3Embedder
     from mentormind.knowledge_base.store.vector_store import VectorStoreError
 
     settings = get_settings()
@@ -44,7 +43,9 @@ def ragas_cmd(
         judge = build_judge(
             settings.eval_judge,
             get_llm_provider(judge_settings),
-            BgeM3Embedder(settings.embed_model),
+            # The assistant's bge-m3, itself shared with the vector store: a second ~2 GB copy for
+            # the judge got the 1 GiB mentormind container OOM-killed on the LASI run (2026-10-04).
+            assistant.embedder,
             max_workers=settings.eval_max_workers,
             timeout_s=settings.eval_timeout_s or judge_settings.llm_timeout_s,
         )

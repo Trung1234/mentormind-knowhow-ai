@@ -57,3 +57,24 @@ def test_review_stats_needs_the_store(tmp_path: Path) -> None:
 @pytest.fixture(autouse=True)
 def _isolated_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
+
+
+def test_the_judge_shares_the_assistant_embedder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """One bge-m3 in memory: a second copy for the judge OOM-killed the 1 GiB container (LASI run)."""
+    from mentormind.agents.work_assistant import WorkAssistant
+    from mentormind.core.providers.llm.backends.fake import FakeLLM
+    from mentormind.evaluation import ragas as ragas_package
+    from tests.agents.fakes import FakeEmbedder, FakeRetriever, context
+
+    embedder = FakeEmbedder()
+    assistant = WorkAssistant(FakeRetriever(context()), FakeLLM([]), embedder=embedder)
+    seen: dict[str, object] = {}
+
+    def judge(name: str, llm: object, judge_embedder: object, **options: object) -> object:
+        seen["embedder"] = judge_embedder
+        raise ragas_package.JudgeConfigError("stop here")
+
+    monkeypatch.setattr(factory, "build_work_assistant", lambda settings: assistant)
+    monkeypatch.setattr(ragas_package, "build_judge", judge)
+    result = runner.invoke(app, ["eval", "ragas", "--golden", str(FIXTURE), "--out", str(tmp_path)])
+    assert result.exit_code == 1 and seen["embedder"] is embedder
