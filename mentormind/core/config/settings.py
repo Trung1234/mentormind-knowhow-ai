@@ -77,8 +77,10 @@ class Settings(BaseSettings):
     vlm_extra_body: dict[str, Any] = {}
 
     # --- LLM (spec 06; also spec 04 pass C / propose-reasons) ---------------------------------
-    llm_provider: str = "qwen_api"
-    # Empty = the provider's default (qwen_api: qwen-plus, local_openai: the Qwen3-VL server).
+    # Empty = the LLM is the VLM: same provider, server, model and key as KNOWHOW_VLM_* (the
+    # Qwen3-VL server answers text too). Set it to use another LLM; then empty base URL / model
+    # = that provider's default (qwen_api: qwen-plus, local_openai: the Qwen3-VL server).
+    llm_provider: str | None = None
     llm_base_url: str | None = None
     llm_model: str | None = None
     llm_api_key: SecretStr | None = None
