@@ -219,31 +219,19 @@ class MemoryVectorStore:
 def get_vector_store(settings: Settings | None = None, *, embedder: Embedder | None = None) -> VectorStore:
     """The backend selected by ``KNOWHOW_VECTOR_BACKEND`` (only config changes, art. 5).
 
-    Raises:
-        VectorStoreError: `pgvector` is selected but its driver,
-        embedder or table is not usable.
+    PostgreSQL mode uses the table defined in ``infra/postgres/init.sql``.
 
-    Notes:
-        PostgreSQL mode uses the table defined in
-        `infra/postgres/init.sql`.
+    Raises:
+        VectorStoreError: ``pgvector`` is selected but its driver, embedder or table is not usable.
     """
     settings = settings or get_settings()
-
     if settings.vector_backend == "memory":
         return MemoryVectorStore(embedder)
-
     try:
         from mentormind.knowledge_base.store.pgvector_store import PgVectorStore
     except ImportError as exc:
-        raise VectorStoreError(
-            "Thiếu psycopg: cài extra `ingest` (uv sync --extra ingest)."
-        ) from exc
-
-    return PgVectorStore(
-        settings.pg_dsn,
-        settings.vector_table,
-        embedder or default_embedder(settings),
-    )
+        raise VectorStoreError("Thiếu psycopg: cài extra `ingest` (uv sync --extra ingest).") from exc
+    return PgVectorStore(settings.pg_dsn, settings.vector_table, embedder or _default_embedder(settings))
 
 
 def _default_embedder(settings: Settings) -> Embedder:

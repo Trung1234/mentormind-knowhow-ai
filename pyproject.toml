@@ -99,7 +99,6 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
-[tool.pytest.ini_options]
 markers = [
     "integration: requires external services such as PostgreSQL/pgvector or Neo4j 5; skipped when unavailable",
 ]
