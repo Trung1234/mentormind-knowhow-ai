@@ -31,12 +31,14 @@ def to_work_profiles(
     process_id: str,
     provider: SupportsCloudFlag,
     model: str,
-    transcript: Mapping[str, Sequence[TranscriptSegment]] | None = None,
+    aligned_transcript: Mapping[str, Sequence[TranscriptSegment]] | None = None,
     created_at: datetime | None = None,
 ) -> list[WorkProfile]:
     """Post-processing (spec 04 §3): draft profiles in time order, each validated by contract.
 
-    ``transcript``: spec 03's lines per segment (``transcript.align``); None = no excerpts.
+    ``aligned_transcript``: the WHOLE video's transcript lines, grouped by segment_id by spec 03's
+    ``align_transcript`` (see ``transcript.align``); None = no excerpts. Each profile only quotes the
+    lines of the segments its step comes from.
     """
     by_id = {s.segment_id: s for s in segments}
     code = re.sub(r"[^A-Z0-9]", "", process_id.upper()) or "UNKNOWN"
@@ -47,7 +49,7 @@ def to_work_profiles(
         segment = by_id[step.segment_id]
         sources = [by_id[sid] for sid in step.sources()]
         source_ids = [s.segment_id for s in sources]
-        said = lines_for(source_ids, transcript)
+        said = lines_for(source_ids, aligned_transcript)
         profile = WorkProfile(
             schema_version=SCHEMA_VERSION,
             profile_id=f"WP-{code}-{order:03d}",
@@ -67,7 +69,7 @@ def to_work_profiles(
                 "t_end": step.t_end,
                 "segment_ids": source_ids,
                 "keyframes": [kf for s in sources for kf in s.keyframes],
-                "transcript_excerpt": excerpt_for(source_ids, transcript),
+                "transcript_excerpt": excerpt_for(source_ids, aligned_transcript),
                 "document_refs": [],
             },
             confidence=step.confidence,

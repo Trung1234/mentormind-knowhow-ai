@@ -136,7 +136,7 @@ class DescribePipeline:
             process_id=self.process_id,
             provider=self.vlm,
             model=self.vlm.model,
-            transcript=align(segments, transcript),
+            aligned_transcript=align(segments, transcript),
         )
 
     @staticmethod
