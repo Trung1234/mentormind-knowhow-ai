@@ -107,8 +107,9 @@ class Settings(BaseSettings):
     # stops "nothing found": 0.02 ~ no passage near the top of either ranking.
     assist_min_score: float = 0.02
     # Work Assistant guard 2: refuse (no LLM call) when the best bge-m3 cosine between the
-    # question and a passage is below this. Tuned on the LASI golden set.
-    assist_min_cosine: float = 0.45
+    # question and a passage is below this. LASI golden set 2026-10-04: on-topic >= 0.435, 3 of 5
+    # off-topic < 0.40 (the other two go on to guard 3, the LLM's answerable=false).
+    assist_min_cosine: float = 0.40
     # One JSON line per agent call (spec 06 FR-04). Empty = no trace.
     trace_dir: Path | None = REPO_ROOT / "data" / "work" / "traces"
     # /assistant/ask and /rca/investigate: mock = the routers' demo answers, live = the agents.

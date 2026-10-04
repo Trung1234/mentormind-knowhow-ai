@@ -39,8 +39,9 @@ from mentormind.knowledge_base.retrieval.hybrid import RetrievedContext
 
 #: Guard 1: spec 05 RRF score (rank based, ~0.133 at most): ~ "nothing near the top of a ranking".
 DEFAULT_MIN_SCORE = 0.02
-#: Guard 2: bge-m3 cosine between the question and the best passage.
-DEFAULT_MIN_COSINE = 0.45
+#: Guard 2: bge-m3 cosine between the question and the best passage. Tuned on the LASI golden set
+#: (2026-10-04): every on-topic question >= 0.435, 3 of 5 off-topic ones below 0.40.
+DEFAULT_MIN_COSINE = 0.40
 REFUSAL = (
     "Mình chưa có thông tin đã được chuyên gia duyệt để trả lời câu này, nên không trả lời để tránh hướng dẫn sai."
 )

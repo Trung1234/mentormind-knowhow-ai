@@ -51,13 +51,14 @@ def test_the_expert_to_ask_is_the_top_contributor_of_the_process() -> None:
     assert GraphExperts(FakeCypher([])).top_contributor("PACK01") is None
 
 
-def test_the_work_assistant_reuses_the_vector_store_embedder(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("attribute", ["embedder", "_embedder"])  # _embedder: store/pgvector_store.py
+def test_the_work_assistant_reuses_the_vector_store_embedder(monkeypatch: pytest.MonkeyPatch, attribute: str) -> None:
     from types import SimpleNamespace
 
     from mentormind.knowledge_base.retrieval import hybrid
 
     shared = object()  # bge-m3 is ~2 GB: one copy in memory, shared with spec 05's index
-    retriever = SimpleNamespace(vectors=SimpleNamespace(embedder=shared), graph=FakeCypher([]))
+    retriever = SimpleNamespace(vectors=SimpleNamespace(**{attribute: shared}), graph=FakeCypher([]))
     monkeypatch.setattr(hybrid, "get_hybrid_retriever", lambda settings: retriever)
     settings = Settings(llm_provider="fake", trace_dir=None, assist_min_score=0.03, assist_min_cosine=0.5)
     assistant = factory.build_work_assistant(settings)
