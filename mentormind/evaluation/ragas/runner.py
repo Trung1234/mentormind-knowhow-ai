@@ -4,7 +4,7 @@ Every golden question goes to the Work Assistant. Out-of-scope questions only te
 written apart (``out_of_scope.csv``); the others get the four Ragas metrics (contexts = the
 snippets of the citations the answer carries) plus ``citation_hit``. A refused in-scope answer has
 no Ragas scores (nothing to judge) and counts against ``refusal_accuracy``. Answers are collected
-first, then the answered in-scope ones are judged in one ``ragas.evaluate`` run.
+first, then the answered in-scope ones are judged in one ``Judge.score`` call.
 
 Outputs in ``out_dir``: ``ragas_results.csv`` (one row per in-scope question), ``out_of_scope.csv``,
 ``summary.json`` (means, the two own metrics, thresholds, run id, time, models, commit).
@@ -24,7 +24,7 @@ from mentormind.core.providers.llm import LLMProvider
 from mentormind.core.schemas import DataClassification
 from mentormind.core.schemas.agents import AskRequest, AssistantAnswer
 from mentormind.core.schemas.evaluation import GoldenQuestion
-from mentormind.evaluation.ragas.judge import JudgeSample
+from mentormind.evaluation.ragas.judges import JudgeSample, Scores
 from mentormind.evaluation.ragas.results import (
     RAGAS_METRICS,
     THRESHOLDS,
@@ -41,12 +41,13 @@ class Answerer(Protocol):
 
 
 class Judge(Protocol):
-    """What scores the answers: ``RagasJudge`` (or a fake)."""
+    """What scores the answers: ``RagasJudge`` or ``BuiltinJudge`` (``KNOWHOW_EVAL_JUDGE``), or a fake."""
 
+    kind: str
     llm: LLMProvider
     failures: int
 
-    def score(self, samples: Sequence[JudgeSample], label: DataClassification) -> list[dict[str, float | None]]: ...
+    def score(self, samples: Sequence[JudgeSample], label: DataClassification) -> list[Scores]: ...
 
 
 def run_golden(
@@ -79,6 +80,7 @@ def run_golden(
         golden=str(golden_path),
         classification=classification,
         assistant_llm=assistant_llm,
+        judge=judge.kind,
         judge_llm=f"{judge.llm.name}:{judge.llm.model}",
         questions=len(results),
         in_scope=len(scored),

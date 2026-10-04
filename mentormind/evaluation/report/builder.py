@@ -44,7 +44,7 @@ def build_report(
         "",
         f"Lần chạy `{summary.run_id}` · {summary.started_at:%Y-%m-%d %H:%M} UTC · commit "
         f"`{summary.commit}` · trợ lý `{summary.assistant_llm or '?'}` · "
-        f"judge `{summary.judge_llm}` · {summary.questions} câu "
+        f"judge `{summary.judge}` (`{summary.judge_llm}`) · {summary.questions} câu "
         f"({summary.in_scope} trong phạm vi, {summary.out_of_scope} ngoài phạm vi).",
         "",
         "## Chất lượng trả lời (nhóm B)",

@@ -11,8 +11,8 @@ from mentormind.core.providers.models import TokenUsage
 from mentormind.core.schemas import Citation
 from mentormind.core.schemas.agents import AskRequest, AssistantAnswer
 
-#: (instruction text of a ragas prompt, JSON the judge answers). The answers give faithfulness 3/4,
-#: context precision 1, context recall 1.
+#: (marker of a judge prompt, JSON the judge answers): the ragas package's prompts, then the builtin
+#: judge's. Both sets give faithfulness 3/4, context precision 1, context recall 1.
 RAGAS_ANSWERS: list[tuple[str, dict[str, Any]]] = [
     (
         "judge the faithfulness of a series of statements",
@@ -29,11 +29,18 @@ RAGAS_ANSWERS: list[tuple[str, dict[str, Any]]] = [
         "classify if the sentence can be attributed",
         {"classifications": [{"statement": "s", "reason": "r", "attributed": 1}]},
     ),
+    (
+        "[faithfulness]",
+        {"claims": [{"claim": c, "supported": v} for c, v in (("a", True), ("b", True), ("c", False), ("d", True))]},
+    ),
+    ("[answer_relevancy]", {"questions": ["q1", "q2", "q3"], "noncommittal": False}),
+    ("[context_precision]", {"verdicts": [True]}),
+    ("[context_recall]", {"sentences": [{"sentence": "s", "attributed": True}]}),
 ]
 
 
 class ScriptedJudge(FakeLLM):
-    """Answers each ragas metric prompt with the fixed JSON of ``RAGAS_ANSWERS``."""
+    """Answers each metric prompt (either judge) with the fixed JSON of ``RAGAS_ANSWERS``."""
 
     def _complete(
         self,

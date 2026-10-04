@@ -8,27 +8,17 @@ with the data label of the run; ``ProjectEmbeddings`` uses the local bge-m3 of s
 from __future__ import annotations
 
 import asyncio
-import os
-from collections.abc import Sequence
-from typing import Any, Protocol
+from typing import Any
 
-# Ragas sends usage analytics to its own server unless told not to; nothing leaves the site.
-os.environ.setdefault("RAGAS_DO_NOT_TRACK", "true")
+from langchain_core.outputs import Generation, LLMResult
+from langchain_core.prompt_values import PromptValue
+from ragas.embeddings import BaseRagasEmbeddings
+from ragas.llms import BaseRagasLLM
 
-from langchain_core.outputs import Generation, LLMResult  # noqa: E402
-from langchain_core.prompt_values import PromptValue  # noqa: E402
-from ragas.embeddings import BaseRagasEmbeddings  # noqa: E402
-from ragas.llms import BaseRagasLLM  # noqa: E402
-
-from mentormind.core.guard import ConfidentialDataError  # noqa: E402
-from mentormind.core.providers.llm import LLMProvider  # noqa: E402
-from mentormind.core.schemas import DataClassification  # noqa: E402
-
-
-class TextEmbedder(Protocol):
-    """``knowledge_base.store.embedding.BgeM3Embedder`` (or a fake)."""
-
-    def embed(self, texts: Sequence[str]) -> list[list[float]]: ...
+from mentormind.core.guard import ConfidentialDataError
+from mentormind.core.providers.llm import LLMProvider
+from mentormind.core.schemas import DataClassification
+from mentormind.evaluation.ragas.judges.base import TextEmbedder
 
 
 class GuardedRagasLLM(BaseRagasLLM):

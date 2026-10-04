@@ -119,6 +119,9 @@ class Settings(BaseSettings):
     api_agents: Literal["mock", "live"] = "mock"
 
     # --- Evaluation (spec 09) --------------------------------------------------------------
+    # Who computes the four Ragas metrics: ragas = the ``ragas`` package (``eval`` extra),
+    # builtin = the project's own prompts with the same definitions (no ragas/langchain needed).
+    eval_judge: Literal["ragas", "builtin"] = "ragas"
     # Judge LLM of the Ragas metrics; empty = the agent's KNOWHOW_LLM_* (FR-02).
     eval_llm_provider: str | None = None
     eval_llm_base_url: str | None = None

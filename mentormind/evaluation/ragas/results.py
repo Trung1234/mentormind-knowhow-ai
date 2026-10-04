@@ -53,6 +53,8 @@ class EvalSummary(BaseModel):
     golden: str
     classification: DataClassification
     assistant_llm: str
+    #: ``KNOWHOW_EVAL_JUDGE`` of the run (summaries written before it existed: ragas).
+    judge: str = "ragas"
     judge_llm: str
     questions: int
     in_scope: int

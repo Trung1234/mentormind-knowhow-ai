@@ -56,8 +56,9 @@ def test_ac_02_four_scored_rows_the_out_of_scope_one_apart_and_a_full_summary(
     assert summary["metrics"]["context_precision"] == 1.0  # the only useful context ranks first
     assert summary["metrics"]["answer_relevancy"] == 1.0
     assert summary["metrics"]["citation_hit_rate"] == 0.75  # Q001, Q002, Q004 hit; Q003 misses
-    for key in ("run_id", "started_at", "commit", "assistant_llm", "judge_llm"):
+    for key in ("run_id", "started_at", "commit", "assistant_llm", "judge", "judge_llm"):
         assert key in summary  # FR-05
+    assert summary["judge"] == "ragas"
 
 
 def test_ac_03_refusal_accuracy_counts_both_kinds_of_right_decision(tmp_path: Path) -> None:

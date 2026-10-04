@@ -1,4 +1,4 @@
-"""spec 09 FR-02 — the ``ragas`` package behind the project's LLM provider and embedder."""
+"""spec 09 FR-02 — ``KNOWHOW_EVAL_JUDGE=ragas``: the ``ragas`` package behind the project's LLM and embedder."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from mentormind.core.providers.llm.backends.fake import FakeLLM
 from mentormind.core.providers.llm.models import LLMResponse
 from mentormind.core.schemas import DataClassification
 from mentormind.evaluation.ragas import JudgeSample, RagasJudge
-from mentormind.evaluation.ragas.adapters import GuardedRagasLLM, ProjectEmbeddings
+from mentormind.evaluation.ragas.judges.adapters import GuardedRagasLLM, ProjectEmbeddings
 from tests.evaluation.fakes import SameVectorEmbedder, ScriptedJudge
 
 SAMPLE = JudgeSample("Vì sao đặt nghiêng?", "Để tránh trầy [1].", ["Đặt nghiêng tránh trầy."], "Tránh trầy bề mặt.")
