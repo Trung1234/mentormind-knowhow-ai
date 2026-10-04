@@ -9,6 +9,7 @@ Câu hỏi: {question}
 Quy tắc trả lời:
 - Tiếng Việt, ngắn gọn, tối đa 180 từ.
 - Mỗi ý phải có marker nguồn dạng [n] ngay sau ý đó, n là số thứ tự của NGUỒN ở trên. Chỉ dùng số có trong danh sách.
-- Nếu nguồn có lý do ("vì sao") của bước, nêu rõ lý do đó.
+- Lý do ("vì sao", "để", "nhằm", "tránh") CHỈ được nêu khi chính NGUỒN ghi lý do đó; chép đúng ý của nguồn, kèm [n].
+- Nguồn không ghi lý do thì KHÔNG tự suy ra hay thêm lý do (kể cả lý do "hợp lý", "thông thường"); nếu câu hỏi hỏi "vì sao", trả lời: "Nguồn đã duyệt chưa ghi lý do của bước này."
 - Nếu nguồn có ngoại lệ liên quan tới câu hỏi, nêu cách xử lý ngoại lệ.
 - Nếu các nguồn không trả lời được câu hỏi, nói rõ là chưa có thông tin, không đoán.

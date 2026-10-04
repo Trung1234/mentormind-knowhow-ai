@@ -105,3 +105,12 @@ def test_every_call_leaves_a_trace(tmp_path: Path) -> None:
 @pytest.fixture(autouse=True)
 def _isolated_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
+
+
+def test_the_prompt_forbids_a_reason_the_sources_do_not_state(tmp_path: Path) -> None:
+    # Live test 2026-10-04: a source without a reason got "Đây là quy trình chuẩn để ..." (art. 3).
+    llm = FakeLLM(["Đặt nghiêng [1]."])
+    assistant(llm, TWO, tmp_path).ask(ASK)
+    prompt = llm.calls[0].prompt
+    assert "KHÔNG tự suy ra hay thêm lý do" in prompt
+    assert "Nguồn đã duyệt chưa ghi lý do của bước này." in prompt
