@@ -59,13 +59,23 @@ Thêm hai chỉ số tự tính:
 - **AC-06** Fixture có 2 câu dưới ngưỡng cùng trích `WP-PACK01-003` → bảng "Profile cần xem lại" có dòng `WP-PACK01-003` với số câu = 2.
 - **AC-07** `review-stats` trên fixture 5 profile approved `synthetic` (3 có `reason`) + 2 `public` (0 có `reason`) → `reason_coverage.synthetic = 0.6` (✅), `reason_coverage.public = 0.0` (không so ngưỡng).
 
+## 5b. Cách hiện thực (chốt khi làm T09-1..4, cần Đạt xem)
+- Code ở `evaluation/`, mỗi package một chức năng: `golden/` (`loader`: báo mọi dòng sai kèm số dòng + trường; `distribution`: chỉ cảnh báo thiếu câu), `ragas/` (`judge` = `LlmJudge`, `runner`, `results`, `prompts/`), `review/` (`stats`, `store`), `report/` (`builder`, `sections`), `cli/` (mỗi lệnh 1 module). Model `GoldenQuestion`, `ReviewEvent` ở `core.schemas.evaluation`.
+- **4 chỉ số Ragas tính theo định nghĩa của Ragas nhưng không dùng package `ragas`**: judge là `LLMProvider` của dự án nên mọi lời gọi qua DataGuard, che PII, audit (package `ragas` gọi LLM bằng client riêng, bỏ qua guard). Prompt judge ở `evaluation/ragas/prompts/*.md`. `answer_relevancy` so câu hỏi bằng `token_set_ratio` cho tới khi có embedder của spec 05. Judge trả JSON hỏng → chỉ số của câu đó để trống, không bịa.
+- Ngữ cảnh chấm = `snippet` của các citation trong câu trả lời. Câu trong phạm vi mà trợ lý từ chối: không chấm Ragas, tính vào `refusal_accuracy`.
+- `refusal_accuracy` = (số câu `out_of_scope` bị từ chối + số câu trong phạm vi được trả lời) / tổng số câu; `summary.json` ghi thêm hai tỷ lệ thành phần. `citation_hit_rate` tính trên câu trong phạm vi (từ chối = trượt).
+- Câu `out_of_scope` ghi riêng ra `out_of_scope.csv`. `eval ragas --classification` là nhãn dữ liệu đưa cho judge (mặc định `factory_confidential`, fail closed); judge đọc `KNOWHOW_EVAL_LLM_PROVIDER|BASE_URL|MODEL`, trống thì dùng `KNOWHOW_LLM_*`.
+- `review-stats`: "duyệt sau khi sửa" = profile có `version > 1` (spec 08: mỗi lần sửa tăng version); đọc SQLite của spec 08 ở chế độ read-only. `report`: câu "dưới ngưỡng" = có chỉ số dưới ngưỡng, hoặc bị từ chối, hoặc không trích nguồn kỳ vọng.
+
 ## 6. Tasks
-- [ ] T09-1 Schema golden set + validator (AC-01) — Đạt viết nội dung, Phúc viết validator.
-- [ ] T09-2 Runner Ragas + chỉ số tự tính (AC-02, AC-03).
-- [ ] T09-3 `review-stats` + `reason_coverage` (AC-04, AC-07).
-- [ ] T09-4 `report` (AC-05, AC-06).
+- [x] T09-1 Schema golden set + validator (AC-01) — Đạt viết nội dung, Phúc viết validator.
+- [x] T09-2 Runner Ragas + chỉ số tự tính (AC-02, AC-03).
+- [x] T09-3 `review-stats` + `reason_coverage` (AC-04, AC-07).
+- [x] T09-4 `report` (AC-05, AC-06).
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
 - v1.1 (23/9): làm rõ `expected_citations` nhận mọi `ref_id`; khuyến nghị judge LLM; FR-04 thêm bảng "Profile cần xem lại" (AC-06).
 - v1.2 (24/9): nhóm A thêm `reason_coverage` (ngưỡng ≥ 60% trên synthetic) và `key_point_recall` từ sweep (AC-07).
+- v1.3 (28/9, Phúc): T09-1..T09-4 xong (validator golden set, runner + LLM judge theo định nghĩa Ragas, review-stats + reason_coverage, report); cách hiện thực ở §5b.
+- v1.4 (4/10, Phúc): đưa lên `main` cùng spec 06; schema ở `core.schemas.evaluation`, đọc `review_events` từ store SQLite của spec 08.
