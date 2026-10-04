@@ -89,6 +89,12 @@ class Settings(BaseSettings):
     # /assistant/ask and /rca/investigate: mock = the routers' demo answers, live = the agents.
     api_agents: Literal["mock", "live"] = "mock"
 
+    # --- Evaluation (spec 09) --------------------------------------------------------------
+    # Judge LLM of the Ragas metrics; empty = the agent's KNOWHOW_LLM_* (FR-02).
+    eval_llm_provider: str | None = None
+    eval_llm_base_url: str | None = None
+    eval_llm_model: str | None = None
+
     # --- REST API (spec 08) -----------------------------------------------------------------
     app_name: str = "MentorMind Know-How API"
     # Spec 08 FR-05: only the UI's origin (Vite dev server by default).
