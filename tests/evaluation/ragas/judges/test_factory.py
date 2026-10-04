@@ -8,7 +8,7 @@ import pytest
 
 from mentormind.core.config import Settings
 from mentormind.core.schemas import DataClassification
-from mentormind.evaluation.ragas import JUDGES, Judge, JudgeConfigError, JudgeSample, build_judge
+from mentormind.evaluation.ragas import JUDGES, Judge, JudgeConfigError, JudgeSample, RagasJudge, build_judge
 from mentormind.evaluation.ragas.judges import factory
 from tests.evaluation.fakes import SameVectorEmbedder, ScriptedJudge
 
@@ -52,3 +52,11 @@ def test_a_new_judge_is_one_subclass_and_its_gaps_are_counted() -> None:
         assert judge.failures == 2 and judge.score([], DataClassification.SYNTHETIC) == []
     finally:
         Judge.registry.pop("half-test")
+
+
+def test_the_ragas_executor_follows_the_server() -> None:
+    # Live test 2026-10-04: 4 parallel calls at 180 s each timed out on a one-request Ollama.
+    judge = build_judge("ragas", ScriptedJudge(), SameVectorEmbedder(), max_workers=1, timeout_s=900)
+    assert isinstance(judge, RagasJudge) and (judge.max_workers, judge.timeout_s) == (1, 900)
+    settings = Settings(_env_file=None)
+    assert (settings.eval_max_workers, settings.eval_timeout_s) == (4, None)

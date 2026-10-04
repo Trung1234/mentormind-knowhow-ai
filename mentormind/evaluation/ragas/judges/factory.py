@@ -16,7 +16,15 @@ class JudgeConfigError(RuntimeError):
     """Unknown judge name, or the ``ragas`` judge without the ``eval`` extra installed."""
 
 
-def build_judge(name: str, llm: LLMProvider, embedder: TextEmbedder) -> Judge:
+def build_judge(
+    name: str,
+    llm: LLMProvider,
+    embedder: TextEmbedder,
+    *,
+    max_workers: int = 4,
+    timeout_s: float = 180,
+) -> Judge:
+    """``max_workers``/``timeout_s`` tune the ragas package's own executor (the builtin judge is sequential)."""
     cls = JUDGES.get(name)
     if cls is None:
         raise JudgeConfigError(
@@ -26,4 +34,6 @@ def build_judge(name: str, llm: LLMProvider, embedder: TextEmbedder) -> Judge:
         raise JudgeConfigError(
             "KNOWHOW_EVAL_JUDGE=ragas cần thư viện ragas: uv sync --extra eval (hoặc đặt KNOWHOW_EVAL_JUDGE=builtin)."
         )
+    if cls is library.RagasJudge:
+        return library.RagasJudge(llm, embedder, max_workers=max_workers, timeout_s=timeout_s)
     return cls(llm, embedder)

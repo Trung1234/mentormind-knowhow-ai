@@ -122,6 +122,11 @@ class Settings(BaseSettings):
     # Who computes the four Ragas metrics: ragas = the ``ragas`` package (``eval`` extra),
     # builtin = the project's own prompts with the same definitions (no ragas/langchain needed).
     eval_judge: Literal["ragas", "builtin"] = "ragas"
+    # ragas judge only: parallel judge calls (match the server: vLLM max_num_seqs; Ollama runs one
+    # request at a time unless OLLAMA_NUM_PARALLEL is raised) and the time one ragas job may take
+    # (empty = the judge LLM's own timeout, so ragas never gives up before the provider does).
+    eval_max_workers: int = 4
+    eval_timeout_s: float | None = None
     # Judge LLM of the Ragas metrics; empty = the agent's KNOWHOW_LLM_* (FR-02).
     eval_llm_provider: str | None = None
     eval_llm_base_url: str | None = None

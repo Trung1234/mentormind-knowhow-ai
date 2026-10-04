@@ -40,8 +40,14 @@ def ragas_cmd(
         for missing in check_distribution(questions):
             typer.secho(f"Cảnh báo golden set: {missing}", fg=typer.colors.YELLOW, err=True)
         assistant = build_work_assistant(settings)
-        judge_llm = get_llm_provider(_judge_settings(settings))
-        judge = build_judge(settings.eval_judge, judge_llm, BgeM3Embedder(settings.embed_model))
+        judge_settings = _judge_settings(settings)
+        judge = build_judge(
+            settings.eval_judge,
+            get_llm_provider(judge_settings),
+            BgeM3Embedder(settings.embed_model),
+            max_workers=settings.eval_max_workers,
+            timeout_s=settings.eval_timeout_s or judge_settings.llm_timeout_s,
+        )
         summary = run_golden(
             questions,
             assistant,

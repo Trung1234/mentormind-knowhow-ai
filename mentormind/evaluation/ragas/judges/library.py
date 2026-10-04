@@ -32,7 +32,9 @@ COLUMNS = {
 class RagasJudge(Judge):
     kind = "ragas"
 
-    def __init__(self, llm: LLMProvider, embedder: TextEmbedder, *, max_workers: int = 4, timeout_s: int = 180) -> None:
+    def __init__(
+        self, llm: LLMProvider, embedder: TextEmbedder, *, max_workers: int = 4, timeout_s: float = 180
+    ) -> None:
         super().__init__(llm, embedder)
         #: Parallel judge calls; keep it at the vLLM server's ``max_num_seqs``.
         self.max_workers = max_workers
@@ -76,7 +78,10 @@ class RagasJudge(Judge):
             embeddings=ProjectEmbeddings(self.embedder),
             # Retry only what may pass on a second try; a guard refusal must not be retried.
             run_config=RunConfig(
-                timeout=self.timeout_s, max_retries=2, max_workers=self.max_workers, exception_types=(ProviderError,)
+                timeout=round(self.timeout_s),
+                max_retries=2,
+                max_workers=self.max_workers,
+                exception_types=(ProviderError,),
             ),
             raise_exceptions=False,
             show_progress=False,
