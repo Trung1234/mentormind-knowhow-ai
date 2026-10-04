@@ -87,11 +87,20 @@ Luồng:
 - **AC-07** `five_why` có 3..5 phần tử; phần tử không có căn cứ → `verified=False`.
 - **AC-08** RCA với `lot_id` → router của spec 05 không được gọi (FakeLLM ghi lại prompt, không có prompt router); 3 template được gọi với `symptom_id` = `defect_code` của lot.
 
-## 7. Tasks
+## 7. Interface với spec 05 / 07 / 08 (theo code trên `main`, 4/10)
+- Model của agent (§3, §4) nằm ở `core.schemas.agents` (import thẳng module này; gốc `core.schemas` export các model API cùng tên của spec 08). `RetrievedContext`, `Template` lấy từ `knowledge_base.retrieval.hybrid` (spec 05); `LotRecord`, `DefectRecord`, `LotNotFound` từ `knowledge_base.sigma.adapter` (spec 07).
+- `RetrievedContext.classifications[i]` là nhãn của `passages[i]` (trích bởi `citations[i]`); thiếu nhãn thì coi là `factory_confidential` (fail closed) — AC-04 lọc passage theo nhãn trước khi gọi LLM cloud.
+- Agent chỉ phụ thuộc `agents.ports` (Protocol): `Retriever.retrieve(query, process_id, k)`; `GraphTemplates.run_template(template, **params)` + `match_symptom(text)` (row: `fact`, `source_type`, `ref_id`, `data_classification`); `ExpertDirectory.top_contributor(process_id)`; `SigmaSource.get_lot/get_defects`.
+- Nối thật (`agents.factory`): Work Assistant dùng `get_hybrid_retriever(settings)` (có router); RCA dùng `HybridRetriever(vector store, Neo4jGraph, router=None)` cho cả retrieve lẫn template — không router (AC-08); Sigma `CsvSigmaAdapter(KNOWHOW_SIGMA_CSV_DIR)`. Chuyên gia gợi ý: `agents.experts.GraphExperts` (Cypher `Expert-CONTRIBUTED->Step<-HAS_STEP-Process`).
+- REST (spec 08): router gọi `agents.supervisor.ask` / `agents.rca.investigate` với model API; `agents.api` dịch qua lại (`suggested_contact`→`suggested_expert`, `cause`→`hypothesis`, `evidence`→`evidence_refs`, `five_why`→`five_whys` có `order`, `prevention_steps`→`preventive_actions`). `KNOWHOW_API_AGENTS=mock` (mặc định) giữ câu trả lời demo của router; `live` chạy agent: lot không có → 404, thiếu thành phần/LLM → 503.
+- Nhãn dữ liệu của RCA: Sigma `csv` (mock spec 07 §3) = `synthetic`; adapter khác = `factory_confidential` → DataGuard chặn LLM cloud. Fact từ graph mang nhãn theo row.
+- Biến mới: `KNOWHOW_ASSIST_MIN_SCORE` (0.35), `KNOWHOW_TRACE_DIR` (`data/work/traces`, mỗi lần gọi 1 dòng JSON: request, context ids, hash prompt, response, latency), `KNOWHOW_API_AGENTS` (`mock`).
+
+## 8. Tasks
 - [x] T06-1 `LLMProvider` + `FakeLLM` + lọc confidential (AC-04).
-- [ ] T06-2 Work Assistant + prompt + hậu kiểm (AC-01..03).
-- [ ] T06-3 RCA Agent + prompt + gọi template tất định (AC-05..08).
-- [ ] T06-4 Trace logging + CLI.
+- [x] T06-2 Work Assistant + prompt + hậu kiểm (AC-01..03).
+- [x] T06-3 RCA Agent + prompt + gọi template tất định (AC-05..08).
+- [x] T06-4 Trace logging + CLI. *(CLI chạy thật khi spec 05/07 có factory ở §8; trước đó báo rõ đang chờ module nào.)*
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
@@ -99,3 +108,6 @@ Luồng:
 - v1.2 (27/9): đường dẫn module theo layout mới (bỏ `knowhow.`/`src/knowhow/`, xem spec 01 v1.3).
 - v1.3 (28/9, Phúc): T06-1 xong — `core.llm` (registry, OpenAI-compatible + fake, outbound guard, lọc passage confidential); model mặc định kiểm tra ngày 28/9.
 - v1.4 (28/9, Phúc): LLM chuyển `core.llm` → `core.providers.llm` (§2), cùng chỗ với VLM `core.providers.vlm`.
+- v1.5 (28/9, Phúc): T06-2 Work Assistant, T06-3 RCA Agent, T06-4 trace + CLI `knowhow agent ask|rca` xong; chốt interface với spec 05/07 ở §7 (model trong `core.schemas`, `RetrievedContext` 1-1 passage↔citation + nhãn passage, `route=False` cho RCA, tên factory).
+- v1.6 (28/9, Phúc): `agents/` chia package: `work_assistant/`, `rca/` (`agent`, `report` hậu xử lý, `prompts/`), `cli/` (mỗi lệnh 1 module); `ports`, `trace`, `prompting`, `factory` dùng chung.
+- v1.7 (4/10, Phúc): nối agent vào code spec 05/07/08 trên `main`: `HybridRetriever.run_template` + `match_symptom`, `RetrievedContext.classifications`, `CsvSigmaAdapter`; adapter REST `agents.api` (`KNOWHOW_API_AGENTS=mock|live`); §7 cập nhật.
