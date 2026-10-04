@@ -17,7 +17,7 @@ from typing import TypeVar
 
 from pydantic import ValidationError
 
-from mentormind.agents.factory import AgentWiringError, build_rca_agent, build_work_assistant
+from mentormind.agents.adapters.factory import AgentWiringError, build_rca_agent, build_work_assistant
 from mentormind.agents.rca import RcaAgent
 from mentormind.agents.work_assistant import WorkAssistant
 from mentormind.core.config import get_settings

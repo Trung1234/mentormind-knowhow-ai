@@ -9,8 +9,8 @@ from typing import Any
 
 import pytest
 
+from mentormind.agents.base import TraceLog
 from mentormind.agents.rca import DISCLAIMER, RcaAgent
-from mentormind.agents.trace import TraceLog
 from mentormind.core.providers.llm.backends.fake import FakeLLM
 from mentormind.core.schemas import DataClassification
 from mentormind.core.schemas.agents import RcaRequest

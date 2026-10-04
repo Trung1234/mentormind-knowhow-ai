@@ -14,19 +14,16 @@
 from __future__ import annotations
 
 import re
-import time
 from pathlib import Path
 
-from mentormind.agents.ports import ExpertDirectory, Retriever, passage_label
-from mentormind.agents.prompting import render_prompt
-from mentormind.agents.trace import TraceLog
+from mentormind.agents.base import Agent, AgentRun, PromptBook, TraceLog
+from mentormind.agents.ports import ExpertDirectory, Retriever
 from mentormind.core.providers.llm import LLMProvider, strictest
-from mentormind.core.providers.llm.context import ContextPassage, filter_passages
+from mentormind.core.providers.llm.context import ContextPassage
 from mentormind.core.schemas import Citation
 from mentormind.core.schemas.agents import AskRequest, AssistantAnswer
 from mentormind.knowledge_base.retrieval.hybrid import RetrievedContext
 
-PROMPTS = Path(__file__).resolve().parent / "prompts"
 DEFAULT_MIN_SCORE = 0.35
 REFUSAL = (
     "Mình chưa có thông tin đã được chuyên gia duyệt để trả lời câu này, nên không trả lời để tránh hướng dẫn sai."
@@ -38,7 +35,10 @@ RETRY_NOTE = (
 _MARKER = re.compile(r"\[(\d+)\]")
 
 
-class WorkAssistant:
+class WorkAssistant(Agent[AskRequest, AssistantAnswer]):
+    kind = "ask"
+    prompts = PromptBook(Path(__file__).resolve().parent / "prompts")
+
     def __init__(
         self,
         retriever: Retriever,
@@ -48,42 +48,32 @@ class WorkAssistant:
         min_score: float = DEFAULT_MIN_SCORE,
         trace: TraceLog | None = None,
     ) -> None:
+        super().__init__(llm, trace=trace)
         self.retriever = retriever
-        self.llm = llm
         self.experts = experts
         self.min_score = min_score
-        self.trace = trace or TraceLog(None)
 
     def ask(self, request: AskRequest) -> AssistantAnswer:
         """Answer ``request`` from retrieved context only, or refuse (spec 06 FR-01)."""
-        started = time.perf_counter()
+        return self.run(request)
+
+    def _run(self, request: AskRequest, call: AgentRun) -> AssistantAnswer:
         context = self.retriever.retrieve(request.question, request.process_id)
-        sources = self._allowed_sources(context)
-        prompts: list[str] = []
-        answer = self._answer(request, context, sources, prompts)
-        self.trace.write(
-            kind="ask",
-            request=request,
-            context_ids=[c.ref_id for _, c in sources],
-            prompts=prompts,
-            response=answer,
-            latency_s=time.perf_counter() - started,
-            llm=self.llm.name,
-        )
-        return answer
+        sources = self.allowed_passages(context)
+        call.context_ids = [c.ref_id for _, c in sources]
+        return self._answer(request, context, sources, call)
 
     def _answer(
         self,
         request: AskRequest,
         context: RetrievedContext,
         sources: list[tuple[ContextPassage, Citation]],
-        prompts: list[str],
+        call: AgentRun,
     ) -> AssistantAnswer:
         best = max((c.score or 0.0 for _, c in sources), default=0.0)
         if not sources or best < self.min_score:
             return self._refuse(request)
-        prompt = render_prompt(
-            PROMPTS,
+        prompt = self.prompts.render(
             "assistant.md",
             process_id=request.process_id or "(chưa rõ)",
             sources="\n".join(f"[{i}] ({c.ref_id}) {p.text}" for i, (p, c) in enumerate(sources, start=1)),
@@ -94,8 +84,7 @@ class WorkAssistant:
         citations = [c for _, c in sources]
         for attempt in range(2):
             text_prompt = prompt if attempt == 0 else prompt + RETRY_NOTE.format(n=len(sources))
-            prompts.append(text_prompt)
-            text = self.llm.generate(text_prompt, classification=label, temperature=0.2).text
+            text = self.generate(call, text_prompt, classification=label, temperature=0.2).text
             used = _markers(text)
             if used and all(1 <= n <= len(citations) for n in used):
                 scores = [citations[n - 1].score or 0.0 for n in sorted(used)]
@@ -106,14 +95,6 @@ class WorkAssistant:
                     refused=False,
                 )
         return self._refuse(request)
-
-    def _allowed_sources(self, context: RetrievedContext) -> list[tuple[ContextPassage, Citation]]:
-        passages = [
-            ContextPassage(ref_id=c.ref_id, text=text, classification=passage_label(context, i))
-            for i, (text, c) in enumerate(zip(context.passages, context.citations, strict=True))
-        ]
-        kept = {id(p) for p in filter_passages(passages, self.llm)}
-        return [(p, c) for p, c in zip(passages, context.citations, strict=True) if id(p) in kept]
 
     def _facts(self, context: RetrievedContext) -> str:
         # Graph facts carry no label of their own: only a self-hosted LLM receives them.

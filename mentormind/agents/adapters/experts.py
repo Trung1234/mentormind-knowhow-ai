@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from mentormind.agents.ports import CypherRunner
 
 TOP_CONTRIBUTOR = (
     "MATCH (e:Expert)-[:CONTRIBUTED]->(s:Step)<-[:HAS_STEP]-(:Process {process_id: $process_id}) "
     "RETURN coalesce(e.display_name, e.expert_id) AS name, count(DISTINCT s) AS steps "
     "ORDER BY steps DESC, name LIMIT 1"
 )
-
-
-class CypherRunner(Protocol):
-    def run(self, query: str, **params: Any) -> list[dict[str, Any]]: ...
 
 
 class GraphExperts:

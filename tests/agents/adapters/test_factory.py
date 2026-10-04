@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from mentormind.agents import factory
-from mentormind.agents.experts import TOP_CONTRIBUTOR, GraphExperts
+from mentormind.agents.adapters import factory
+from mentormind.agents.adapters.experts import TOP_CONTRIBUTOR, GraphExperts
 from mentormind.core.config import Settings
 from mentormind.knowledge_base.kg import client
 from mentormind.knowledge_base.retrieval.hybrid import HybridRetriever

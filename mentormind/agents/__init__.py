@@ -1,7 +1,8 @@
 """Work Assistant and RCA Agent (spec 06).
 
-``work_assistant/`` and ``rca/`` (one agent each, with its own ``prompts/``); shared by both:
-``ports`` (what they need from spec 05/07), ``trace`` (FR-04), ``prompting``, ``experts``;
-``factory`` wires the real components, ``cli/`` the ``knowhow agent`` commands, ``api`` (with
-``supervisor.ask`` and ``rca.investigate``) the REST routers of spec 08.
+``base/`` (``Agent``: the template method every agent runs through — LLM call + trace; tracing,
+prompts, data labels), ``ports`` (what the agents need from spec 05/07, as Protocols), one package
+per agent (``work_assistant/``, ``rca/``, each with its ``prompts/``), ``adapters/`` (factory
+wiring the real components, ``GraphExperts``, the REST adapter), ``cli/`` (``knowhow agent``).
+``supervisor.ask`` and ``rca.investigate`` are the entry points the spec 08 routers import.
 """

@@ -14,8 +14,8 @@ __all__ = ["DISCLAIMER", "RCA_SCHEMA", "RcaAgent", "investigate"]
 
 
 def investigate(request: RcaRequest) -> RcaReport:
-    """Entry point of ``POST /rca/investigate`` (spec 08), see ``mentormind.agents.api``."""
-    # Imported here: ``agents.api`` builds on ``agents.factory``, which imports this package.
-    from mentormind.agents.api import investigate as run
+    """Entry point of ``POST /rca/investigate`` (spec 08), see ``mentormind.agents.adapters.rest``."""
+    # Imported here: ``adapters.rest`` builds on ``adapters.factory``, which imports this package.
+    from mentormind.agents.adapters.rest import investigate as run
 
     return run(request)

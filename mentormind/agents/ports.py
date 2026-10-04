@@ -1,15 +1,13 @@
 """What the agents need from spec 05 (retrieval, graph) and spec 07 (Sigma), as Protocols.
 
-The agents only depend on these shapes; the real ``HybridRetriever`` (spec 05) and
-``CsvSigmaAdapter`` (spec 07) satisfy them structurally, and tests hand in fakes.
+The agents only depend on these shapes; the real ``HybridRetriever`` and ``Neo4jGraph`` (spec 05)
+and ``CsvSigmaAdapter`` (spec 07) satisfy them structurally, and tests hand in fakes.
 """
 
 from __future__ import annotations
 
 from typing import Any, Protocol
 
-from mentormind.core.providers.llm import strictest
-from mentormind.core.schemas import DataClassification
 from mentormind.knowledge_base.retrieval.hybrid import RetrievedContext, Template
 from mentormind.knowledge_base.sigma.adapter import DefectRecord, LotRecord
 
@@ -35,6 +33,12 @@ class GraphTemplates(Protocol):
         ...
 
 
+class CypherRunner(Protocol):
+    """spec 05 ``Neo4jGraph.run``: one parameterised Cypher query."""
+
+    def run(self, query: str, **params: Any) -> list[dict[str, Any]]: ...
+
+
 class ExpertDirectory(Protocol):
     def top_contributor(self, process_id: str) -> str | None:
         """``display_name`` of the expert with the most ``CONTRIBUTED`` steps in the process."""
@@ -49,19 +53,3 @@ class SigmaSource(Protocol):
         ...
 
     def get_defects(self, lot_id: str) -> list[DefectRecord]: ...
-
-
-def passage_label(context: RetrievedContext, index: int) -> DataClassification:
-    """Label of ``context.passages[index]``; a missing label is factory data (fail closed)."""
-    if index < len(context.classifications):
-        return context.classifications[index]
-    return DataClassification.FACTORY_CONFIDENTIAL
-
-
-def row_label(row: dict[str, Any]) -> DataClassification:
-    """Strictest label of a graph row; a missing label is factory data (fail closed)."""
-    value = row.get("data_classification")
-    labels = value if isinstance(value, list) else [value]
-    return strictest(
-        DataClassification(label) if label else DataClassification.FACTORY_CONFIDENTIAL for label in labels or [None]
-    )

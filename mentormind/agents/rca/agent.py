@@ -14,32 +14,22 @@
 
 from __future__ import annotations
 
-import time
 from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
 
-from mentormind.agents.ports import (
-    GraphTemplates,
-    Retriever,
-    SigmaSource,
-    passage_label,
-    row_label,
-)
-from mentormind.agents.prompting import render_prompt
+from mentormind.agents.base import Agent, AgentRun, PromptBook, TraceLog, row_label
+from mentormind.agents.ports import GraphTemplates, Retriever, SigmaSource
 from mentormind.agents.rca.report import DISCLAIMER, RCA_SCHEMA, LlmReport, five_why, hypotheses
-from mentormind.agents.trace import TraceLog
 from mentormind.core.providers.errors import InvalidJSONError
 from mentormind.core.providers.llm import LLMProvider, strictest
-from mentormind.core.providers.llm.context import ContextPassage, filter_passages
 from mentormind.core.providers.parsing import parse_json_object
 from mentormind.core.schemas import Citation, DataClassification
 from mentormind.core.schemas.agents import RcaReport, RcaRequest
 from mentormind.knowledge_base.retrieval.hybrid import RetrievedContext, Template
 from mentormind.knowledge_base.sigma.adapter import DefectRecord, LotRecord
 
-PROMPTS = Path(__file__).resolve().parent / "prompts"
 TEMPLATES: tuple[Template, ...] = (
     "root_causes_of_symptom",
     "where_symptom_occurred",
@@ -47,7 +37,10 @@ TEMPLATES: tuple[Template, ...] = (
 )
 
 
-class RcaAgent:
+class RcaAgent(Agent[RcaRequest, RcaReport]):
+    kind = "rca"
+    prompts = PromptBook(Path(__file__).resolve().parent / "prompts")
+
     def __init__(
         self,
         llm: LLMProvider,
@@ -58,17 +51,18 @@ class RcaAgent:
         sigma_classification: DataClassification = DataClassification.FACTORY_CONFIDENTIAL,
         trace: TraceLog | None = None,
     ) -> None:
-        self.llm = llm
+        super().__init__(llm, trace=trace)
         self.graph = graph
         self.retriever = retriever
         self.sigma = sigma
         #: Label of Sigma and graph facts; real Sigma data is factory data (fail closed).
         self.sigma_classification = sigma_classification
-        self.trace = trace or TraceLog(None)
 
     def investigate(self, request: RcaRequest) -> RcaReport:
         """Hypotheses + 5-Why for a lot or a symptom (spec 06 FR-02). Raises ``LotNotFound``."""
-        started = time.perf_counter()
+        return self.run(request)
+
+    def _run(self, request: RcaRequest, call: AgentRun) -> RcaReport:
         lot, defects, symptom, process_id, symptom_ids = self._symptoms(request)
         rows: dict[str, list[dict[str, Any]]] = {
             name: [row for sid in symptom_ids for row in self.graph.run_template(name, symptom_id=sid)]
@@ -77,17 +71,16 @@ class RcaAgent:
         query = f"Lỗi {symptom} ở công đoạn {process_id or ''}: bước thao tác, ngoại lệ, phòng ngừa"
         context = self.retriever.retrieve(query, process_id)
         evidence, causes, labels = self._evidence(defects, lot, rows, context)
-        prompt = render_prompt(
-            PROMPTS,
+        call.context_ids = [c.ref_id for c in evidence]
+        prompt = self.prompts.render(
             "rca.md",
             symptom=symptom,
             process_id=process_id or "(chưa rõ)",
             lot_line=_lot_line(lot),
             evidence="\n".join(f"[{i}] ({c.ref_id}) {c.snippet}" for i, c in enumerate(evidence, 1)),
         )
-        prompts: list[str] = []
-        parsed = self._ask(prompt, strictest(labels), prompts)
-        report = RcaReport(
+        parsed = self._ask(prompt, strictest(labels), call)
+        return RcaReport(
             lot_id=lot.lot_id if lot else None,
             symptom=symptom,
             hypotheses=hypotheses(parsed, evidence, causes),
@@ -99,16 +92,6 @@ class RcaAgent:
             prevention_steps=list(dict.fromkeys(r["ref_id"] for r in rows["prevention_steps"] if r.get("ref_id"))),
             disclaimer=DISCLAIMER,
         )
-        self.trace.write(
-            kind="rca",
-            request=request,
-            context_ids=[c.ref_id for c in evidence],
-            prompts=prompts,
-            response=report,
-            latency_s=time.perf_counter() - started,
-            llm=self.llm.name,
-        )
-        return report
 
     def _symptoms(self, request: RcaRequest) -> tuple[LotRecord | None, list[DefectRecord], str, str | None, list[str]]:
         if request.lot_id:
@@ -146,20 +129,15 @@ class RcaAgent:
                 labels.append(row_label(row))
                 if name == "root_causes_of_symptom":
                     causes.append(citation)
-        passages = [
-            ContextPassage(ref_id=c.ref_id, text=text, classification=passage_label(context, i))
-            for i, (text, c) in enumerate(zip(context.passages, context.citations, strict=True))
-        ]
-        for passage in filter_passages(passages, self.llm):
+        for passage, _ in self.allowed_passages(context):
             evidence.append(Citation(source_type="work_profile", ref_id=passage.ref_id, snippet=passage.text))
             labels.append(passage.classification)
         return evidence, causes, labels or [self.sigma_classification]
 
-    def _ask(self, prompt: str, label: DataClassification, prompts: list[str]) -> LlmReport | None:
+    def _ask(self, prompt: str, label: DataClassification, call: AgentRun) -> LlmReport | None:
         for attempt in range(2):
             text_prompt = prompt if attempt == 0 else prompt + "\n\nLƯU Ý: chỉ trả về JSON hợp lệ."
-            prompts.append(text_prompt)
-            response = self.llm.generate(text_prompt, classification=label, json_schema=RCA_SCHEMA, temperature=0.2)
+            response = self.generate(call, text_prompt, classification=label, json_schema=RCA_SCHEMA, temperature=0.2)
             try:
                 return LlmReport.model_validate(parse_json_object(response.text))
             except (InvalidJSONError, ValidationError):

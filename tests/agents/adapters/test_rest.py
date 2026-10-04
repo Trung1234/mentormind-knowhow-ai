@@ -8,8 +8,8 @@ from typing import Any
 import pytest
 from fastapi import HTTPException
 
-from mentormind.agents import api
-from mentormind.agents.factory import AgentWiringError
+from mentormind.agents.adapters import rest
+from mentormind.agents.adapters.factory import AgentWiringError
 from mentormind.agents.rca import RcaAgent
 from mentormind.agents.work_assistant import WorkAssistant
 from mentormind.backend.app.routers import assistant as assistant_router
@@ -24,9 +24,9 @@ SYNTHETIC = DataClassification.SYNTHETIC
 
 
 def live(monkeypatch: pytest.MonkeyPatch, **agents: Any) -> None:
-    monkeypatch.setattr(api, "get_settings", lambda: Settings(api_agents="live"))
+    monkeypatch.setattr(rest, "get_settings", lambda: Settings(api_agents="live"))
     for name, agent in agents.items():
-        monkeypatch.setattr(api, name, lambda agent=agent: agent)
+        monkeypatch.setattr(rest, name, lambda agent=agent: agent)
 
 
 def rca_agent(llm: FakeLLM) -> RcaAgent:
@@ -41,7 +41,7 @@ def rca_agent(llm: FakeLLM) -> RcaAgent:
 
 def test_by_default_the_routers_keep_their_demo_answers(monkeypatch: pytest.MonkeyPatch) -> None:
     assert Settings.model_fields["api_agents"].default == "mock"
-    monkeypatch.setattr(api, "get_settings", lambda: Settings(api_agents="mock"))
+    monkeypatch.setattr(rest, "get_settings", lambda: Settings(api_agents="mock"))
     report = rca_router.investigate(RcaRequest(lot_id="LOT-2026-001"))
     assert len(report.five_whys) == 5  # the router's demo report
     answer = assistant_router.ask_assistant(AskRequest(process_id="PACK01", question="Cách xếp?"))
@@ -100,8 +100,8 @@ def test_live_with_a_missing_component_is_503(monkeypatch: pytest.MonkeyPatch) -
     def missing() -> WorkAssistant:
         raise AgentWiringError("Thiếu thư viện của spec 05 (neo4j).")
 
-    monkeypatch.setattr(api, "get_settings", lambda: Settings(api_agents="live"))
-    monkeypatch.setattr(api, "_assistant", missing)
+    monkeypatch.setattr(rest, "get_settings", lambda: Settings(api_agents="live"))
+    monkeypatch.setattr(rest, "_assistant", missing)
     with pytest.raises(HTTPException) as exc:
         assistant_router.ask_assistant(AskRequest(process_id="PACK01", question="Vì sao?"))
     assert exc.value.status_code == 503

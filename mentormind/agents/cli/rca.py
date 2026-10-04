@@ -14,7 +14,7 @@ def rca_cmd(
 ) -> None:
     from pydantic import ValidationError
 
-    from mentormind.agents.factory import AgentWiringError, build_rca_agent
+    from mentormind.agents.adapters.factory import AgentWiringError, build_rca_agent
     from mentormind.core.config import get_settings
     from mentormind.core.guard import ConfidentialDataError
     from mentormind.core.providers.errors import ProviderError

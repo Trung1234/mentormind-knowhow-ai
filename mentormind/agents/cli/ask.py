@@ -11,7 +11,7 @@ def ask_cmd(
     question: Annotated[str, typer.Argument(help="Câu hỏi.")],
     process: Annotated[str | None, typer.Option("--process", help="Mã công đoạn.")] = None,
 ) -> None:
-    from mentormind.agents.factory import AgentWiringError, build_work_assistant
+    from mentormind.agents.adapters.factory import AgentWiringError, build_work_assistant
     from mentormind.core.config import get_settings
     from mentormind.core.guard import ConfidentialDataError
     from mentormind.core.providers.errors import ProviderError

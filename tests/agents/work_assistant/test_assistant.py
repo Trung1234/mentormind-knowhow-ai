@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from mentormind.agents.trace import TraceLog
+from mentormind.agents.base import TraceLog
 from mentormind.agents.work_assistant import REFUSAL, WorkAssistant
 from mentormind.core.guard import GuardPolicy
 from mentormind.core.providers.llm.backends.fake import FakeLLM

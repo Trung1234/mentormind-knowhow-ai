@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from mentormind.agents import factory
+from mentormind.agents.adapters import factory
 from mentormind.agents.rca import RcaAgent
 from mentormind.agents.work_assistant import WorkAssistant
 from mentormind.core.cli import app

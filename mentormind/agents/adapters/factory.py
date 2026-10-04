@@ -9,9 +9,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, TypeVar
 
-from mentormind.agents.experts import GraphExperts
+from mentormind.agents.adapters.experts import GraphExperts
+from mentormind.agents.base import TraceLog
 from mentormind.agents.rca import RcaAgent
-from mentormind.agents.trace import TraceLog
 from mentormind.agents.work_assistant import WorkAssistant
 from mentormind.core.config import Settings
 from mentormind.core.providers.llm import get_llm_provider
