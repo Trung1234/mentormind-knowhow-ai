@@ -64,3 +64,9 @@ data/work/
 # Ag-kit
 .agents/
 
+# Presentation & slides
+ppt/
+*.pptx
+*.ppt
+
+
