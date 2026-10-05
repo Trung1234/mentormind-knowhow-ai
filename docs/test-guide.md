@@ -65,16 +65,39 @@ Fixture `settings` trong `tests/core/providers/conftest.py` tắt `.env`. Các t
 ### 4.2 Integration (Neo4j + Postgres)
 
 ```bash
-make up    # spec 01 AC-02: Neo4j và Postgres healthy trong ≤ 120 s
-KNOWHOW_TEST_NEO4J_URI=bolt://localhost:7687 KNOWHOW_TEST_NEO4J_PASSWORD=change-me \
-  uv run pytest -m integration -rs
+uv sync --all-extras    # bắt buộc: thiếu extra thì lỗi thu thập test làm dừng CẢ lượt chạy, kể cả với -m integration
+make up                 # spec 01 AC-02: Neo4j và Postgres healthy trong ≤ 120 s
+# Chỉ cần hai DB cho tầng này (nhanh hơn, không build mentormind/vlm-server):
+#   docker compose --profile lite up -d postgres neo4j
+
+export KNOWHOW_TEST_NEO4J_URI=bolt://localhost:7687
+export KNOWHOW_TEST_NEO4J_PASSWORD=change-me
+export KNOWHOW_PG_DSN=postgresql://knowhow:change-me@localhost:5432/knowhow
+uv run pytest -m integration -rs
 make down
 ```
 
+Mốc ngày 05/10 trên `main` @ `ad3a443`: **19 pass, 0 skip, 515 deselected**. Nếu thấy 17 skip
+"PostgreSQL không chạy" thì test pgvector chưa kết nối được (xem dưới).
+
+- Dùng `export`, hoặc đặt biến **trên cùng dòng** với `uv run pytest`. Gán biến trên một dòng riêng mà không
+  `export` thì pytest không thấy. Gõ sai tên (`NOWHOW_…`) cũng vậy: test Neo4j sẽ skip.
+- Test pgvector chỉ đọc `KNOWHOW_PG_DSN` từ **shell** (`Settings(_env_file=None)`), không đọc `.env`. Mặc định
+  là `localhost:5432`.
+- Test pgvector **tự skip với mọi lỗi kết nối**, kể cả khi cổng 5432 có một Postgres khác (lỗi
+  `role "knowhow" does not exist`). Skip không phải pass: luôn chạy với `-rs` và dán phần tóm tắt skip vào PR.
+- Máy đã có Postgres ở 5432 (ví dụ Homebrew `postgresql@16`; kiểm bằng `lsof -nP -iTCP:5432 -sTCP:LISTEN`): đổi
+  cổng của container, đừng tắt Postgres kia.
+
+  ```bash
+  KNOWHOW_PG_PORT=5433 docker compose --profile lite up -d postgres neo4j
+  export KNOWHOW_PG_DSN=postgresql://knowhow:change-me@localhost:5433/knowhow
+  ```
+
+  Nếu dùng `.env`, đặt luôn `KNOWHOW_PG_PORT=5433` và `KNOWHOW_PG_DSN=…:5433/knowhow` trong đó. Compose và
+  CLI (`ingest`, `agent ask`) đọc `.env`, chỉ test pgvector là không đọc.
 - Test Neo4j gắn dữ liệu với một token ngẫu nhiên (`IT…`). Dù vậy, vẫn nên dùng một instance Neo4j riêng
   cho test, không dùng chung với DB demo.
-- Sau khi merge nhánh ingest, test pgvector **tự skip** nếu Postgres không chạy. Skip không phải pass:
-  luôn chạy với `-rs` và dán phần tóm tắt skip vào PR.
 
 ### 4.3 API và UI
 
@@ -215,7 +238,7 @@ KNOWHOW_API_AGENTS=mock KNOWHOW_EVAL_JUDGE=ragas make check
 | `Lỗi: … Connection refused` | Ollama chưa chạy, hoặc sai `KNOWHOW_VLM_BASE_URL` | `ollama serve`; kiểm `curl http://127.0.0.1:11434/api/version` |
 | Mỗi lần gọi mất hơn một phút | Qwen3-VL Q4 "nghĩ" trước khi trả lời (8 khung ≈ 111 s) | Bình thường. Đặt `KNOWHOW_VLM_TIMEOUT_S` đủ lớn (`.env.example`: 1800) |
 | `ollama ps` không hiện `100% GPU` | Context quá lớn so với RAM, model tràn sang CPU | Giảm `num_ctx` hoặc số khung |
-| `Lỗi: Không kết nối được PostgreSQL … role "knowhow" does not exist` | Cổng 5432 đang do một Postgres khác giữ, hoặc chưa `make up` | Dừng Postgres kia hoặc đổi `KNOWHOW_PG_PORT`; chạy `make up` |
+| `Lỗi: Không kết nối được PostgreSQL … role "knowhow" does not exist` | Cổng 5432 đang do một Postgres khác giữ (ví dụ Homebrew `postgresql@16`) | Đổi cổng container: `KNOWHOW_PG_PORT=5433` và `KNOWHOW_PG_DSN=…:5433/knowhow` (§4.2) |
 | API trả 503 `Agent chưa sẵn sàng: …` | `KNOWHOW_API_AGENTS=live` nhưng Neo4j, vector store hoặc LLM chưa lên | `make up`, `knowhow kg init`, `knowhow ingest index`, bật Ollama |
 | `ModuleNotFoundError: langchain_core`, nhiều fail trong `tests/evaluation/ragas/` | venv chưa cài extra `eval` | `uv sync --all-extras` (§4.1) |
 
@@ -435,5 +458,7 @@ Bằng chứng: log, ảnh chụp, file trong data/work/… (đã che key; khôn
   source sang Qwen, ảnh hưởng của cấu hình lên test, lỗi thường gặp; thêm §7.6 (QWEN-01…08); cập nhật lỗi S2 ở §11.
   Đã chạy thật: `vlm ping` (PASS, 111 s), lỗi context 4096, lỗi kết nối, `pytest` với các biến Qwen/live. Chưa chạy:
   đường A (submodule trống), `describe`/`agent ask`/API ở chế độ `live`. §6 và §8 vẫn ở mốc 04/10.
+  §4.2: thêm `uv sync --all-extras`, dùng `export`, `KNOWHOW_PG_DSN` chỉ đọc từ shell, cách tránh xung đột cổng 5432;
+  mốc integration 19 pass, 0 skip.
 - v1.0 (04/10/2026): bản đầu, dựa trên `main` @ `da08a2e` và hai nhánh `phuc-nguyen/agents-eval-on-main`,
   `viethoang/ingext-index-trungntresolve`.
