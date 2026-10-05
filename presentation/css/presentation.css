@@ -1486,13 +1486,20 @@ kbd {
 }
 
 /* ==========================================================================
-   PRINT / PDF STYLES
+   PRINT / PDF EXPORT STYLES
    ========================================================================== */
+@page {
+  size: 16in 9in landscape;
+  margin: 0;
+}
+
 @media print {
   html, body {
     overflow: visible !important;
     height: auto !important;
-    background: #0d121f !important;
+    background: #07090e !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
   .ambient-bg, .top-bar, .bottom-bar, .notes-drawer, .modal-overlay {
     display: none !important;
@@ -1508,6 +1515,7 @@ kbd {
     height: auto !important;
     max-width: 100% !important;
     margin: 0 !important;
+    perspective: none !important;
   }
   .slide-canvas {
     display: block !important;
@@ -1517,17 +1525,27 @@ kbd {
     box-shadow: none !important;
     border-radius: 0 !important;
     background: transparent !important;
+    overflow: visible !important;
+    aspect-ratio: auto !important;
   }
   .slide {
     position: relative !important;
-    page-break-after: always !important;
-    break-after: page !important;
+    display: flex !important;
     opacity: 1 !important;
+    visibility: visible !important;
     transform: none !important;
+    pointer-events: auto !important;
+    page-break-after: always !important;
+    page-break-inside: avoid !important;
+    break-after: page !important;
+    break-inside: avoid !important;
     height: 100vh !important;
     min-height: 100vh !important;
-    padding: 40px !important;
-    display: flex !important;
+    max-height: 100vh !important;
+    padding: 48px 64px !important;
+    background: #0d121f !important;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.05) !important;
+    box-sizing: border-box !important;
   }
 }
 
