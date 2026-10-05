@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -38,7 +38,7 @@
 
       <div class="top-center">
         <!-- Rehearse Pitch Timer -->
-        <div class="pitch-timer" id="pitchTimer" title="Bấm để Bật / Tạm dừng đồng hồ tập dượt (5 phút)">
+        <div class="pitch-timer" id="pitchTimer" title="Click to Start / Pause rehearsal timer (5:00)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"></circle>
             <polyline points="12 6 12 12 16 14"></polyline>
@@ -53,7 +53,16 @@
       </div>
 
       <div class="top-controls">
-        <button class="btn-icon" id="btnOverview" title="Xem tổng quan tất cả slide (Phím O hoặc M)" aria-label="Overview">
+        <!-- GitHub Branch Link Chip -->
+        <a href="https://github.com/Trung1234/mentormind-knowhow-ai/tree/vinh/feat-api-ui" target="_blank" rel="noopener noreferrer" class="btn-lang" title="Open GitHub Branch (vinh/feat-api-ui)" style="text-decoration: none;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          vinh/feat-api-ui
+        </a>
+
+        <!-- Slide Overview Toggle -->
+        <button class="btn-icon" id="btnOverview" title="Slide Overview Grid (Key O or M)" aria-label="Overview">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="7" height="7"></rect>
             <rect x="14" y="3" width="7" height="7"></rect>
@@ -62,7 +71,8 @@
           </svg>
         </button>
 
-        <button class="btn-icon" id="btnNotes" title="Ghi chú người thuyết trình (Phím N)" aria-label="Presenter Notes">
+        <!-- Presenter Notes Toggle -->
+        <button class="btn-icon" id="btnNotes" title="Presenter Notes (Key N)" aria-label="Presenter Notes">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
             <polyline points="14 2 14 8 20 8"></polyline>
@@ -72,7 +82,8 @@
           </svg>
         </button>
 
-        <button class="btn-icon" id="btnHelp" title="Phím tắt trợ giúp (Phím ? hoặc K)" aria-label="Help">
+        <!-- Shortcuts Help Modal -->
+        <button class="btn-icon" id="btnHelp" title="Keyboard Shortcuts (Key ? or K)" aria-label="Help">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"></circle>
             <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
@@ -80,7 +91,8 @@
           </svg>
         </button>
 
-        <button class="btn-icon" id="btnFullscreen" title="Toàn màn hình (Phím F)" aria-label="Fullscreen">
+        <!-- Fullscreen Mode Toggle -->
+        <button class="btn-icon" id="btnFullscreen" title="Toggle Fullscreen (Key F)" aria-label="Fullscreen">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
           </svg>
@@ -108,51 +120,51 @@
             </h1>
             
             <p class="hero-desc">
-              Số hóa bí quyết chuyên gia trong nhà máy sản xuất — capture tri thức trực tiếp từ thao tác và lời bình luận mà không cần viết tài liệu thủ công.
+              Digitizing expert craftsman know-how on the factory floor — capturing tacit knowledge directly from operational workflow and verbal reasoning without manual documentation.
             </p>
 
             <div class="hero-agenda-bar">
-              <span class="agenda-step">01. Bối cảnh</span>
+              <span class="agenda-step">01. Context</span>
               <span class="agenda-arrow">→</span>
-              <span class="agenda-step">02. Đề bài</span>
+              <span class="agenda-step">02. Problem Statement</span>
               <span class="agenda-arrow">→</span>
-              <span class="agenda-step">03. Case tham khảo</span>
+              <span class="agenda-step">03. Case Study</span>
               <span class="agenda-arrow">→</span>
-              <span class="agenda-step">04. Bài học</span>
+              <span class="agenda-step">04. Paradigm Shift</span>
               <span class="agenda-arrow">→</span>
-              <span class="agenda-step">05. Giải pháp</span>
+              <span class="agenda-step">05. Solution</span>
               <span class="agenda-arrow">→</span>
-              <span class="agenda-step">06. Kiến trúc</span>
+              <span class="agenda-step">06. Architecture</span>
               <span class="agenda-arrow">→</span>
-              <span class="agenda-step">07. Lộ trình</span>
+              <span class="agenda-step">07. Roadmap</span>
             </div>
 
             <div class="hero-meta-footer">
               <div class="hero-meta-item">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                <span>Đội thi: <strong>MentorMind Team</strong></span>
+                <span>Team: <strong>MentorMind Team</strong></span>
               </div>
               <div class="hero-meta-item">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                <span>Tháng 10 / 2026</span>
+                <span>October 2026</span>
               </div>
               <div class="hero-meta-item">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
-                <span>Thời lượng pitch: 5:00</span>
+                <span>Target: Kitting & Packing Process</span>
               </div>
             </div>
           </div>
         </section>
 
         <!-- ================================================================
-             SLIDE 2: BỐI CẢNH (CONTEXT)
+             SLIDE 2: CONTEXT
              ================================================================ -->
         <section class="slide" id="slide-2">
           <div class="slide-header">
-            <span class="slide-category">Phần 01 · Thực trạng nhà máy</span>
-            <h2 class="slide-title">Tri thức chuyên gia đang âm thầm rời khỏi nhà máy</h2>
+            <span class="slide-category">Section 01 · Factory Reality</span>
+            <h2 class="slide-title">Expert Knowledge Is Silently Leaving the Factory Floor</h2>
             <p class="slide-subtitle">
-              Sự thiếu hụt thế hệ kế cận và khoảng cách lớn giữa tài liệu lý thuyết với thao tác thực tế tại dây chuyền.
+              The looming retirement wave and the deep divide between static documentation and real-world high-precision assembly.
             </p>
           </div>
 
@@ -164,8 +176,8 @@
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                   </div>
                   <div class="pain-text">
-                    <h4>Thợ lành nghề nghỉ hưu</h4>
-                    <p>Thợ bậc cao nghỉ hưu mang theo toàn bộ bí quyết ngầm (tacit know-how) tích lũy hàng chục năm mà chưa từng được viết ra thành văn bản.</p>
+                    <h4>Master Artisans Retiring</h4>
+                    <p>Veteran technicians retire, taking with them decades of unwritten, tacit know-how accumulated through hands-on craftsmanship.</p>
                   </div>
                 </div>
 
@@ -174,8 +186,8 @@
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                   </div>
                   <div class="pain-text">
-                    <h4>SOP không theo kịp thực tế</h4>
-                    <p>Tài liệu SOP viết tay quá cồng kềnh, chậm cập nhật và không thể mô tả được vi thao tác tay, góc đặt hay nhịp điệu xử lý sự cố.</p>
+                    <h4>SOPs Cannot Keep Up</h4>
+                    <p>Bulky manual SOPs are slow to update and fail to capture micro-gestures, subtle hand orientations, and live troubleshooting instincts.</p>
                   </div>
                 </div>
 
@@ -184,8 +196,8 @@
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
                   </div>
                   <div class="pain-text">
-                    <h4>Cơ hội từ Multimodal VLM + RAG</h4>
-                    <p>Mô hình đa phương thức kết hợp GraphRAG mở ra cơ hội học lại và số hóa tri thức đó — nếu được thu thập đúng cách và đúng thời điểm.</p>
+                    <h4>Multimodal VLM + RAG Opportunity</h4>
+                    <p>Vision-Language Models and GraphRAG present a historic opportunity to learn and replicate this knowledge — if captured ethically and timely.</p>
                   </div>
                 </div>
               </div>
@@ -193,16 +205,16 @@
               <div class="focus-card-auto">
                 <div>
                   <div class="focus-header">
-                    <span class="focus-badge">Đặc thù DENSO</span>
-                    <span style="font-size: 13px; color: var(--text-muted);">Sản xuất linh kiện ô tô</span>
+                    <span class="focus-badge">DENSO CONTEXT</span>
+                    <span style="font-size: 13px; color: var(--text-muted);">Automotive Precision Manufacturing</span>
                   </div>
                   <div class="focus-body">
-                    <h3>Độ chính xác cao & tính phụ thuộc tay nghề</h3>
+                    <h3>High Precision & Craftsmanship Dependence</h3>
                     <p>
-                      Linh kiện ô tô Denso có độ chính xác khắt khe. Quy trình lắp ráp kitting & packing phụ thuộc sâu sắc vào cảm nhận của thợ bậc cao:
+                      Denso automotive components require ultra-tight tolerances. Kitting and packing processes heavily depend on technician tactile feedback:
                     </p>
                     <p style="margin-top: 10px; font-weight: 500; color: #fff;">
-                      "Một thao tác nhỏ sai lệch (ví dụ góc đặt linh kiện, lực ấn) có thể dẫn tới lỗi dây chuyền làm hỏng cả lô hàng."
+                      "A slight deviation in placement angle or insertion pressure can trigger cascading defects across an entire production lot."
                     </p>
                   </div>
                 </div>
@@ -210,11 +222,11 @@
                 <div class="stat-box-row">
                   <div class="stat-box">
                     <div class="stat-val">80%</div>
-                    <div class="stat-lbl">Bí quyết chưa văn bản hóa</div>
+                    <div class="stat-lbl">Tacit unwritten knowledge</div>
                   </div>
                   <div class="stat-box">
-                    <div class="stat-val">&le; 5 Phút</div>
-                    <div class="stat-lbl">Thời gian bắt lỗi tại trạm</div>
+                    <div class="stat-val">&le; 5 Mins</div>
+                    <div class="stat-lbl">Defect containment window</div>
                   </div>
                 </div>
               </div>
@@ -223,14 +235,14 @@
         </section>
 
         <!-- ================================================================
-             SLIDE 3: ĐỀ BÀI (MISSION & DELIVERABLES)
+             SLIDE 3: PROBLEM STATEMENT & DELIVERABLES
              ================================================================ -->
         <section class="slide" id="slide-3">
           <div class="slide-header">
-            <span class="slide-category">Phần 02 · Đề bài & Cam kết</span>
+            <span class="slide-category">Section 02 · Challenge & Deliverables</span>
             <h2 class="slide-title">Accumulate Master Know-How for AI to Learn</h2>
             <p class="slide-subtitle">
-              Xây dựng hệ thống thu thập workflow và cách suy luận của chuyên gia vào một knowledge base, kết hợp LLM để tái sử dụng tri thức cho các tác vụ tương tự — không cần viết tài liệu thủ công.
+              Build an end-to-end system that captures expert workflows and reasoning into a knowledge base, powered by LLMs to reuse tacit knowledge for similar tasks — zero manual documentation required.
             </p>
           </div>
 
@@ -241,7 +253,7 @@
                 <span class="deliverable-num">DELIVERABLE 01</span>
                 <h3 class="deliverable-title">Standardized Capture Template</h3>
                 <p class="deliverable-desc">
-                  Schema chuẩn hóa WorkProfile (JSON/JSONL) ghi nhận từng step, key_point, reason (lý do "vì sao"), ngoại lệ và tiêu chí đạt.
+                  Standardized WorkProfile schema (JSON/JSONL) capturing granular steps, key points, underlying reasons ("why"), exceptions, and pass criteria.
                 </p>
                 <div class="deliverable-tags">
                   <span class="d-tag">Schema.json</span>
@@ -253,9 +265,9 @@
               <!-- Deliverable 2 -->
               <div class="deliverable-card">
                 <span class="deliverable-num">DELIVERABLE 02</span>
-                <h3 class="deliverable-title">Knowledge Base Hybrid</h3>
+                <h3 class="deliverable-title">Hybrid Knowledge Base</h3>
                 <p class="deliverable-desc">
-                  Kết hợp Knowledge Graph (Neo4j quan hệ máy - lỗi - nguyên nhân) và Vector Store (pgvector dense + lexical RRF).
+                  Unified graph and vector storage combining Neo4j (equipment-symptom-rootcause-procedure graph) and PostgreSQL pgvector (dense HNSW + lexical RRF).
                 </p>
                 <div class="deliverable-tags">
                   <span class="d-tag">Neo4j</span>
@@ -269,7 +281,7 @@
                 <span class="deliverable-num">DELIVERABLE 03</span>
                 <h3 class="deliverable-title">Dual LLM Assistants</h3>
                 <p class="deliverable-desc">
-                  Trợ lý hỏi đáp công đoạn cho thợ mới (kèm trích dẫn nguồn) và RCA Agent hỗ trợ 5-Why truy nguyên nhân lỗi lô hàng Sigma.
+                  Station-side Work Assistant for apprentice guidance with strict source citations, and RCA Agent for 5-Why root cause investigation linked to Sigma MES.
                 </p>
                 <div class="deliverable-tags">
                   <span class="d-tag">Work Assistant</span>
@@ -283,7 +295,7 @@
                 <span class="deliverable-num">DELIVERABLE 04</span>
                 <h3 class="deliverable-title">Usefulness Evaluation</h3>
                 <p class="deliverable-desc">
-                  Báo cáo đánh giá định lượng bằng Ragas framework (Faithfulness &ge; 0.85) và bài test A/B thực tế trên thợ mới.
+                  Quantitative benchmark report powered by Ragas (Faithfulness &ge; 0.85, Relevancy &ge; 0.80) and real-world A/B testing on novice technicians.
                 </p>
                 <div class="deliverable-tags">
                   <span class="d-tag">Ragas</span>
@@ -302,7 +314,7 @@
               <div class="tech-chips">
                 <span class="tech-chip">Multimodal VLM (Qwen3-VL 8B)</span>
                 <span class="tech-chip">Knowledge Graph (Neo4j)</span>
-                <span class="tech-chip">Postgres + pgvector</span>
+                <span class="tech-chip">PostgreSQL + pgvector</span>
                 <span class="tech-chip">MediaPipe Hands Pose</span>
                 <span class="tech-chip">Docling OCR</span>
                 <span class="tech-chip">FastAPI & Python 3.11</span>
@@ -312,63 +324,63 @@
         </section>
 
         <!-- ================================================================
-             SLIDE 4: CASE THAM KHẢO (CASE STUDY & ETHICS)
+             SLIDE 4: CASE STUDY & ETHICS
              ================================================================ -->
         <section class="slide" id="slide-4">
           <div class="slide-header">
-            <span class="slide-category">Phần 03 · Case Study Quốc Tế</span>
-            <h2 class="slide-title">Khi capture tri thức đi theo hướng khai thác</h2>
+            <span class="slide-category">Section 03 · International Case Study</span>
+            <h2 class="slide-title">When Knowledge Capture Takes an Exploitative Turn</h2>
             <p class="slide-subtitle">
-              Bài học từ phóng sự điều tra: <em>"Factory Workers Are Training AI to Replace Them… Here's the Truth"</em> (Nguồn: youtu.be/5BoTtw8s33g).
+              Cautionary lessons from investigative reporting: <em>"Factory Workers Are Training AI to Replace Them… Here's the Truth"</em> (Source: youtu.be/5BoTtw8s33g).
             </p>
           </div>
 
           <div class="slide-body">
             <div class="case-layout">
-              <!-- Cột 1: Cách làm -->
+              <!-- Col 1: Method -->
               <div class="case-card">
                 <div class="case-card-header">
-                  <span class="case-badge method">PHƯƠNG THỨC THU THẬP</span>
-                  <h3 style="font-size: 18px; color: #fff;">Lao động bị thu thập bị động</h3>
+                  <span class="case-badge method">COLLECTION METHOD</span>
+                  <h3 style="font-size: 18px; color: #fff;">Passive & Covert Extraction</h3>
                 </div>
                 <ul class="case-list">
                   <li class="case-list-item">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                    <span>Công nhân may/sản xuất tại Ấn Độ phải đeo camera gắn đầu (head-mounted camera) suốt toàn bộ ca làm việc.</span>
+                    <span>Garment and manufacturing workers in India equipped with head-mounted cameras throughout entire shifts.</span>
                   </li>
                   <li class="case-list-item">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                    <span>Ghi lại toàn bộ thao tác tay, kỹ năng vận động tinh — dữ liệu "egocentric" góc nhìn thứ nhất mà phòng lab không thể tái tạo.</span>
+                    <span>Capturing fine-motor gestures and tactile dexterity — real-world "egocentric" data impossible to synthesize in AI labs.</span>
                   </li>
                   <li class="case-list-item">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2"><path d="M12 2a10 10 0 0 0-10 10c0 5.523 4.477 10 10 10s10-4.477 10-10A10 10 0 0 0 12 2z"></path><path d="m9 12 2 2 4-4"></path></svg>
-                    <span>Chọn Ấn Độ vì giá nhân công rẻ (~$240/tháng), không có rào cản xuất khẩu dữ liệu so với Mỹ hay Trung Quốc.</span>
+                    <span>Targeting low-wage markets (~$240/month) with zero cross-border data protection barriers compared to the US or EU.</span>
                   </li>
                 </ul>
               </div>
 
-              <!-- Cột 2: Hệ quả nguy hiểm -->
+              <!-- Col 2: Alarming Risks -->
               <div class="case-card danger">
                 <div class="case-card-header">
-                  <span class="case-badge risk">HỆ QUẢ & RỦI RO ĐẠO ĐỨC</span>
-                  <h3 style="font-size: 18px; color: #fff;">Nguy cơ phản kháng & khủng hoảng niềm tin</h3>
+                  <span class="case-badge risk">CONSEQUENCES & ETHICAL RISKS</span>
+                  <h3 style="font-size: 18px; color: #fff;">Backlash & Erosion of Trust</h3>
                 </div>
                 <ul class="case-list">
                   <li class="case-list-item">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--denso-red-light)" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                    <span>Công nhân vô tình tự huấn luyện chính "kẻ thay thế" mình mà không hề được hỏi ý kiến hay chia sẻ lợi ích tương xứng.</span>
+                    <span>Low-wage workers inadvertently train their own automated replacements without consent, transparency, or shared value.</span>
                   </li>
                   <li class="case-list-item">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--denso-red-light)" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                    <span>Tâm lý giấu nghề, đề phòng và chống đối xuất hiện tại xưởng sản xuất, phá vỡ văn hóa truyền dạy nghề nghiệp.</span>
+                    <span>Fosters workplace paranoia, knowledge hoarding, and active resistance across both blue-collar and engineering ranks.</span>
                   </li>
                   <li class="case-list-item">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--denso-red-light)" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                    <span>Vấn đề vĩ mô: Nếu tự động hóa cực đoan triệt tiêu việc làm, ai sẽ có thu nhập để tiêu dùng các sản phẩm tạo ra?</span>
+                    <span>Macroeconomic dilemma: If extreme automation displaces human workers entirely, who will have the purchasing power to consume?</span>
                   </li>
                 </ul>
                 <div class="case-quote">
-                  "Bài học: Đừng biến AI thành công cụ khai thác lén lút khiến người lao động mất niềm tin."
+                  "Key Takeaway: AI must never be deployed as a covert surveillance tool that destroys worker trust."
                 </div>
               </div>
             </div>
@@ -376,14 +388,14 @@
         </section>
 
         <!-- ================================================================
-             SLIDE 5: BÀI HỌC RÚT RA (COMPARISON)
+             SLIDE 5: PARADIGM SHIFT
              ================================================================ -->
         <section class="slide" id="slide-5">
           <div class="slide-header">
-            <span class="slide-category">Phần 04 · Tư Duy Cốt Lõi</span>
-            <h2 class="slide-title">Hai cách tiếp cận đối lập: Thay thế vs. Trao quyền</h2>
+            <span class="slide-category">Section 04 · Core Philosophy</span>
+            <h2 class="slide-title">Two Opposing Approaches: Replacement vs. Empowerment</h2>
             <p class="slide-subtitle">
-              Sự khác biệt mang tính quyết định giữa một dự án AI thất bại vì phản kháng và một giải pháp được toàn thể nhà máy đón nhận.
+              The fundamental distinction between an AI project that triggers shopfloor resistance and one embraced by factory artisans.
             </p>
           </div>
 
@@ -392,26 +404,26 @@
               <!-- Col 1: Extract & Replace -->
               <div class="compare-col extract">
                 <div class="compare-header">
-                  <span class="compare-type">HƯỚNG ĐI CŨ (CASE THAM KHẢO)</span>
+                  <span class="compare-type">OLD TRAP (CASE STUDY)</span>
                   <h3 class="compare-title">Extract & Replace</h3>
-                  <span class="compare-sub">Khai thác và thay thế con người</span>
+                  <span class="compare-sub">Exploitation and worker displacement</span>
                 </div>
                 <div class="compare-rows">
                   <div class="compare-item">
-                    <span class="compare-label">Mục đích</span>
-                    <span class="compare-val">Thay thế triệt để chuyên gia bằng robot/AI tự động hóa</span>
+                    <span class="compare-label">Purpose</span>
+                    <span class="compare-val">Outright worker replacement through aggressive automation</span>
                   </div>
                   <div class="compare-item">
-                    <span class="compare-label">Vai trò chuyên gia</span>
-                    <span class="compare-val">Bị động, bị theo dõi lén lút, không rõ mục đích dữ liệu</span>
+                    <span class="compare-label">Expert Role</span>
+                    <span class="compare-val">Passive, covertly monitored, uninformed of data objectives</span>
                   </div>
                   <div class="compare-item">
-                    <span class="compare-label">Cơ chế khuyến khích</span>
-                    <span class="compare-val">Không có — chỉ nhận lương cơ bản còm cõi</span>
+                    <span class="compare-label">Incentives</span>
+                    <span class="compare-val">None — basic low wage, zero profit-sharing</span>
                   </div>
                   <div class="compare-item">
-                    <span class="compare-label">Kết quả tổ chức</span>
-                    <span class="compare-val">Mất niềm tin, giấu nghề, rủi ro đạo đức và chống đối nội bộ</span>
+                    <span class="compare-label">Organizational Outcome</span>
+                    <span class="compare-val">Broken trust, knowledge hoarding, ethical backlash, organizational friction</span>
                   </div>
                 </div>
               </div>
@@ -419,26 +431,26 @@
               <!-- Col 2: Capture & Empower (MentorMind) -->
               <div class="compare-col empower">
                 <div class="compare-header">
-                  <span class="compare-type">HƯỚNG ĐI MENTORMIND</span>
+                  <span class="compare-type">MENTORMIND APPROACH</span>
                   <h3 class="compare-title">Capture & Empower</h3>
-                  <span class="compare-sub">Ghi nhận tri thức & trao quyền chuyên gia</span>
+                  <span class="compare-sub">Preserving know-how & empowering artisans</span>
                 </div>
                 <div class="compare-rows">
                   <div class="compare-item">
-                    <span class="compare-label">Mục đích</span>
-                    <span class="compare-val">Giữ lại, chuẩn hóa và nhân rộng tri thức cho thế hệ kế cận</span>
+                    <span class="compare-label">Purpose</span>
+                    <span class="compare-val">Preserve, standardize, and amplify master know-how for future generations</span>
                   </div>
                   <div class="compare-item">
-                    <span class="compare-label">Vai trò chuyên gia</span>
-                    <span class="compare-val">Chủ động, là người duyệt cuối cùng, được ghi tên & trích dẫn</span>
+                    <span class="compare-label">Expert Role</span>
+                    <span class="compare-val">Active co-creator, final approver, attributed and cited in every AI answer</span>
                   </div>
                   <div class="compare-item">
-                    <span class="compare-label">Cơ chế khuyến khích</span>
-                    <span class="compare-val">Benefit & thưởng ghi nhận khi giải thích rõ lý do "vì sao"</span>
+                    <span class="compare-label">Incentives</span>
+                    <span class="compare-val">Career rewards, reputation benefits, and bonuses for verbal explanations</span>
                   </div>
                   <div class="compare-item">
-                    <span class="compare-label">Kết quả tổ chức</span>
-                    <span class="compare-val">Tri thức được kế thừa, văn hóa xưởng gắn kết, chuyên gia tự hào</span>
+                    <span class="compare-label">Organizational Outcome</span>
+                    <span class="compare-val">Knowledge succession secured, collaborative factory culture, proud master artisans</span>
                   </div>
                 </div>
               </div>
@@ -447,14 +459,14 @@
         </section>
 
         <!-- ================================================================
-             SLIDE 6: GIẢI PHÁP MENTORMIND (CORE PROCESS)
+             SLIDE 6: MENTORMIND SOLUTION
              ================================================================ -->
         <section class="slide" id="slide-6">
           <div class="slide-header">
-            <span class="slide-category">Phần 05 · Giải Pháp Toàn Diện</span>
-            <h2 class="slide-title">Thiết bị Capture + Cơ chế khuyến khích giải thích</h2>
+            <span class="slide-category">Section 05 · Comprehensive Solution</span>
+            <h2 class="slide-title">Non-Invasive Capture + Verbal Explanation Incentives</h2>
             <p class="slide-subtitle">
-              Quy trình 4 bước chuyển hóa thao tác thực tế thành hồ sơ tri thức số hóa hoàn chỉnh.
+              A streamlined 4-step loop transforming real-world craftsmanship into structured digital intelligence.
             </p>
           </div>
 
@@ -463,36 +475,36 @@
               <!-- Step 1 -->
               <div class="step-card active" data-step="1">
                 <div class="step-badge-num">1</div>
-                <h4 class="step-name">Capture Không Xâm Lấn</h4>
+                <h4 class="step-name">Non-Invasive Capture</h4>
                 <p class="step-detail">
-                  Camera cố định tại trạm làm việc ghi lại video 3–5 phút thao tác tự nhiên. Không đổi quy trình, không gây áp lực cho thợ.
+                  Station camera records 3–5 minute natural work cycles. No change to production flow, zero disruption to cycle times.
                 </p>
               </div>
 
               <!-- Step 2 -->
               <div class="step-card" data-step="2">
                 <div class="step-badge-num">2</div>
-                <h4 class="step-name">Giải Thích & Khuyến Khích</h4>
+                <h4 class="step-name">Explain & Incentivize</h4>
                 <p class="step-detail">
-                  Chuyên gia dừng 30s giải thích bằng lời "vì sao phải xoay linh kiện 90 độ" → nhận benefit điểm thưởng chuyên môn.
+                  The master pauses for 30s to explain "why rotate the part 90 degrees?" → Instantly earns professional recognition and bonus points.
                 </p>
               </div>
 
               <!-- Step 3 -->
               <div class="step-card" data-step="3">
                 <div class="step-badge-num">3</div>
-                <h4 class="step-name">Xử Lý AI Đa Phương Thức</h4>
+                <h4 class="step-name">Multimodal AI Processing</h4>
                 <p class="step-detail">
-                  VLM 3 lượt (Qwen3-VL self-hosted) kết hợp Docling OCR sinh bản nháp WorkProfile. Chuyên gia chỉ bấm xác nhận hoặc sửa nhẹ.
+                  3-pass VLM pipeline (self-hosted Qwen3-VL) + Docling OCR auto-generates structured WorkProfile drafts. The expert simply reviews and approves.
                 </p>
               </div>
 
               <!-- Step 4 -->
               <div class="step-card" data-step="4">
                 <div class="step-badge-num">4</div>
-                <h4 class="step-name">Lưu Trữ & Kích Hoạt</h4>
+                <h4 class="step-name">Store & Activate</h4>
                 <p class="step-detail">
-                  Nạp vào Knowledge Graph (Neo4j) + Vector (pgvector). Tên chuyên gia được gắn liền với từng bí quyết khi AI trả lời.
+                  Ingested into Knowledge Graph (Neo4j) + Vector (pgvector). The expert's name is permanently linked and cited in all AI responses.
                 </p>
               </div>
             </div>
@@ -503,9 +515,9 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
               </div>
               <div class="banner-text">
-                <h4>Khác biệt cốt lõi của MentorMind</h4>
+                <h4>Core Differentiator of MentorMind</h4>
                 <p>
-                  Chuyên gia là người <strong>duyệt</strong>, không phải người <strong>viết</strong>. Chuyên gia được <strong>thưởng</strong> khi chủ động chia sẻ bí quyết — hoàn toàn không bị âm thầm khai thác lén lút.
+                  Experts are <strong>approvers</strong>, not document writers. Experts are <strong>rewarded</strong> for sharing know-how, never covertly exploited.
                 </p>
               </div>
             </div>
@@ -513,38 +525,38 @@
         </section>
 
         <!-- ================================================================
-             SLIDE 7: KIẾN TRÚC HỆ THỐNG (5-LAYER ARCHITECTURE)
+             SLIDE 7: TECHNICAL ARCHITECTURE
              ================================================================ -->
         <section class="slide" id="slide-7">
           <div class="slide-header">
-            <span class="slide-category">Phần 06 · Kiến Trúc Kỹ Thuật</span>
-            <h2 class="slide-title">Kiến trúc hệ thống MentorMind 5 lớp</h2>
+            <span class="slide-category">Section 06 · Technical Architecture</span>
+            <h2 class="slide-title">MentorMind 5-Layer System Architecture</h2>
             <p class="slide-subtitle">
-              Self-hosted VLM, Hybrid Retrieval (GraphRAG + PGVector), và Dual AI Agents bảo mật tuyệt đối cho dữ liệu nhà máy.
+              Air-gapped self-hosted VLM, Hybrid Retrieval (GraphRAG + pgvector), and Dual AI Agents guaranteeing enterprise-grade data security.
             </p>
           </div>
 
           <div class="slide-body">
             <div class="arch-interactive-layout">
-              <!-- Cột trái: Stack 5 lớp -->
+              <!-- Left Col: 5 Layers Stack -->
               <div class="layers-stack">
                 <div class="layer-row active" data-layer="0">
-                  <span class="layer-badge">LỚP 1</span>
+                  <span class="layer-badge">LAYER 1</span>
                   <div class="layer-info">
-                    <h4>Thu Thập & Ingestion</h4>
-                    <p>Video 4-8 fps, Audio lời bình luận, Bản vẽ kỹ thuật & SOP</p>
+                    <h4>Multimodal Ingestion</h4>
+                    <p>Station video (4–8 fps), audio commentary, engineering drawings & SOPs</p>
                   </div>
                   <div class="layer-tech-tags">
                     <span>Docling</span>
-                    <span>Camera</span>
+                    <span>Station Cam</span>
                   </div>
                 </div>
 
                 <div class="layer-row" data-layer="1">
-                  <span class="layer-badge">LỚP 2</span>
+                  <span class="layer-badge">LAYER 2</span>
                   <div class="layer-info">
-                    <h4>Xử Lý Đa Phương Thức VLM</h4>
-                    <p>Pipeline 3 lượt: Phân đoạn → Mô tả thao tác → Tổng hợp Task Graph</p>
+                    <h4>Multimodal VLM Pipeline</h4>
+                    <p>3-Pass loop: Temporal segmentation → Frame description → Task Graph</p>
                   </div>
                   <div class="layer-tech-tags">
                     <span>Qwen3-VL 8B</span>
@@ -553,10 +565,10 @@
                 </div>
 
                 <div class="layer-row" data-layer="2">
-                  <span class="layer-badge">LỚP 3</span>
+                  <span class="layer-badge">LAYER 3</span>
                   <div class="layer-info">
-                    <h4>Knowledge Base Hybrid</h4>
-                    <p>Neo4j Graph quan hệ lỗi thiết bị + Postgres pgvector RRF</p>
+                    <h4>Hybrid Knowledge Base</h4>
+                    <p>Neo4j Equipment-Defect graph + PostgreSQL pgvector RRF</p>
                   </div>
                   <div class="layer-tech-tags">
                     <span>Neo4j</span>
@@ -566,10 +578,10 @@
                 </div>
 
                 <div class="layer-row" data-layer="3">
-                  <span class="layer-badge">LỚP 4</span>
+                  <span class="layer-badge">LAYER 4</span>
                   <div class="layer-info">
                     <h4>Dual AI Agents</h4>
-                    <p>Work Assistant tại trạm (có trích dẫn) + RCA Agent (5-Why)</p>
+                    <p>Station-side Work Assistant (citations) + RCA Agent (5-Why)</p>
                   </div>
                   <div class="layer-tech-tags">
                     <span>FastAPI</span>
@@ -578,10 +590,10 @@
                 </div>
 
                 <div class="layer-row" data-layer="4">
-                  <span class="layer-badge">LỚP 5</span>
+                  <span class="layer-badge">LAYER 5</span>
                   <div class="layer-info">
-                    <h4>Đánh Giá Liên Tục</h4>
-                    <p>Đánh giá định lượng Ragas (Faithfulness &ge; 0.85) + A/B Testing thợ mới</p>
+                    <h4>Continuous Evaluation</h4>
+                    <p>Ragas quantitative benchmark (Faithfulness &ge; 0.85) + Novice A/B testing</p>
                   </div>
                   <div class="layer-tech-tags">
                     <span>Ragas</span>
@@ -590,19 +602,19 @@
                 </div>
               </div>
 
-              <!-- Cột phải: Inspector chi tiết -->
+              <!-- Right Col: Inspector Box -->
               <div class="arch-inspector">
                 <div>
                   <div class="inspector-header">
                     <span class="inspector-tag" id="inspectorTag">MULTIMODAL INGESTION</span>
-                    <h3 class="inspector-title" id="inspectorTitle">Lớp 1: Thu thập & Capture</h3>
+                    <h3 class="inspector-title" id="inspectorTitle">Layer 1: Capture & Ingestion</h3>
                   </div>
                   <div class="inspector-body" id="inspectorBody">
-                    <p>Ghi nhận dữ liệu thực tế tại trạm làm việc mà không làm gián đoạn dây chuyền sản xuất:</p>
+                    <p>Captures real-world factory data without altering takt time or assembly workflows:</p>
                     <ul>
-                      <li>Camera tại trạm: Quay video thao tác 4–8 fps (ưu tiên lấy mẫu cử động tay nhanh).</li>
-                      <li>Micro bình luận: Thu âm lời giải thích của chuyên gia khi thao tác.</li>
-                      <li>Docling / mmore: Trích xuất có cấu trúc bản vẽ kỹ thuật, tiêu chuẩn lắp ráp PDF/DOCX.</li>
+                      <li>Station camera: 4–8 fps video sampling (prioritizing high-speed hand gestures).</li>
+                      <li>Commentary mic: Captures spontaneous artisan verbal explanations.</li>
+                      <li>Docling / mmore: Structured OCR extraction of engineering drawings and assembly SOPs.</li>
                     </ul>
                   </div>
                 </div>
@@ -610,7 +622,7 @@
                 <div class="inspector-footer">
                   <button class="btn-view-diagram" id="btnViewDiagram">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                    Xem sơ đồ kiến trúc phóng to (High-Res)
+                    Inspect Full High-Resolution Blueprint
                   </button>
                 </div>
               </div>
@@ -619,75 +631,75 @@
         </section>
 
         <!-- ================================================================
-             SLIDE 8: ROADMAP & TẦM NHÌN
+             SLIDE 8: ROADMAP & VISION
              ================================================================ -->
         <section class="slide" id="slide-8">
           <div class="slide-header">
-            <span class="slide-category">Phần 07 · Kế Hoạch 3 Tháng & Tầm Nhìn</span>
-            <h2 class="slide-title">Từ Capture đến Trợ Lý AI trong 3 tháng</h2>
+            <span class="slide-category">Section 07 · 3-Month Plan & Vision</span>
+            <h2 class="slide-title">From Factory Capture to AI Assistant in 3 Months</h2>
             <p class="slide-subtitle">
-              Lộ trình triển khai cụ thể, khả thi và bám sát các mốc kiểm định của Denso Hackathon.
+              A pragmatic, milestone-driven execution plan aligned with Denso Hackathon evaluation gates.
             </p>
           </div>
 
           <div class="slide-body">
             <div class="roadmap-timeline">
-              <!-- Tháng 1 -->
+              <!-- Month 1 -->
               <div class="timeline-card">
-                <span class="timeline-month">THÁNG 01</span>
-                <h4 class="timeline-title">Capture & Chuẩn Hóa</h4>
+                <span class="timeline-month">MONTH 01</span>
+                <h4 class="timeline-title">Capture & Standardization</h4>
                 <ul class="timeline-tasks">
                   <li>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    <span>Xây dựng template chuẩn hóa WorkProfile (JSON Schema).</span>
+                    <span>Establish standardized WorkProfile template (JSON Schema).</span>
                   </li>
                   <li>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    <span>Pipeline OCR trích xuất bản vẽ kỹ thuật & SOP (Docling).</span>
+                    <span>Deploy Docling OCR pipeline for drawings & assembly SOPs.</span>
                   </li>
                   <li>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    <span>Thu thập video mẫu công đoạn Kitting & Packing (Asian Alliance / Denso).</span>
+                    <span>Ingest pilot video on Kitting & Packing station (Asian Alliance / Denso).</span>
                   </li>
                 </ul>
               </div>
 
-              <!-- Tháng 2 -->
+              <!-- Month 2 -->
               <div class="timeline-card">
-                <span class="timeline-month">THÁNG 02</span>
-                <h4 class="timeline-title">Knowledge Base & AI Agent</h4>
+                <span class="timeline-month">MONTH 02</span>
+                <h4 class="timeline-title">Knowledge Base & AI Agents</h4>
                 <ul class="timeline-tasks">
                   <li>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    <span>Dựng Knowledge Graph trên Neo4j + Vector pgvector (RRF).</span>
+                    <span>Deploy Neo4j Knowledge Graph + PostgreSQL pgvector (RRF).</span>
                   </li>
                   <li>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    <span>Hoàn thiện Work Assistant có trích dẫn nguồn citation.</span>
+                    <span>Ship station-side Work Assistant with strict citation verification.</span>
                   </li>
                   <li>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    <span>RCA Agent hỗ trợ 5-Why kết nối Mock Sigma MES.</span>
+                    <span>Develop RCA Agent with 5-Why reasoning linked to Mock Sigma MES.</span>
                   </li>
                 </ul>
               </div>
 
-              <!-- Tháng 3 -->
+              <!-- Month 3 -->
               <div class="timeline-card">
-                <span class="timeline-month">THÁNG 03</span>
-                <h4 class="timeline-title">Đánh Giá & Pilot Xưởng</h4>
+                <span class="timeline-month">MONTH 03</span>
+                <h4 class="timeline-title">Evaluation & Pilot Rollout</h4>
                 <ul class="timeline-tasks">
                   <li>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    <span>Chạy Ragas benchmark trên Golden Set 30+ câu hỏi kiểm định.</span>
+                    <span>Run Ragas benchmark across Golden Set (30+ validation queries).</span>
                   </li>
                   <li>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    <span>Thử nghiệm A/B trên nhóm thợ mới học việc tại xưởng.</span>
+                    <span>A/B testing on novice technicians learning station workflows.</span>
                   </li>
                   <li>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    <span>Tối ưu hóa độ trễ và đóng gói báo cáo Usefulness Report.</span>
+                    <span>Latency optimization and packaging final Usefulness Evaluation Report.</span>
                   </li>
                 </ul>
               </div>
@@ -696,9 +708,9 @@
             <!-- Vision Quote Card -->
             <div class="vision-quote-card">
               <div class="vision-text">
-                <h3>"Giữ lại tri thức — Trao quyền cho con người, không thay thế."</h3>
+                <h3>"Preserve Master Know-How — Empower Human Artisans, Never Replace Them."</h3>
                 <p>
-                  MentorMind cam kết một giải pháp AI nhân văn, nơi bí quyết của người thợ bậc cao được trân trọng, lưu truyền và tiếp sức cho thế hệ tương lai.
+                  MentorMind stands for human-centric industrial AI: celebrating master craftsmanship, passing on tacit expertise, and empowering the next generation of technicians.
                 </p>
               </div>
               <div class="vision-badge">
@@ -723,14 +735,14 @@
 
       <!-- Nav Controls -->
       <div class="nav-buttons">
-        <button class="btn-nav" id="btnPrev" title="Slide trước (Phím Mũi tên Trái)">
+        <button class="btn-nav" id="btnPrev" title="Previous Slide (Left Arrow)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
-          Trước
+          Previous
           <span class="kbd-hint">&larr;</span>
         </button>
 
-        <button class="btn-nav primary" id="btnNext" title="Slide tiếp theo (Phím Phím Cách / Mũi tên Phải)">
-          Tiếp theo
+        <button class="btn-nav primary" id="btnNext" title="Next Slide (Space or Right Arrow)">
+          Next
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
           <span class="kbd-hint" style="background: rgba(255,255,255,0.25); color: #fff;">Space</span>
         </button>
@@ -745,9 +757,9 @@
     <div class="notes-header">
       <div class="notes-title">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-        Ghi Chú Thuyết Trình
+        Presenter Speaking Notes
       </div>
-      <button class="btn-icon" id="closeNotesBtn" title="Đóng">
+      <button class="btn-icon" id="closeNotesBtn" title="Close">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </button>
     </div>
@@ -762,8 +774,8 @@
   <div class="modal-overlay" id="overviewModal">
     <div class="modal-card">
       <div class="modal-header">
-        <div class="modal-title">Tổng quan các Slide (Bấm vào để chuyển tới)</div>
-        <button class="btn-icon" data-close-modal title="Đóng">
+        <div class="modal-title">Slide Overview Grid (Click any slide to jump)</div>
+        <button class="btn-icon" data-close-modal title="Close">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
       </div>
@@ -781,8 +793,8 @@
   <div class="modal-overlay" id="lightboxModal">
     <div class="modal-card lightbox-img-wrapper">
       <div class="modal-header">
-        <div class="modal-title">Sơ đồ kiến trúc chi tiết (MentorMind Technical Blueprint)</div>
-        <button class="btn-icon" data-close-modal title="Đóng">
+        <div class="modal-title">Detailed Architecture Blueprint (MentorMind Technical System)</div>
+        <button class="btn-icon" data-close-modal title="Close">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
       </div>
@@ -798,8 +810,8 @@
   <div class="modal-overlay" id="helpModal">
     <div class="modal-card" style="max-width: 600px;">
       <div class="modal-header">
-        <div class="modal-title">Phím Tắt Điều Khiển Presentation</div>
-        <button class="btn-icon" data-close-modal title="Đóng">
+        <div class="modal-title">Presentation Keyboard Shortcuts</div>
+        <button class="btn-icon" data-close-modal title="Close">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
       </div>
@@ -808,39 +820,39 @@
           <tbody>
             <tr>
               <td><kbd>→</kbd> / <kbd>Space</kbd> / <kbd>Enter</kbd></td>
-              <td>Chuyển sang slide tiếp theo</td>
+              <td>Advance to next slide</td>
             </tr>
             <tr>
               <td><kbd>←</kbd> / <kbd>Backspace</kbd></td>
-              <td>Quay lại slide trước đó</td>
+              <td>Return to previous slide</td>
             </tr>
             <tr>
               <td><kbd>Home</kbd> / <kbd>End</kbd></td>
-              <td>Đến slide đầu tiên / slide cuối cùng</td>
+              <td>Go to first slide / last slide</td>
             </tr>
             <tr>
               <td><kbd>F</kbd></td>
-              <td>Bật / tắt chế độ toàn màn hình (Fullscreen)</td>
+              <td>Toggle Fullscreen mode</td>
             </tr>
             <tr>
-              <td><kbd>O</kbd> hoặc <kbd>M</kbd></td>
-              <td>Bật / tắt chế độ xem lưới 8 Slide (Overview Grid)</td>
+              <td><kbd>O</kbd> or <kbd>M</kbd></td>
+              <td>Toggle 8-Slide Bento Overview Grid</td>
             </tr>
             <tr>
               <td><kbd>N</kbd></td>
-              <td>Mở / đóng bảng ghi chú người thuyết trình (Presenter Notes)</td>
+              <td>Toggle Presenter Notes drawer</td>
             </tr>
             <tr>
               <td><kbd>T</kbd></td>
-              <td>Bắt đầu / Tạm dừng đồng hồ tính giờ pitch (5 phút)</td>
+              <td>Start / Pause rehearsal pitch timer (5:00)</td>
             </tr>
             <tr>
               <td><kbd>Cmd</kbd> + <kbd>P</kbd></td>
-              <td>In / Xuất toàn bộ 8 slide thành file PDF hoàn hảo</td>
+              <td>Export / Print all 8 slides into clean PDF deck</td>
             </tr>
             <tr>
               <td><kbd>Esc</kbd></td>
-              <td>Đóng mọi hộp thoại mở</td>
+              <td>Close active modal or drawer</td>
             </tr>
           </tbody>
         </table>
