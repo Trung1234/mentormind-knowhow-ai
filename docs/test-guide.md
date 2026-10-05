@@ -1,7 +1,7 @@
 # Hướng dẫn kiểm thử — Mentor Mind MVP
 
 **Vai trò soạn:** Senior Tester · **Owner:** Trung · **Áp dụng cho:** bản nộp 12/10/2026 ·
-**Phiên bản:** 1.0 (04/10/2026, `main` @ `da08a2e`)
+**Phiên bản:** 1.1 (05/10/2026). §4.4, §7.6 đã kiểm trên `main` @ `ad3a443`; các mục còn lại giữ mốc 04/10 (`main` @ `da08a2e`)
 
 Liên quan: [constitution](constitution.md) · [PRD §12](PRD.md) · [BRD §14](BRD.md) · spec 01–09 ·
 [10-work-left.md](10-work-left.md) (hạng mục còn thiếu).
@@ -90,16 +90,134 @@ cd mentormind/frontend && npm ci && npm run dev                       # VITE_API
 | Cách chạy | Cấu hình | Ghi chú |
 |---|---|---|
 | Giả lập (mặc định cho test và demo offline) | `KNOWHOW_VLM_PROVIDER=fake`, `KNOWHOW_LLM_PROVIDER=fake` | Không mạng, kết quả tất định |
-| Tự host (Ollama, macOS hoặc Linux) | `make vlm-server` rồi `uv run knowhow vlm ping --frames 48` (spec 04 AC-15); `.env` mặc định đã trỏ `http://127.0.0.1:11434/v1`, model `qwen3-vl:8b` | Cần submodule: `git submodule update --init 3rdparty/vlm_server`. Xem bên dưới |
+| Tự host Qwen3-VL bằng Ollama (macOS hoặc Linux) | Chạy server theo §4.4.1, chuyển source theo §4.4.2 | Mặc định của code: `local_openai` → `http://127.0.0.1:11434/v1`, model `qwen3-vl:8b` |
 | Cloud (OpenRouter, SiliconFlow, Qwen API) | Key trong `.env` (`uv run knowhow vlm providers`) | Không bao giờ dùng với dữ liệu mật |
 
-Chạy server bằng `bash 3rdparty/vlm_server/scripts/serve-ollama.sh` (hướng dẫn: `3rdparty/vlm_server/scripts/README.md`).
-Script tải Ollama 0.35.1, đặt context (macOS 49152, Linux 98304; Ollama mặc định chỉ 4096) và
-**số token tối thiểu mỗi ảnh** (`--image-min-tokens`, mặc định 512): Ollama tự ép 1024 token cho mỗi ảnh Qwen-VL,
-nên trước đây 48 khung đã cần khoảng 50k token. Thêm `--ngrok` để mở cho máy khác.
+Giá trị mặc định trong code (`mentormind/core/config/settings.py`) đã là `KNOWHOW_VLM_PROVIDER=local_openai`,
+tức Qwen3-VL qua Ollama. Giả lập chỉ xuất hiện ở ba chỗ: test tự động (`FakeVLM`/`FakeLLM`), `make demo` khi shell
+không có key cloud (`scripts/demo.sh` tự đặt `fake`), và router API (`KNOWHOW_API_AGENTS=mock`). Vì vậy
+"chuyển source sang Qwen" nghĩa là gỡ ba chỗ đó, không phải đổi code.
 
-Mốc đo ngày 04/10 trên Mac mini M4 16 GB (bản cũ, 1024 token/ảnh, context 16k): `vlm ping` **PASS**, 8 khung,
-khoảng 87 s, chạy 100% GPU; context 32k tràn 29% sang CPU. Với 512 token/ảnh, 40 khung (một đoạn 10 s) khoảng 22k token.
+#### 4.4.1 Chạy Qwen3-VL bằng Ollama trên máy bạn
+
+**Đường A — script của submodule `vlm-engine`.** Dùng khi cần số đo cho báo cáo: đặt sẵn context và số token tối
+thiểu mỗi ảnh (`--image-min-tokens`, mặc định 512; Ollama tự ép 1024 token cho mỗi ảnh Qwen-VL).
+
+```bash
+git submodule update --init 3rdparty/vlm_server   # cần quyền SSH tới repo vlm-engine
+make vlm-server         # bash 3rdparty/vlm_server/scripts/serve-ollama.sh, đọc VLM_SERVER_* trong .env
+make vlm-server-smoke   # = uv run knowhow vlm ping --frames 8
+make vlm-server-stop
+```
+
+Script tải Ollama 0.35.1, đặt context (macOS 49152, Linux 98304) và có `--ngrok` để mở cho máy khác. Hướng dẫn:
+`3rdparty/vlm_server/scripts/README.md`. **Chưa chạy thử khi cập nhật guide** vì thư mục submodule trống trên máy kiểm.
+
+**Đường B — Ollama thuần, không cần submodule.** Đã chạy thử ngày 05/10 (Ollama 0.35.1, Mac M4 16 GB).
+
+```bash
+# 1. Cài và bật Ollama (macOS: app Ollama hoặc `brew install ollama`; Linux: script cài của ollama.com)
+ollama serve                                  # bỏ qua nếu app Ollama đã chạy
+curl -s http://127.0.0.1:11434/api/version    # {"version":"0.35.1"}
+
+# 2. Tải model (~6,1 GB, Q4_K_M)
+ollama pull qwen3-vl:8b
+
+# 3. Tạo bản có context lớn. Ollama mặc định chỉ 4096 token, không đủ cho ảnh.
+MF=$(mktemp) && printf 'FROM qwen3-vl:8b\nPARAMETER num_ctx 16384\n' > "$MF" \
+  && ollama create qwen3-vl-8b-16k -f "$MF"
+ollama show qwen3-vl-8b-16k | grep num_ctx    # num_ctx  16384
+```
+
+Chọn context cho đường B: Ollama ép khoảng 1024 token mỗi ảnh (đo được: 8 khung = 8409 token vào), nên cần
+≈ 1030 × số khung + 1k cho prompt + chỗ cho phần "nghĩ" của model (Q4 nghĩ tới khoảng 8k token trước khi trả lời).
+16k đủ cho `vlm ping --frames 8` (đã đo). Một đoạn 10 s thật (40 khung) cần, theo ước tính, cỡ 45k token, trong khi máy 16 GB
+tràn sang CPU từ context 32k. Muốn chạy đoạn đầy đủ thì dùng đường A (512 token/ảnh, 40 khung ≈ 22k token).
+
+Sau mỗi lần gọi, kiểm model có nằm hết trên GPU không: `ollama ps` (cột PROCESSOR phải là `100% GPU`) hoặc
+`curl -s http://127.0.0.1:11434/api/ps` (`size_vram` bằng `size`).
+
+**Mốc đo tham chiếu** (Mac M4 16 GB, `knowhow vlm ping`, clip tổng hợp):
+
+| Ngày | Cấu hình | Kết quả |
+|---|---|---|
+| 04/10 | Script đường A cũ, 1024 token/ảnh, context 16k, 8 khung | PASS, khoảng 87 s, 100% GPU. Context 32k tràn 29% sang CPU |
+| 05/10 | Đường B, `qwen3-vl-8b-16k`, 8 khung | PASS, 111 s, 8409 token vào / 255 ra, 100% GPU |
+| 05/10 | Đường B, `qwen3-vl:8b` mặc định (context 4096), 8 khung | Lỗi HTTP 400 `exceed_context_size_error`: 8409 > 4096 |
+| 05/10 | `KNOWHOW_VLM_BASE_URL` trỏ tới cổng không có server | `Lỗi: … Connection refused` sau khoảng 8 s, không treo (RES-05) |
+
+#### 4.4.2 Chuyển source code sang Qwen
+
+`.env.example` đã điền sẵn giá trị cho Ollama. Settings đọc cả `.env` lẫn biến shell; **biến shell thắng `.env`**.
+
+```bash
+cp .env.example .env
+# Đường B: sửa cho khớp model đã tạo ở §4.4.1. 40 khung trong .env.example giả định 512 token/ảnh (đường A).
+#   KNOWHOW_VLM_MODEL=qwen3-vl-8b-16k
+#   KNOWHOW_VLM_MAX_FRAMES=8
+uv run knowhow vlm providers        # dòng local_openai có dấu *
+uv run knowhow vlm ping --frames 8  # dòng cuối: PASS
+```
+
+Các công tắc, từ giả lập sang Qwen:
+
+| Biến | Giả lập | Qwen3-VL qua Ollama | Tác dụng |
+|---|---|---|---|
+| `KNOWHOW_VLM_PROVIDER` | `fake` | `local_openai` (mặc định của code) | Chọn provider cho VLM |
+| `KNOWHOW_VLM_BASE_URL` | — | rỗng = `http://127.0.0.1:11434/v1` | Trong container `mentormind`: `http://vlm-server:11434/v1` (compose tự đặt) |
+| `KNOWHOW_VLM_MODEL` | — | `qwen3-vl:8b` (đường A) hoặc `qwen3-vl-8b-16k` (đường B) | Tên model trong Ollama |
+| `KNOWHOW_VLM_MAX_FRAMES` | — | 40 (đường A), 8 (đường B) | Số khung tối đa mỗi segment |
+| `KNOWHOW_LLM_PROVIDER` | `fake` | rỗng | Rỗng nghĩa là LLM dùng chung provider, server, model với VLM: Qwen3-VL trả lời cả văn bản |
+| `KNOWHOW_API_AGENTS` | `mock` (mặc định) | `live` | `/assistant/ask`, `/rca/investigate` gọi agent thật. Cần Neo4j, vector store và LLM; thiếu thì 503, lot lạ thì 404 |
+| `KNOWHOW_EVAL_JUDGE` | `ragas` (mặc định) | `builtin` | `.env.example` đặt `builtin` cho demo Ollama. Judge của báo cáo nộp vẫn phải là model mạnh (EVAL-02) |
+
+Một lần chạy lẻ không cần sửa `.env`: `--provider` có ở `vlm ping` và `vlm describe`, `--llm-provider` có ở
+`vlm describe`, hoặc đặt biến ngay trước lệnh (`KNOWHOW_VLM_MODEL=… uv run knowhow vlm ping`).
+
+Luồng nào dùng provider nào:
+
+| Lệnh / endpoint | Dùng | Ghi chú |
+|---|---|---|
+| `knowhow vlm ping`, `knowhow vlm describe` (lượt A, B) | VLM | `--no-consistency` bỏ lượt chạy A hai lần, giảm một nửa token khi thử nhanh |
+| `knowhow vlm describe` (lượt C), `vlm propose-reasons` | LLM | |
+| `knowhow agent ask`, `knowhow agent rca` | LLM + knowledge base | Cần `make up`, `kg init`, `ingest index` |
+| `POST /assistant/ask`, `POST /rca/investigate` | LLM + knowledge base | Chỉ khi `KNOWHOW_API_AGENTS=live` |
+| `knowhow eval ragas` | Judge LLM | `KNOWHOW_EVAL_LLM_*`; rỗng thì dùng LLM của agent |
+| `make demo` | cả ba | Mặc định offline khi shell không có key cloud. Muốn dùng Qwen: `KNOWHOW_DEMO_OFFLINE=0 make demo`. Preflight vẫn dừng nếu thiếu dữ liệu mẫu (§5) |
+
+Về dữ liệu: `local_openai` trỏ tới `localhost` hoặc IP LAN được coi là local nên nhận dữ liệu mật. URL ngrok hoặc
+host public bị coi là cloud: DataGuard chặn dữ liệu mật, khung hình bị làm mờ mặt, `eval ragas` cần
+`--classification public` (SEC-02).
+
+#### 4.4.3 Quay lại giả lập để chạy test
+
+Test tự động không gọi Qwen, nhưng **cấu hình trong `.env` hay shell vẫn lọt vào test**. Đã thử ngày 05/10:
+
+| Cấu hình đặt | Kết quả `pytest` |
+|---|---|
+| `KNOWHOW_VLM_PROVIDER=local_openai`, `KNOWHOW_VLM_MODEL=…` | Vẫn xanh |
+| `KNOWHOW_API_AGENTS=live` (trong shell hoặc `.env`) | 3 test fail trong `tests/test_api_endpoints.py`: `test_assistant_ask` (503), `test_rca_investigate_valid_lot`, `test_ac_06_rca_invalid_lot_not_found` |
+| `KNOWHOW_EVAL_JUDGE=builtin` (đã có trong `.env.example`) | `test_the_ragas_package_is_the_default_judge` fail |
+
+Khi `.env` đang trỏ Qwen, chạy test bằng biến shell ghi đè (đã thử với `KNOWHOW_API_AGENTS` trên
+`tests/test_api_endpoints.py`: 0 fail):
+
+```bash
+KNOWHOW_API_AGENTS=mock KNOWHOW_EVAL_JUDGE=ragas make check
+```
+
+#### 4.4.4 Lỗi thường gặp khi chạy với Qwen
+
+| Triệu chứng | Nguyên nhân | Xử lý |
+|---|---|---|
+| `HTTP 400 … exceed_context_size_error … (8409 tokens) exceeds … (4096 tokens)` | Model Ollama mặc định chỉ có context 4096 | Tạo model `num_ctx` lớn (§4.4.1) và đặt `KNOWHOW_VLM_MODEL` |
+| Cùng lỗi, dù đã tạo model 16k | `KNOWHOW_VLM_MAX_FRAMES=40` từ `.env.example`, trong khi Ollama thuần cần ~1024 token/ảnh | Đặt `KNOWHOW_VLM_MAX_FRAMES=8`, hoặc dùng đường A |
+| `Lỗi: … Connection refused` | Ollama chưa chạy, hoặc sai `KNOWHOW_VLM_BASE_URL` | `ollama serve`; kiểm `curl http://127.0.0.1:11434/api/version` |
+| Mỗi lần gọi mất hơn một phút | Qwen3-VL Q4 "nghĩ" trước khi trả lời (8 khung ≈ 111 s) | Bình thường. Đặt `KNOWHOW_VLM_TIMEOUT_S` đủ lớn (`.env.example`: 1800) |
+| `ollama ps` không hiện `100% GPU` | Context quá lớn so với RAM, model tràn sang CPU | Giảm `num_ctx` hoặc số khung |
+| `Lỗi: Không kết nối được PostgreSQL … role "knowhow" does not exist` | Cổng 5432 đang do một Postgres khác giữ, hoặc chưa `make up` | Dừng Postgres kia hoặc đổi `KNOWHOW_PG_PORT`; chạy `make up` |
+| API trả 503 `Agent chưa sẵn sàng: …` | `KNOWHOW_API_AGENTS=live` nhưng Neo4j, vector store hoặc LLM chưa lên | `make up`, `knowhow kg init`, `knowhow ingest index`, bật Ollama |
+| `ModuleNotFoundError: langchain_core`, nhiều fail trong `tests/evaluation/ragas/` | venv chưa cài extra `eval` | `uv sync --all-extras` (§4.1) |
 
 ## 5. Dữ liệu kiểm thử
 
@@ -217,6 +335,22 @@ Viewport cần thử: 1024×768 và 768×1024 (Chrome DevTools); thêm một má
 | RES-04 | — | Tắt Neo4j hoặc Postgres rồi bấm approve | Lỗi rõ ràng; profile không bị ghi `approved` nửa vời | P2 |
 | RES-05 | — | Chạy `knowhow vlm ping` khi Ollama/vLLM chưa bật | Báo lỗi kết nối rõ ràng, không treo | P2 |
 
+### 7.6 Chạy với Qwen3-VL thật (Ollama local)
+
+Chạy sau khi server đã lên (§4.4.1) và source đã chuyển (§4.4.2). Chỉ dùng dữ liệu `public`/`synthetic`.
+Cột "Đã chạy 05/10" ghi những gì thật sự đã thực hiện khi viết guide; các dòng còn lại là quy trình chưa có kết quả.
+
+| ID | Truy vết | Bước | Kết quả mong đợi | Ưu tiên | Đã chạy 05/10 |
+|---|---|---|---|---|---|
+| QWEN-01 | Spec 04 AC-15 | `uv run knowhow vlm ping --frames 8` | Dòng đầu `provider=local_openai … cloud=False`; dòng cuối `PASS`; exit 0 | P1 | PASS, 111 s (đường B, §4.4.1) |
+| QWEN-02 | RES-05 | Ollama đã tắt hoặc `KNOWHOW_VLM_BASE_URL` trỏ cổng không có server, rồi `vlm ping` | `Lỗi: …` bằng tiếng Việt kèm nguyên nhân kết nối, exit 1, không treo | P2 | Có: lỗi sau khoảng 8 s |
+| QWEN-03 | Chống chạy nhầm cấu hình | `KNOWHOW_VLM_MODEL=qwen3-vl:8b` (context 4096), `vlm ping --frames 8` | Báo lỗi `exceed_context_size_error` rõ ràng, exit 1; không có kết quả giả PASS | P2 | Có: HTTP 400 |
+| QWEN-04 | PRD-AC-02, BR-02, E2E-08 | `uv run knowhow vlm describe --video <clip public/synthetic> --classification synthetic --no-consistency` với Qwen thật | Ra WorkProfile nháp (`status = draft`) trong `data/work/vlm/<video_id>/`; `reason` và `reason_source` đều `null` khi clip không có lời chuyên gia | P1 | Chưa |
+| QWEN-05 | PRD-AC-04, §11 (S2) | `KNOWHOW_API_AGENTS=live`, đã `make up` và nạp KB; `POST /assistant/ask` với "Bước 3 làm thế nào?" | Câu trả lời **không còn** là câu mock viết cứng; citation trỏ tới profile `approved` có thật trong KB | P1 | Chưa (KB chưa lên trên máy kiểm) |
+| QWEN-06 | Spec 08 AC-06, E2E-11 | Như QWEN-05, nhưng `POST /rca/investigate` với `lot_id` không tồn tại | 404, thông báo tiếng Việt | P2 | Chưa |
+| QWEN-07 | RES-04 | `KNOWHOW_API_AGENTS=live` khi Neo4j/Postgres/Ollama chưa lên, gọi `/assistant/ask` | 503 `Agent chưa sẵn sàng: …`, không lộ stack trace | P2 | Chưa (CLI `agent ask` báo lỗi Postgres rõ ràng, chưa thử qua API) |
+| QWEN-08 | Hồi quy cấu hình | Với `.env` trỏ Qwen và `KNOWHOW_API_AGENTS=live`: `KNOWHOW_API_AGENTS=mock KNOWHOW_EVAL_JUDGE=ragas make check` | Xanh (§4.4.3) | P1 | Một phần: `tests/test_api_endpoints.py` 0 fail |
+
 ## 8. Hồi quy khi merge hai nhánh đang chờ
 
 **Bước 1 — `phuc-nguyen/agents-eval-on-main`** (merge sạch):
@@ -281,8 +415,9 @@ Bằng chứng: log, ảnh chụp, file trong data/work/… (đã che key; khôn
   `ReviewProfilesTab.tsx:121` ("AC-08 VIOLATION: reason_source must be set before approving."),
   `:268`, `:451–452`, `:473`, `:578`; `AssistantTab.tsx:84`, `:104`, `:144`, `:289`; `RcaTab.tsx:87`.
   Nên nâng lên S2 nếu demo trước người dùng nhà máy.
-- **[S2] `/assistant/ask` và `/rca/investigate` trên `main` trả câu trả lời mock viết cứng.** Không được dùng
-  để chứng minh PRD-AC-04 cho tới khi nhánh agents được merge.
+- **[S2] `/assistant/ask` và `/rca/investigate` mặc định vẫn trả câu trả lời mock viết cứng.** Nhánh agents đã
+  merge (PR #12), nhưng router chỉ gọi agent thật khi `KNOWHOW_API_AGENTS=live` (§4.4.2), và mặc định là `mock`.
+  Chỉ kết quả chạy với `live` mới chứng minh được PRD-AC-04 (QWEN-05). Chưa có lượt chạy `live` nào được ghi lại.
 - **[S4] `mentormind/core/schemas.py` là file chết**, bị package `core/schemas/` che mất.
 
 **Rủi ro và khoảng trống:**
@@ -296,5 +431,9 @@ Bằng chứng: log, ảnh chụp, file trong data/work/… (đã che key; khôn
 - Chưa có test cho spec 07 AC-01…05, spec 08 AC-05, và spec 05 AC-02/AC-07 (xem §6).
 
 ## Changelog
+- v1.1 (05/10/2026): §4.4 viết lại: chạy Qwen3-VL bằng Ollama (đường A script, đường B Ollama thuần), cách chuyển
+  source sang Qwen, ảnh hưởng của cấu hình lên test, lỗi thường gặp; thêm §7.6 (QWEN-01…08); cập nhật lỗi S2 ở §11.
+  Đã chạy thật: `vlm ping` (PASS, 111 s), lỗi context 4096, lỗi kết nối, `pytest` với các biến Qwen/live. Chưa chạy:
+  đường A (submodule trống), `describe`/`agent ask`/API ở chế độ `live`. §6 và §8 vẫn ở mốc 04/10.
 - v1.0 (04/10/2026): bản đầu, dựa trên `main` @ `da08a2e` và hai nhánh `phuc-nguyen/agents-eval-on-main`,
   `viethoang/ingext-index-trungntresolve`.
