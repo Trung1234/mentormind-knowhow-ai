@@ -22,7 +22,7 @@ CREATE TABLE jobs (
 | Method & path | Body / query | Trả về | Ghi chú |
 |---|---|---|---|
 | `GET /health` | — | `{status, neo4j, postgres}` | |
-| `POST /ingest/documents` | multipart files, `classification` | `{job_id}` | chạy spec 02 run + index |
+| `POST /ingest/documents` | multipart `files`, `classification` (bắt buộc) | `{job_id}` | chạy spec 02 run + index, xem dưới bảng |
 | `POST /videos` | multipart file, `process_id`, `classification` | `VideoAsset` | lưu `data/work/video/` |
 | `POST /videos/{video_id}/process` | `{method?, fps?}` | `{job_id}` | segment → transcribe → describe → propose-reasons |
 | `GET /jobs/{job_id}` | — | `{status, result, error}` | `queued/running/done/failed` |
@@ -34,6 +34,12 @@ CREATE TABLE jobs (
 | `POST /rca/investigate` | `RcaRequest` | `RcaReport` | 404 khi `LotNotFound` |
 | `GET /sigma/lots` | `process_id?` | `list[LotRecord]` | cho dropdown UI |
 | `GET /media/{relpath}` | — | file | chỉ phục vụ file dưới `data/work/` và `data/samples/`; chặn `..` |
+
+`POST /ingest/documents`:
+- `classification` bắt buộc, không có mặc định (spec 02 FR-01b); thiếu hoặc ngoài enum → 422, không lưu tệp, không tạo job.
+- Tệp lưu ở `data/work/docs/<job_id>/<tên tệp>`: chỉ giữ phần tên, bỏ mọi thành phần thư mục (`../`, `/`, `\`). Tên rỗng, `.`, `..` hoặc hai tệp trùng tên trong một lần gửi → 422.
+- Job chạy `ingest run` trên các tệp đó, ghi chunk vào `data/work/chunks/` như CLI (nên `knowhow ingest index` vẫn thấy), rồi chỉ index các `<doc_id>.jsonl` của lần tải này. Một tệp lỗi không dừng các tệp khác.
+- `result` = `{classification, files: [{name, doc_id, extractor, pages, chunks, skipped, error}], chunks_indexed}` (`core.schemas.DocumentIngestResult`). Không tệp nào ra chunk (mọi tệp lỗi hoặc không hỗ trợ) hoặc bước index lỗi → `failed`, `error` nêu lý do, `result` vẫn kèm các tệp đã xét.
 
 Job chạy bằng `BackgroundTasks` (MVP, một process). Lỗi trong job → `status=failed`, `error` có message, không làm sập server.
 
@@ -54,6 +60,11 @@ Cấu hình: `layout="wide"`, cỡ chữ ≥ 16px, nút bấm lớn; UI chỉ g�
 **Trang 3 — "Truy nguyên lỗi"**
 - Chọn lot (từ `/sigma/lots`) hoặc nhập triệu chứng → bảng giả thuyết (màu theo likelihood), bảng 5-Why (cột "Đã xác minh"), danh sách lô liên quan, bước phòng ngừa, disclaimer.
 
+**Trang 4 — "Tải tài liệu"**
+- Chọn một hoặc nhiều tệp `.pdf .docx .xlsx .pptx` và nhãn dữ liệu (Công khai / Dữ liệu tổng hợp / Mật – dữ liệu nhà máy). Không chọn sẵn nhãn: nút **Tải lên & xử lý** bị vô hiệu tới khi có ít nhất một tệp và đã chọn nhãn.
+- Gửi `POST /ingest/documents`, rồi hỏi `GET /jobs/{id}` mỗi ~2 giây tới khi `done`/`failed`; hiện trạng thái Đang chờ / Đang xử lý / Hoàn tất / Lỗi.
+- Xong → bảng từng tệp (tên, `doc_id`, extractor, số trang, số chunk, bỏ qua/lỗi) và tổng số chunk đã index. Lỗi hiện bằng tiếng Việt, không có stack trace.
+
 ## 4. `make demo` — `scripts/demo.sh`
 1. `make up` và chờ healthy → `knowhow kg init` → `knowhow sigma gen-mock` → `knowhow kg load-sigma --classification synthetic`.
 2. `knowhow ingest run data/samples/docs --classification synthetic` → `knowhow ingest index`.
@@ -65,7 +76,7 @@ Cấu hình: `layout="wide"`, cỡ chữ ≥ 16px, nút bấm lớn; UI chỉ g�
 ## 5. Functional Requirements
 - **FR-01** Profile store như mục 1.
 - **FR-02** Toàn bộ endpoint mục 2, có OpenAPI docs tại `/docs`.
-- **FR-03** UI 3 trang như mục 3.
+- **FR-03** UI 4 trang như mục 3.
 - **FR-04** `make demo` như mục 4, tổng thời gian ≤ 10 phút ở chế độ offline.
 - **FR-05** CORS chỉ cho origin của Streamlit; không có auth ở MVP (ghi rõ trong README).
 
@@ -78,6 +89,10 @@ Cấu hình: `layout="wide"`, cỡ chữ ≥ 16px, nút bấm lớn; UI chỉ g�
 - **AC-06** `/rca/investigate` với lot không tồn tại → 404.
 - **AC-07** `KNOWHOW_DEMO_OFFLINE=1 make demo` chạy xong trên máy sạch, exit code 0.
 - **AC-08** UI: nhập `reason` mà không chọn `reason_source` → nút Duyệt bị vô hiệu, có thông báo.
+- **AC-09** `POST /ingest/documents` với một tệp hỗ trợ và `classification` → job `done`; `result.files` có `doc_id`, `pages`, `chunks` của tệp; các chunk mang đúng nhãn đã chọn và đã được upsert vào vector store (chỉ chunk của lần tải này).
+- **AC-10** Tên tệp có thành phần đường dẫn (VD `../../evil.pdf`) → tệp được lưu dưới `data/work/docs/<job_id>/` chỉ theo tên gốc (`evil.pdf`), không ghi ra ngoài thư mục đó.
+- **AC-11** Thiếu `classification` hoặc giá trị ngoài enum → 422, không lưu tệp, không tạo job (không còn mặc định `synthetic`).
+- **AC-12** Mọi tệp lỗi hoặc không hỗ trợ, hoặc bước index raise → `GET /jobs/{id}` trả `failed` + message; server vẫn phục vụ request khác.
 
 ## 7. Tasks
 - [ ] T08-1 Profile store + test.
@@ -86,6 +101,7 @@ Cấu hình: `layout="wide"`, cỡ chữ ≥ 16px, nút bấm lớn; UI chỉ g�
 - [ ] T08-4 API assistant/rca/sigma/media (AC-04, AC-06).
 - [ ] T08-5 Streamlit 3 trang (AC-08).
 - [ ] T08-6 `scripts/demo.sh` + fixture offline (AC-07) — phối hợp Trung (S2-3). Khung đã có (preflight + luồng §4); còn thiếu các lệnh của spec 02/03/05/06/07, `data/samples/review_decisions.json` và fixture FakeVLM qua env.
+- [ ] T08-7 Tải tài liệu: `POST /ingest/documents` chạy thật spec 02 run + index (thay kết quả giả), `classification` bắt buộc, tên tệp chỉ giữ phần tên; trang 4 "Tải tài liệu" (AC-09..AC-12).
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
@@ -93,3 +109,4 @@ Cấu hình: `layout="wide"`, cỡ chữ ≥ 16px, nút bấm lớn; UI chỉ g�
 - v1.2 (27/9): đường dẫn module theo layout mới (bỏ `knowhow.`/`src/knowhow/`, xem spec 01 v1.3).
 - v1.3 (29/9, review): cấu hình API (`app_name`, `cors_origins`) nằm trong `core.config.Settings` (spec 01 FR-03); khung `scripts/demo.sh` (T08-6 chưa xong).
 - v1.4 (02/10, review): review hoàn tác thất bại khôi phục graph theo bản đang lưu (profile đã approved được nạp lại, không bị gỡ khỏi graph); test AC-01 kiểm graph giữ bản cũ tới khi approve lại; demo nạp Sigma mock bằng `--classification synthetic` (spec 05 FR-05).
+- v1.5 (06/10, Phúc): `POST /ingest/documents` chạy thật spec 02 (`ingest run` rồi chỉ index các `<doc_id>.jsonl` của lần tải, qua `capture.ingest.index.index_files`; `ingest index` không đổi) thay cho kết quả giả; `classification` bắt buộc như spec 02 FR-01b (bỏ mặc định `synthetic` vốn có thể dán nhầm nhãn cho dữ liệu nhà máy); tên tệp chỉ giữ phần tên (trước đó `../../x.pdf` hay `/x.pdf` ghi ra ngoài `data/work/docs/`). Thêm trang 4 "Tải tài liệu" (FR-03 thành 4 trang), AC-09..AC-12, task T08-7. Trang 4 làm trong UI React (`mentormind/frontend/`) như 3 trang kia; mục 3 và T08-5 vẫn ghi Streamlit, chưa sửa.
