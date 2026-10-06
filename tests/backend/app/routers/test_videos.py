@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sqlite3
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -166,3 +167,21 @@ def test_sigma_lots_need_the_csv_adapter(monkeypatch: pytest.MonkeyPatch, client
     monkeypatch.setattr(sigma_router, "get_settings", lambda: Settings(_env_file=None, sigma_adapter="sigma_api"))
     res = client.get("/sigma/lots")
     assert res.status_code == 503 and "spec 07" in json.dumps(res.json(), ensure_ascii=False)
+
+
+def test_ac_17_a_job_left_running_by_a_restart_ends_failed(client: TestClient, store: ProfileStore) -> None:
+    from mentormind.backend.app.routers import jobs as jobs_router
+    from mentormind.core.schemas import JobStatus
+
+    store.create_job("job-vid-before", "video_process")
+    store.update_job("job-vid-before", JobStatus.RUNNING, result={"progress": {"done": 3, "total": 40}})
+    with sqlite3.connect(store.db_path) as conn:  # created by the previous API process
+        conn.execute("UPDATE jobs SET created_at = ? WHERE job_id = ?", ("2000-01-01T00:00:00+00:00", "job-vid-before"))
+    store.create_job("job-vid-now", "video_process")
+    store.update_job("job-vid-now", JobStatus.RUNNING)
+    assert jobs_router.STARTED_AT > "2000-01-01"
+
+    stale = client.get("/jobs/job-vid-before").json()
+    assert stale["status"] == "failed" and "khởi động lại" in stale["error"]
+    assert stale["result"] == {"progress": {"done": 3, "total": 40}}  # what it got done is kept
+    assert client.get("/jobs/job-vid-now").json()["status"] == "running"
