@@ -109,8 +109,9 @@ class Settings(BaseSettings):
     asr_device: str = "cpu"
     # CTranslate2 quantisation: int8 keeps Whisper small around 0.5 GB of RAM on a CPU.
     asr_compute_type: str = "int8"
-    # Language of the expert's speech; empty = detected per file.
-    asr_language: str | None = "vi"
+    # Language of the expert's speech; empty = detected per file (any language Whisper knows:
+    # a Thai expert's words stay Thai, and so do the reasons quoted from them). Set to force one.
+    asr_language: str | None = None
     asr_beam_size: int = 5
     # Voice activity detection (Silero, bundled): skips silence and music before decoding.
     asr_vad: bool = True

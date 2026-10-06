@@ -52,6 +52,11 @@ def test_ac_09_one_provider_per_configuration_so_the_model_loads_once(tmp_path: 
     first, second = get_asr_provider(settings), get_asr_provider(settings)
     assert first is second and isinstance(first, FasterWhisperASR)
     assert first.is_cloud is False and (first.device, first.compute_type, first.model) == ("cpu", "int8", "tiny")
+    assert first.language is None  # spec 03 FR-07c: detected per file unless KNOWHOW_ASR_LANGUAGE forces one
+    forced = get_asr_provider(
+        Settings(_env_file=None, asr_provider="faster_whisper", asr_model="tiny", asr_language="vi")
+    )
+    assert forced.language == "vi" and forced is not first
     assert get_asr_provider(Settings(_env_file=None, asr_provider="faster_whisper", asr_model="base")) is not first
 
     loads: list[tuple[str, str, str]] = []
@@ -93,7 +98,7 @@ def test_faster_whisper_keeps_word_timestamps_and_reports_progress(tmp_path: Pat
     [segment] = result.segments
     assert isinstance(segment, ASRSegment) and segment.text == "Đặt cốc nghiêng."
     assert [(w.text, w.t_start) for w in segment.words] == [(" Đặt", 0.4), (" cốc", 0.7), (" nghiêng.", 1.0)]
-    assert engine.kwargs == {"language": "vi", "beam_size": 3, "word_timestamps": True, "vad_filter": True}
+    assert engine.kwargs == {"language": None, "beam_size": 3, "word_timestamps": True, "vad_filter": True}
     assert heard == [(1.6, 12.0)] and result.duration_s == 12.0
 
 

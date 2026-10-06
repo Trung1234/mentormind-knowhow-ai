@@ -150,8 +150,8 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
         pass_criteria: passCriteria || undefined,
       };
       const updated = await api.patchProfile(selectedProfile.profile_id, patchData);
+      selectProfile(updated); // resets the form and the message: the confirmation comes after
       setActionMsg({ type: "success", text: `SAVED: Profile ${updated.profile_id} updated to v${updated.version} — status IN_REVIEW.` });
-      selectProfile(updated);
       loadProfiles();
     } catch (err: any) {
       setActionMsg({ type: "error", text: `WRITE ERROR: ${err.message}` });
@@ -171,8 +171,8 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
         comment:  reviewComment || "Meets operation standard",
       };
       const updated = await api.reviewProfile(selectedProfile.profile_id, req);
+      selectProfile(updated); // resets the form and the message: the confirmation comes after
       setActionMsg({ type: "success", text: `APPROVED: ${updated.profile_id} verified & synced to Neo4j Knowledge Graph.` });
-      selectProfile(updated);
       loadProfiles();
     } catch (err: any) {
       setActionMsg({ type: "error", text: `APPROVE FAILED: ${err.message}` });
@@ -193,8 +193,8 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
         error_tags: selectedErrorTags,
       };
       const updated = await api.reviewProfile(selectedProfile.profile_id, req);
+      selectProfile(updated); // resets the form and the message: the confirmation comes after
       setActionMsg({ type: "warning", text: `REJECTED: ${updated.profile_id} — status set to REJECTED.` });
-      selectProfile(updated);
       loadProfiles();
     } catch (err: any) {
       setActionMsg({ type: "error", text: `ERROR: ${err.message}` });

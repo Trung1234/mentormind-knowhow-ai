@@ -48,7 +48,7 @@ class FasterWhisperASR(ASRProvider):
         compute_type: str = "int8",
         beam_size: int = 5,
         vad_filter: bool = True,
-        language: str | None = "vi",
+        language: str | None = None,
         engine_factory: EngineFactory = load_whisper,
     ) -> None:
         self.name = name

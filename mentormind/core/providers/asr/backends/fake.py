@@ -22,7 +22,7 @@ class FakeASR(ASRProvider):
         name: str = "fake",
         model: str = "fake-asr",
         is_cloud: bool = False,
-        language: str | None = "vi",
+        language: str | None = None,
         duration_s: float | None = None,
     ) -> None:
         self.name = name
@@ -53,4 +53,4 @@ class FakeASR(ASRProvider):
         for segment in self._segments:
             if progress is not None:
                 progress(segment.t_end, duration)
-        return list(self._segments), language or "vi", duration
+        return list(self._segments), language or "vi", duration  # a fake "detects" Vietnamese
