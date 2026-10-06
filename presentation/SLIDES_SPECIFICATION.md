@@ -2,26 +2,28 @@
 ## Complete AI Slide Generator Specification & Master Prompts
 
 > **Topic:** Accumulate Master Know-How for AI to Learn (MentorMind)  
+> **Format Alignment:** **1:1 Chuẩn Đề Bài & Cấu Trúc PPT Gốc** (`Denso_Master_KnowHow_Slides.pptx` & PDF)  
+> **Orientation:** **16:9 Horizontal Widescreen (Chiều Ngang)** — No vertical portrait squishing  
 > **Target Audience:** Denso Hackathon Judging Committee, Factory Plant Managers, AI Researchers  
-> **Format:** 16:9 Widescreen Presentation Deck (8 Slides)  
-> **Language:** Professional English  
+> **Language:** Professional English (with bilingual Vietnamese section mapping tags)  
 > **Design Theme:** Industrial Precision Tech / Cyber-Dark Luxury (Denso Red, Obsidian Black, Electric Cyan, Emerald Green)  
 > **GitHub Repository:** [https://github.com/Trung1234/mentormind-knowhow-ai](https://github.com/Trung1234/mentormind-knowhow-ai)  
-> **Working Branch:** `vinh/feat-api-ui` ([PR #17](https://github.com/Trung1234/mentormind-knowhow-ai/pull/17))
+> **Working Branch:** `vinh/feat-api-ui` ([PR #17](https://github.com/Trung1234/mentormind-knowhow-ai/pull/17))  
+> **Generated PDF:** `presentation/MentorMind_Denso_Presentation.pdf` (8 Pages, 16:9 Landscape)
 
 ---
 
 ## Table of Contents
-1. [Global Visual Identity & Styling Guide](#global-visual-identity--styling-guide)
-2. [Section A: Slide-by-Slide Detailed Blueprint](#section-a-slide-by-slide-detailed-blueprint)
-   - [Slide 1: Cover & Project Identity](#slide-1-cover--project-identity)
-   - [Slide 2: Context & Critical Shopfloor Pain Points](#slide-2-context--critical-shopfloor-pain-points)
-   - [Slide 3: The Challenge & 4 Measurable Deliverables](#slide-3-the-challenge--4-measurable-deliverables)
-   - [Slide 4: International Case Study & Cautionary Lessons](#slide-4-international-case-study--cautionary-lessons)
-   - [Slide 5: Paradigm Shift — Replacement vs. Empowerment](#slide-5-paradigm-shift--replacement-vs-empowerment)
-   - [Slide 6: The MentorMind 4-Step Solution Loop](#slide-6-the-mentormind-4-step-solution-loop)
-   - [Slide 7: 5-Layer System Architecture](#slide-7-5-layer-system-architecture)
-   - [Slide 8: 3-Month Execution Roadmap & Vision](#slide-8-3-month-execution-roadmap--vision)
+1. [Global Visual Identity & Styling Guide (16:9 Horizontal)](#global-visual-identity--styling-guide)
+2. [Section A: Slide-by-Slide Detailed Blueprint (Format Đề Bài 1:1)](#section-a-slide-by-slide-detailed-blueprint)
+   - [Slide 1: COVER · TIÊU ĐỀ (DENSO HACKATHON · AI CHALLENGE)](#slide-1-cover--project-identity)
+   - [Slide 2: CONTEXT · BỐI CẢNH (Tri thức chuyên gia đang rời khỏi nhà máy)](#slide-2-context--critical-shopfloor-pain-points)
+   - [Slide 3: THE CHALLENGE · ĐỀ BÀI (DELIVERABLES SAU 3 THÁNG)](#slide-3-the-challenge--4-measurable-deliverables)
+   - [Slide 4: REFERENCE CASE · CASE THAM KHẢO ("Factory Workers Are Training AI...")](#slide-4-international-case-study--cautionary-lessons)
+   - [Slide 5: LESSONS LEARNED · BÀI HỌC RÚT RA (Hai cách tiếp cận đối lập)](#slide-5-paradigm-shift--replacement-vs-empowerment)
+   - [Slide 6: SOLUTION · GIẢI PHÁP (Thiết bị capture + cơ chế khuyến khích)](#slide-6-the-mentormind-4-step-solution-loop)
+   - [Slide 7: ARCHITECTURE · KIẾN TRÚC (5 bước kỹ thuật hoàn chỉnh)](#slide-7-5-layer-system-architecture)
+   - [Slide 8: ROADMAP · LỘ TRÌNH (Từ capture đến trợ lý AI trong 3 tháng)](#slide-8-3-month-execution-roadmap--vision)
 3. [Section B: One-Click Master Prompt for AI Tools (Gamma / Tome / Beautiful.ai / ChatGPT)](#section-b-one-click-master-prompt-for-ai-tools)
 4. [Section C: Marp Markdown Presentation Code (Native PPTX/PDF Export)](#section-c-marp-markdown-presentation-code)
 

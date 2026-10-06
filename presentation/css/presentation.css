@@ -290,16 +290,19 @@ html, body {
 
 .slide-canvas {
   position: relative;
-  width: 100%;
-  height: 100%;
-  max-height: calc(100vh - 150px);
+  /* Strictly enforce 16:9 horizontal widescreen proportions */
+  width: min(calc((100vh - 140px) * 16 / 9), 100%);
+  max-width: 1600px;
   aspect-ratio: 16 / 9;
+  height: auto;
+  max-height: calc(100vh - 140px);
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: 20px;
   box-shadow: 0 20px 60px -15px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
   overflow: hidden;
   display: flex;
+  margin: 0 auto;
 }
 
 /* Individual Slides */
@@ -1486,17 +1489,21 @@ kbd {
 }
 
 /* ==========================================================================
-   PRINT / PDF EXPORT STYLES
+   PRINT / PDF EXPORT STYLES (16:9 TRUE WIDESCREEN LANDSCAPE)
    ========================================================================== */
 @page {
-  size: 16in 9in landscape;
+  size: 1920px 1080px;
   margin: 0;
 }
 
 @media print {
+  *, *::before, *::after {
+    box-sizing: border-box !important;
+  }
   html, body {
-    overflow: visible !important;
+    width: 1920px !important;
     height: auto !important;
+    overflow: visible !important;
     background: #07090e !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
@@ -1506,21 +1513,25 @@ kbd {
   }
   .deck-container {
     padding: 0 !important;
+    margin: 0 !important;
+    width: 1920px !important;
     height: auto !important;
-    width: 100% !important;
     display: block !important;
   }
   .stage {
     display: block !important;
+    width: 1920px !important;
     height: auto !important;
-    max-width: 100% !important;
+    max-width: none !important;
     margin: 0 !important;
+    padding: 0 !important;
     perspective: none !important;
   }
   .slide-canvas {
     display: block !important;
-    max-height: none !important;
+    width: 1920px !important;
     height: auto !important;
+    max-height: none !important;
     border: none !important;
     box-shadow: none !important;
     border-radius: 0 !important;
@@ -1531,6 +1542,8 @@ kbd {
   .slide {
     position: relative !important;
     display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
     opacity: 1 !important;
     visibility: visible !important;
     transform: none !important;
@@ -1539,34 +1552,45 @@ kbd {
     page-break-inside: avoid !important;
     break-after: page !important;
     break-inside: avoid !important;
-    height: 100vh !important;
-    min-height: 100vh !important;
-    max-height: 100vh !important;
-    padding: 48px 64px !important;
+    width: 1920px !important;
+    height: 1080px !important;
+    min-height: 1080px !important;
+    max-height: 1080px !important;
+    padding: 60px 80px !important;
     background: #0d121f !important;
-    border-bottom: 2px solid rgba(255, 255, 255, 0.05) !important;
     box-sizing: border-box !important;
+    overflow: hidden !important;
   }
 }
 
 /* ==========================================================================
-   RESPONSIVE DESIGN (Tablets / Laptops)
+   RESPONSIVE DESIGN (Preserving 16:9 Horizontal Widescreen Layout)
    ========================================================================== */
 @media (max-width: 1200px) {
-  .slide-title { font-size: 30px; }
-  .hero-title { font-size: 44px; }
-  .deliverables-grid { grid-template-columns: repeat(2, 1fr); }
-  .steps-pipeline { grid-template-columns: repeat(2, 1fr); }
-  .roadmap-timeline { grid-template-columns: 1fr; }
-  .arch-interactive-layout { grid-template-columns: 1fr; }
-  .grid-2col { grid-template-columns: 1fr; }
+  .slide-title { font-size: 28px; }
+  .slide-subtitle { font-size: 14px; }
+  .hero-title { font-size: 38px; }
+  .hero-desc { font-size: 15px; }
+  .slide { padding: 32px 40px; }
+  /* Maintain horizontal multi-column grids (chiều ngang) */
+  .deliverables-grid { grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .steps-pipeline { grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .roadmap-timeline { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .arch-interactive-layout { grid-template-columns: 1fr 1.1fr; gap: 16px; }
+  .grid-2col { grid-template-columns: 1.1fr 0.9fr; gap: 18px; }
+  .compare-container { grid-template-columns: 1fr 1fr; gap: 16px; }
+  .case-layout { grid-template-columns: 1fr 1fr; gap: 16px; }
 }
 
-@media (max-width: 800px) {
-  .slide { padding: 24px; }
-  .hero-title { font-size: 32px; }
-  .hero-desc { font-size: 15px; }
-  .compare-container { grid-template-columns: 1fr; }
-  .case-layout { grid-template-columns: 1fr; }
+@media (max-width: 860px) {
+  .slide { padding: 22px 28px; }
+  .slide-title { font-size: 24px; }
+  .hero-title { font-size: 28px; }
+  .hero-desc { font-size: 13px; }
+  .deliverables-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .steps-pipeline { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .roadmap-timeline { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .compare-container { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .case-layout { grid-template-columns: 1fr 1fr; gap: 10px; }
   .top-center { display: none; }
 }
