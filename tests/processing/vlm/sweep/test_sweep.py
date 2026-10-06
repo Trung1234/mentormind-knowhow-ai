@@ -177,7 +177,12 @@ def _isolated_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_fixed_windows_merge_a_short_tail() -> None:
-    from mentormind.processing.vlm.sweep.windows import window_bounds
+    from mentormind.capture.video.postprocess import postprocess
+    from mentormind.capture.video.segmenters import Cut, window_bounds
 
-    assert window_bounds(25.0, 10.0) == [(0.0, 10.0), (10.0, 20.0), (20.0, 25.0)]
-    assert window_bounds(21.5, 10.0) == [(0.0, 10.0), (10.0, 21.5)]  # 1.5 s tail merged
+    def windows(duration: float) -> list[tuple[float, float]]:
+        cuts = postprocess([Cut(*b) for b in window_bounds(duration, 10.0)], duration)
+        return [(c.t_start, c.t_end) for c in cuts]
+
+    assert windows(25.0) == [(0.0, 10.0), (10.0, 20.0), (20.0, 25.0)]
+    assert windows(21.5) == [(0.0, 10.0), (10.0, 21.5)]  # 1.5 s tail merged (spec 03 FR-04)

@@ -126,8 +126,12 @@ def test_the_expert_words_reach_the_profiles_and_propose_reasons(
     )
 
 
-def test_without_spec_03_the_profiles_have_no_excerpt_as_before(tmp_path: Path) -> None:
-    from tests.processing.vlm.transcript.fakes import line
+def test_without_spec_03_the_profiles_have_no_excerpt_as_before(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from tests.processing.vlm.transcript.fakes import line, remove_spec03
+
+    remove_spec03(monkeypatch)
 
     result = run(FakeVLM(RUN_1), tmp_path, consistency=False, transcript=[line("Nhặt cốc lên nhé.", 0.5, 1.5)])
     assert {p.evidence.transcript_excerpt for p in result.profiles} == {None}

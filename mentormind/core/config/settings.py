@@ -93,6 +93,10 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 8192
     llm_extra_body: dict[str, Any] = {}
 
+    # --- Video capture (spec 03) -------------------------------------------------------------
+    # MediaPipe hand model of `hand_activity` cuts (FR-03), fetched once, SHA-256 pinned.
+    video_hand_model: Path = REPO_ROOT / "data" / "work" / "models" / "hand_landmarker.task"
+
     # --- Speech-to-text (spec 03 FR-07c) -----------------------------------------------------
     # Registry name of the ASR provider (`knowhow video providers` lists them). Local only.
     asr_provider: str = "faster_whisper"

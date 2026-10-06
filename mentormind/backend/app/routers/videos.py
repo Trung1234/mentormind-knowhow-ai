@@ -1,7 +1,6 @@
 """Video endpoints (spec 08 §2): upload, process (cut → describe → propose-reasons) and segments.
 
-Spec 03 has no code yet, so processing cuts the video with spec 04's ``fixed_window`` fallback
-(``processing.vlm.segments``). When spec 03 lands, only :func:`describe_video`'s cutting step changes.
+Cutting, keyframes, clips and the transcript are spec 03's ``VideoCapturePipeline``.
 """
 
 import re
@@ -52,8 +51,7 @@ async def upload_video(
     # Mandatory like for documents (spec 02 FR-01b): a factory video must never default to a weaker label.
     classification: DataClassification = Form(...),
 ) -> VideoAsset:
-    from mentormind.processing.vlm.segments import probe_video
-    from mentormind.processing.vlm.sweep.windows import video_id_for
+    from mentormind.capture.video.probe import probe_video, video_id_for
 
     suffix = Path(upload_name(file.filename)).suffix.lower()
     if suffix not in VIDEO_SUFFIXES:
@@ -113,7 +111,7 @@ def process_video(
 
 @router.get("/{video_id}/segments", response_model=list[Segment])
 def get_segments(video_id: str) -> list[Segment]:
-    from mentormind.processing.vlm.segments import read_segments, segments_path
+    from mentormind.capture.video.store import read_segments, segments_path
 
     if not VIDEO_ID.fullmatch(video_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Không có video {video_id}.")
@@ -153,13 +151,13 @@ def describe_video(
 
     Same steps as ``knowhow vlm describe --video`` then ``propose-reasons`` (spec 04 FR-05).
     """
+    from mentormind.capture.video import VideoCapturePipeline
     from mentormind.core.guard import DataGuard
     from mentormind.core.providers.llm import get_llm_provider
     from mentormind.core.providers.vlm import get_vlm_provider
     from mentormind.processing.vlm.passes.reasons import propose_reasons
     from mentormind.processing.vlm.pipeline import DescribePipeline
     from mentormind.processing.vlm.profiles import FileProfileSink, get_profile_sink
-    from mentormind.processing.vlm.segments import cut_fixed_windows
     from mentormind.processing.vlm.transcript import load_transcript
 
     work = settings.work_dir
@@ -171,8 +169,18 @@ def describe_video(
     DataGuard.check(asset.data_classification, llm)
 
     process_id = asset.process_id or DEFAULT_PROCESS_ID
-    segments = cut_fixed_windows(
-        Path(asset.path), work_dir=work, classification=asset.data_classification, window_s=WINDOW_S
+    segments = (
+        VideoCapturePipeline(settings, window_s=WINDOW_S)
+        .run(
+            Path(asset.path),
+            work_dir=work,
+            process_id=process_id,
+            classification=asset.data_classification,
+            method="fixed_window",
+            transcribe=False,
+            video_id=asset.video_id,
+        )
+        .segments
     )
     transcript = load_transcript(work, asset.video_id)
     result = VideoProcessResult(

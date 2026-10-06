@@ -30,8 +30,8 @@ from mentormind.core.providers.vlm.backends.fake import FakeVLM
 from mentormind.core.schemas import VideoAsset
 from mentormind.knowledge_base.sigma.adapter import CsvSigmaAdapter
 from mentormind.knowledge_base.store.profile_store import ProfileStore
+from tests.capture.video.fakes import fake_ffmpeg, synthetic_video
 from tests.processing.vlm.test_pipeline import RUN_1, RUN_2
-from tests.processing.vlm.video_fakes import fake_ffmpeg, synthetic_video
 
 MERGE = {
     "steps": [

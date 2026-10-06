@@ -6,12 +6,13 @@ import pytest
 
 from mentormind.processing.vlm.transcript import align, excerpt_for
 from tests.processing.vlm.passes.test_describe import segments
-from tests.processing.vlm.transcript.fakes import install_spec03, line
+from tests.processing.vlm.transcript.fakes import install_spec03, line, remove_spec03
 
 SAID = [line("rồi đóng nắp.", 12, 14), line("Đặt nghiêng để không trầy,", 3, 5)]
 
 
-def test_without_spec_03_there_is_no_excerpt_and_no_error() -> None:
+def test_without_spec_03_there_is_no_excerpt_and_no_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    remove_spec03(monkeypatch)
     assert align(segments(2), SAID) is None
     assert excerpt_for(["VID-TEST-S001"], None) is None
 

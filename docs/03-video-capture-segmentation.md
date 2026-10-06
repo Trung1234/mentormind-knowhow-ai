@@ -64,7 +64,7 @@ mentormind/core/providers/asr/     ASR là provider như VLM/LLM (FR-07c)
 Fallback `fixed_window` + keyframe mà spec 04 viết tạm (`processing/vlm/segments.py`, `sweep/windows.py`) chuyển hết vào đây; `processing/vlm` chỉ import lại, không giữ bản thứ hai.
 
 ## 5. Functional Requirements
-- **FR-01** `knowhow video probe <file> [--process-id] [--classification]` trả `VideoAsset` (ffprobe: thời lượng, fps, có audio không; `video_id` = `VID-` + sha256[:12] nội dung).
+- **FR-01** `knowhow video probe <file> [--process-id] [--classification]` trả `VideoAsset` (ffprobe: thời lượng, fps, có audio không; `video_id` = `VID-` + sha256[:12] nội dung). Máy không có ffprobe: OpenCV đọc thời lượng/fps, video coi như không có audio (ghi log).
 - **FR-02** `knowhow video segment <file> --process-id PACK01 --classification synthetic [--method]` tạo `Segment` list + file JSON tại `data/work/video/<video_id>/segments.json`, kèm `video.json` (`VideoAsset`), keyframe và clip.
 - **FR-03** Chiến lược cắt, chọn bằng `--method` (mặc định `hand_activity`); thiếu thư viện/model của một cách thì rơi xuống cách sau, ghi log cảnh báo, không crash, và báo cách thực dùng:
   1. `hand_activity` (Should): MediaPipe Tasks `HandLandmarker` (CPU; model `hand_landmarker.task` tải một lần vào `KNOWHOW_VIDEO_HAND_MODEL`, ghim SHA-256). Khung thu nhỏ cạnh dài 256 px, 5 fps. Năng lượng = tốc độ cổ tay (landmark 0) trung bình các bàn tay thấy được, đơn vị bề rộng khung/giây; không thấy tay = nghỉ. Ranh giới ở giữa mỗi quãng năng lượng < 0.05 kéo dài ≥ 0.4 s.
@@ -95,16 +95,17 @@ Fallback `fixed_window` + keyframe mà spec 04 viết tạm (`processing/vlm/seg
 - **AC-11** `hand_activity` với bộ dò tay giả lập: quãng nghỉ ≥ 0.4 s thành ranh giới, quãng nghỉ ngắn hơn thì không; `motion_score` của mọi đoạn trong [0, 1] và đoạn tay chạy nhanh có điểm cao hơn đoạn tay chậm.
 
 ## 7. Tasks
-- [ ] T03-1 Models + `probe`.
-- [ ] T03-2 Cắt `scene` + `fixed_window` + hậu xử lý (AC-01..03).
-- [ ] T03-3 Keyframe + clip export.
-- [ ] T03-4 `hand_activity` với MediaPipe + fallback (AC-04, AC-11).
-- [ ] T03-5 `transcribe` faster-whisper + `align_transcript` (AC-05, AC-06, AC-10).
-- [ ] T03-6 Lan truyền `data_classification` (AC-07) + `--recall-audio` (AC-08).
-- [ ] T03-7 ASR provider `core.providers.asr` (`faster_whisper`, `fake`) + `knowhow video providers` (AC-09).
-- [ ] T03-8 `VideoCapturePipeline` + CLI `knowhow video`; gộp fallback của spec 04 vào `capture/video` (FR-09).
+- [x] T03-1 Models + `probe`.
+- [x] T03-2 Cắt `scene` + `fixed_window` + hậu xử lý (AC-01..03).
+- [x] T03-3 Keyframe + clip export.
+- [x] T03-4 `hand_activity` với MediaPipe + fallback (AC-04, AC-11).
+- [x] T03-5 `transcribe` faster-whisper + `align_transcript` (AC-05, AC-06, AC-10).
+- [x] T03-6 Lan truyền `data_classification` (AC-07) + `--recall-audio` (AC-08).
+- [x] T03-7 ASR provider `core.providers.asr` (`faster_whisper`, `fake`) + `knowhow video providers` (AC-09).
+- [x] T03-8 `VideoCapturePipeline` + CLI `knowhow video`; gộp fallback của spec 04 vào `capture/video` (FR-09).
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
 - v1.1 (23/9): `Segment`/`TranscriptSegment` mang `data_classification`; thêm FR-07b nạp audio video-cued recall cho video câm (AC-07, AC-08, T03-6).
 - v1.2 (27/9): đường dẫn module theo layout mới (bỏ `knowhow.`/`src/knowhow/`, xem spec 01 v1.3).
+- v1.3 (06/10, Phúc): spec 03 làm đủ, chỉ CPU, theo thao tác của người (§4): `capture/video` (probe ffprobe, 3 cách cắt + chuỗi fallback, `motion_score` cho mọi cách, FR-04, keyframe, clip luôn re-encode H.264 để trình duyệt phát được và cắt đúng ranh giới, transcribe theo word timestamps, recall audio, `align_transcript`, `VideoCapturePipeline`, CLI `knowhow video`); ASR là provider `core.providers.asr` (FR-07c: `faster_whisper` CPU int8, `fake`); `hand_activity` dùng MediaPipe Tasks `HandLandmarker` (MediaPipe 1.0 bỏ API `solutions`), model ghim SHA-256; fallback tạm của spec 04 gộp vào đây. AC-09..AC-11, T03-7, T03-8. Extra `video` không cài `opencv-contrib-python` (override uv, xem `pyproject.toml`).

@@ -1,8 +1,8 @@
 """``knowhow vlm describe`` and ``knowhow vlm propose-reasons`` (spec 04 FR-05).
 
 ``describe`` takes the segments of spec 03 (``<video_id>`` reads
-``data/work/video/<id>/segments.json``, or ``--segments FILE``) or, until spec 03 lands, a raw
-``--video FILE`` cut into fixed 10 s windows (spec 03 FR-03 fallback, as ``sweep`` does). Drafts
+``data/work/video/<id>/segments.json``, or ``--segments FILE``) or a raw ``--video FILE`` cut by
+spec 03's ``VideoCapturePipeline`` (``--method``, fixed 10 s windows by default, as ``sweep`` does). Drafts
 go to the sink of ``KNOWHOW_PROFILE_SINK`` (spec 08's store when present, else
 ``data/work/vlm/<video_id>/profiles.json``); ``propose-reasons`` reads and updates them there.
 """
@@ -28,7 +28,7 @@ def describe_cmd(
     video_id: Annotated[str | None, typer.Argument(help="video_id đã cắt đoạn bằng spec 03 (segments.json).")] = None,
     video: Annotated[
         Path | None,
-        typer.Option(exists=True, dir_okay=False, help="Video thô; cắt đoạn 10 s khi chưa có spec 03."),
+        typer.Option(exists=True, dir_okay=False, help="Video thô, cắt bằng spec 03 (--method)."),
     ] = None,
     segments: Annotated[
         Path | None, typer.Option(exists=True, dir_okay=False, help="segments.json của spec 03.")
@@ -43,6 +43,9 @@ def describe_cmd(
         typer.Option(help="fps khi đoạn chưa có motion_score (mặc định KNOWHOW_VLM_FPS)."),
     ] = None,
     window: Annotated[float, typer.Option(min=3, help="Độ dài đoạn (s) cho --video.")] = 10.0,
+    method: Annotated[
+        str, typer.Option(help="Cách cắt --video (spec 03): fixed_window | scene | hand_activity.")
+    ] = "fixed_window",
     provider: Annotated[str | None, typer.Option(help="Ghi đè KNOWHOW_VLM_PROVIDER.")] = None,
     llm_provider: Annotated[str | None, typer.Option(help="LLM của lượt C; ghi đè KNOWHOW_LLM_PROVIDER.")] = None,
     consistency: Annotated[
@@ -66,7 +69,7 @@ def describe_cmd(
         settings = settings.model_copy(update={"llm_provider": llm_provider})
     try:
         sink = get_profile_sink(settings, work_dir=WORK)  # fail before any VLM call
-        loaded = _segments(video_id, video, segments, classification, window)
+        loaded = _segments(video_id, video, segments, classification, window, method, process_id)
         vid = loaded[0].video_id
         transcript = load_transcript(WORK, vid)  # spec 03 transcript.json; none -> no excerpts
         vlm = get_vlm_provider(settings)
@@ -185,11 +188,25 @@ def _segments(
     segments: Path | None,
     classification: DataClassification,
     window: float,
+    method: str = "fixed_window",
+    process_id: str | None = None,
 ) -> list[Segment]:
-    from mentormind.processing.vlm.segments import cut_fixed_windows, read_segments, segments_path
+    from mentormind.capture.video import VideoCapturePipeline
+    from mentormind.capture.video.segmenters import METHODS
+    from mentormind.capture.video.store import read_segments, segments_path
 
     if [video_id, video, segments].count(None) != 2:
         raise ValueError("Chọn đúng một nguồn: <video_id>, --video hoặc --segments.")
     if video is not None:
-        return cut_fixed_windows(video, work_dir=WORK, classification=classification, window_s=window)
+        if method not in METHODS:
+            raise ValueError(f"--method phải là một trong {', '.join(METHODS)}.")
+        capture = VideoCapturePipeline(get_settings(), window_s=window)
+        return capture.run(
+            video,
+            work_dir=WORK,
+            process_id=process_id,
+            classification=classification,
+            method=method,  # checked against METHODS above
+            transcribe=False,
+        ).segments
     return read_segments(segments or segments_path(WORK, str(video_id)))
