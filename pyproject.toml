@@ -20,7 +20,10 @@ dependencies = [
 # `process` extra pins numpy<2 / pillow 10 and would downgrade the VLM stack, so install it in a
 # separate venv and point `MmoreFastExtractor(binary=...)` at it (docs/plans/02-spike-notes.md).
 ingest = ["docling>=2.132", "psycopg[binary]>=3.2", "transformers>=4.44", "torch>=2.2"]
-video = []
+# spec 03: PySceneDetect cuts scenes; ffmpeg/ffprobe are external binaries (brew install ffmpeg).
+# mediapipe is deliberately NOT here: 1.0.x aborts natively on macOS and 0.10.x pins numpy<2
+# (docs/plans/03-spike-notes.md).
+video = ["scenedetect>=0.6.4", "faster-whisper>=1.0", "opencv-python-headless>=4.9", "numpy>=1.26"]
 vlm = [
     "pillow>=10.3",
     "opencv-python-headless>=4.9",
@@ -94,6 +97,12 @@ disallow_untyped_defs = false
 # Optional extra (kg-semantic): installed in CI via --all-extras, often absent locally.
 [[tool.mypy.overrides]]
 module = ["sentence_transformers", "sentence_transformers.*"]
+ignore_missing_imports = true
+
+# PySceneDetect and faster-whisper ship no usable type stubs (extra `video`); mediapipe is only imported by
+# hand_worker.py, which runs in its own environment and is not a project dependency.
+[[tool.mypy.overrides]]
+module = ["scenedetect", "scenedetect.*", "faster_whisper", "faster_whisper.*", "mediapipe", "mediapipe.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

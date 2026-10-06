@@ -180,7 +180,7 @@ def _store_with_old_doc(tmp_path: Path) -> MemoryVectorStore:
     return store
 
 
-def test_replace_docs_removes_the_old_document_after_the_new_one_is_indexed(tmp_path: Path) -> None:
+def test_ac_17_replace_docs_removes_the_old_document_after_the_new_one_is_indexed(tmp_path: Path) -> None:
     store = _store_with_old_doc(tmp_path)
     new = tmp_path / "new"
     new.mkdir()
@@ -197,7 +197,9 @@ def test_replace_docs_never_deletes_a_document_indexed_in_the_same_run(tmp_path:
     assert len(_all(store)) == 2
 
 
-def test_cli_replace_doc_deletes_old_chunks_after_indexing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ac_17_cli_replace_doc_deletes_old_chunks_after_indexing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     store = _store_with_old_doc(tmp_path)
     new = tmp_path / "new"
     new.mkdir()
@@ -208,7 +210,9 @@ def test_cli_replace_doc_deletes_old_chunks_after_indexing(tmp_path: Path, monke
     assert {h.chunk.ref_id for h in _all(store)} == {"DOC-bbbbbbbbbbbb"}
 
 
-def test_cli_replace_doc_keeps_old_chunks_when_a_file_failed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ac_17_cli_replace_doc_keeps_old_chunks_when_a_file_failed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     store = _store_with_old_doc(tmp_path)
     bad = tmp_path / "bad"
     bad.mkdir()
@@ -218,7 +222,7 @@ def test_cli_replace_doc_keeps_old_chunks_when_a_file_failed(tmp_path: Path, mon
     assert result.exit_code == 1 and len(_all(store)) == 2
 
 
-def test_cli_replace_doc_rejects_a_malformed_doc_id(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ac_17_cli_replace_doc_rejects_a_malformed_doc_id(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     store = _store_with_old_doc(tmp_path)
     monkeypatch.setattr(ingest_cli, "build_store", lambda settings: store)
     result = runner.invoke(app, ["ingest", "index", "--chunks", str(tmp_path / "old"), "--replace-doc", "oops"])

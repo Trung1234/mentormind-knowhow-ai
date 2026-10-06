@@ -12,7 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -57,6 +57,28 @@ class Settings(BaseSettings):
     chunk_overlap_tokens: int = 50
     # Share of IPA/Greek letters above which a page's text layer is reported as mis-encoded (FR-02b).
     text_quality_max_odd_ratio: float = 0.05
+
+    # --- Video capture (spec 03) ------------------------------------------------------------
+    # 20 beat 27 on recall in the T03-0 spike (docs/plans/03-spike-notes.md); extra cuts are
+    # absorbed by the 3 s merge, missed cuts cannot be recovered.
+    scene_threshold: float = 20.0
+    segment_window_s: float = 10.0
+    ffmpeg_bin: str = "ffmpeg"
+    ffprobe_bin: str = "ffprobe"
+    # Raw motion (median frame difference, 0..1) that maps to motion_score 1.0; calibrated on the LASI
+    # video so work scenes land around 0.4-0.7 and interviews/logos below 0.15 (spec 04 cuts at 0.3/0.6).
+    motion_scale: float = Field(default=0.1, gt=0)
+    # Local ASR only (constitution art. 2). "auto" lets Whisper detect the language (the LASI demo is Thai).
+    whisper_model: str = "small"
+    whisper_language: str = "vi"
+    whisper_compute_type: str = "int8"
+    # hand_activity runs MediaPipe in its own process (docs/plans/03-spike-notes.md). Empty = `uv run --with
+    # mediapipe==0.10.21`; set to a Python that has mediapipe 0.10.x to skip the uv environment.
+    hand_python: str | None = None
+    hand_min_presence: float = Field(default=0.1, gt=0, le=1)  # share of frames that must show a hand
+    hand_valley_min_s: float = Field(default=0.4, gt=0)  # spec 03 FR-03: a rest lasts at least 0.4 s
+    hand_valley_ratio: float = Field(default=0.2, gt=0, lt=1)
+    hand_timeout_s: float = Field(default=600.0, gt=0)
 
     # --- VLM (spec 04) ----------------------------------------------------------------------
     # Registry name of the provider (``knowhow vlm providers`` lists them).
