@@ -37,7 +37,9 @@ export function RcaTab() {
       .getSigmaLots()
       .then((data) => {
         setLots(data);
-        if (data.length > 0) setSelectedLotId(data[0].lot_id);
+        // Preselect the first lot with a defect: that is what an RCA starts from.
+        const flagged = data.find((lot) => lot.status === "NG") ?? data[0];
+        if (flagged) setSelectedLotId(flagged.lot_id);
       })
       .catch((err) => console.error(err));
   }, []);
@@ -84,10 +86,11 @@ export function RcaTab() {
                 value={selectedLotId}
                 onChange={(e) => setSelectedLotId(e.target.value)}
               >
-                {lots.length === 0 && <option value="">— No sigma lots available —</option>}
+                {/* Spec 08 §3 page 3: a symptom alone, without a lot. */}
+                <option value="">— Không chọn lot (chỉ dùng triệu chứng) —</option>
                 {lots.map((lot) => (
                   <option key={lot.lot_id} value={lot.lot_id}>
-                    {lot.lot_id} · {lot.part_number} · {lot.defect_type || "DEFECT"}
+                    {lot.lot_id} · {lot.part_number} · {lot.produced_at} · {lot.status === "NG" ? lot.defect_type : "OK"}
                   </option>
                 ))}
               </select>
@@ -96,7 +99,7 @@ export function RcaTab() {
             <div className="form-group">
               <label className="form-label">
                 <Cpu size={12} color="var(--blue)" />
-                Custom Symptom Description (overrides lot)
+                Mô tả triệu chứng (dùng khi không chọn lot)
               </label>
               <input
                 id="input-custom-symptom"

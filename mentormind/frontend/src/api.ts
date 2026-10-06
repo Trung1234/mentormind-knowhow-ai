@@ -7,6 +7,8 @@ import {
   ProfileStatus,
   RcaReport,
   ReviewRequest,
+  Segment,
+  VideoAsset,
   WorkProfile,
 } from "./types";
 
@@ -113,6 +115,25 @@ export const api = {
     return requestForm<{ job_id: string }>("/ingest/documents", form);
   },
 
+  uploadVideo: (file: File, processId: string, classification: DataClassification) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("process_id", processId);
+    form.append("classification", classification);
+    return requestForm<VideoAsset>("/videos", form);
+  },
+
+  processVideo: (videoId: string) => {
+    return request<{ job_id: string }>(`/videos/${encodeURIComponent(videoId)}/process`, {
+      method: "POST",
+      body: JSON.stringify({ method: "fixed_window" }),
+    });
+  },
+
+  getVideoSegments: (videoId: string) => {
+    return request<Segment[]>(`/videos/${encodeURIComponent(videoId)}/segments`);
+  },
+
   getJob: <T = unknown>(jobId: string) => {
     return request<JobResponse<T>>(`/jobs/${encodeURIComponent(jobId)}`);
   },
@@ -123,3 +144,17 @@ export const api = {
     return `${BASE_URL}/${clean}`;
   },
 };
+
+// URL of a file the API serves under GET /media (spec 08 §2): profiles and segments carry paths
+// such as "data/work/video/<id>/keyframes/x.jpg"; citations already carry "/media/...".
+export function mediaUrl(path?: string | null): string | null {
+  if (!path) return null;
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  if (path.startsWith("/media/")) return `${BASE_URL}${path}`;
+  const normalized = path.replace(/\\/g, "/");
+  for (const root of ["data/work/", "data/samples/"]) {
+    const at = normalized.indexOf(root);
+    if (at >= 0) return `${BASE_URL}/media/${normalized.slice(at + root.length)}`;
+  }
+  return null;
+}

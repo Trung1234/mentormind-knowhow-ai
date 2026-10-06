@@ -73,13 +73,13 @@ export interface ProfilePatchRequest {
 }
 
 export interface Citation {
-  source_type: "video" | "document";
+  source_type: "work_profile" | "document" | "video_segment" | "sigma" | "video";
   ref_id: string;
-  title?: string;
-  t_start?: number;
-  t_end?: number;
-  excerpt?: string;
-  keyframe_url?: string;
+  title?: string | null;
+  t_start?: number | null;
+  t_end?: number | null;
+  excerpt?: string | null;
+  keyframe_url?: string | null;
 }
 
 export interface AssistantAnswer {
@@ -149,4 +149,41 @@ export interface DocumentIngestResult {
   classification: DataClassification;
   files: DocumentIngestFile[];
   chunks_indexed: number;
+}
+
+// Spec 03 §3 — what POST /videos returns (also kept as video.json next to the upload).
+export interface VideoAsset {
+  video_id: string;
+  path: string;
+  duration_s: number;
+  fps: number;
+  has_audio: boolean;
+  process_id?: string | null;
+  data_classification: DataClassification;
+}
+
+// Spec 03 §3 — one cut of a video (GET /videos/{id}/segments).
+export interface Segment {
+  segment_id: string;
+  video_id: string;
+  index: number;
+  t_start: number;
+  t_end: number;
+  method: "scene" | "hand_activity" | "fixed_window";
+  motion_score?: number | null;
+  keyframes: string[];
+  clip_path: string;
+  data_classification: DataClassification;
+}
+
+// Result of a POST /videos/{id}/process job (spec 08 §2).
+export interface VideoProcessResult {
+  video_id: string;
+  process_id: string;
+  segments: number;
+  profiles: string[];
+  failed_segments: string[];
+  transcript_lines: number;
+  reasons_filled: number;
+  progress?: { done: number; total: number } | null;
 }

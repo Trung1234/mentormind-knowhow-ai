@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from "react";
-import { api } from "../api";
+import React, { useEffect, useMemo, useState } from "react";
+import { api, mediaUrl } from "../api";
 import {
   ErrorTag,
   ProfilePatchRequest,
   ProfileStatus,
   ReasonSource,
   ReviewRequest,
+  Segment,
   WorkProfile,
 } from "../types";
 import {
@@ -24,6 +25,7 @@ import {
   Wrench,
   ShieldCheck,
   FileText,
+  MessageSquareQuote,
 } from "lucide-react";
 
 // ── Status badge class helper ─────────────────────────────────
@@ -37,11 +39,22 @@ function statusBadge(s: ProfileStatus) {
   return map[s] || "badge badge-muted";
 }
 
-export function ReviewProfilesTab() {
+const formatTime = (t?: number | null) => (t == null ? "—" : `${t.toFixed(1)}s`);
+
+// Up to 3 keyframes of a step: first, middle and last (a merged step carries 3 per segment).
+function pickKeyframes(keyframes: string[] = []): string[] {
+  if (keyframes.length <= 3) return keyframes;
+  return [keyframes[0], keyframes[Math.floor(keyframes.length / 2)], keyframes[keyframes.length - 1]];
+}
+
+export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: string | null }) {
   const [profiles,        setProfiles]        = useState<WorkProfile[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<WorkProfile | null>(null);
   const [selectedProcess, setSelectedProcess] = useState<string>("PACK01");
   const [selectedStatus,  setSelectedStatus]  = useState<string>("");
+  const [selectedVideo,   setSelectedVideo]   = useState<string>(initialVideoId ?? "");
+  // Segments per video (GET /videos/{id}/segments) for the clip player; null = none saved for that video.
+  const [segments,        setSegments]        = useState<Record<string, Segment[] | null>>({});
   const [loading,         setLoading]         = useState(false);
   const [actionMsg,       setActionMsg]       = useState<{ type: "success" | "error" | "warning"; text: string } | null>(null);
 
@@ -66,11 +79,6 @@ export function ReviewProfilesTab() {
         selectedStatus ? (selectedStatus as ProfileStatus) : undefined
       );
       setProfiles(data);
-      if (data.length > 0 && (!selectedProfile || !data.some((p) => p.profile_id === selectedProfile.profile_id))) {
-        selectProfile(data[0]);
-      } else if (data.length === 0) {
-        setSelectedProfile(null);
-      }
     } catch (err: any) {
       setActionMsg({ type: "error", text: err.message });
     } finally {
@@ -79,6 +87,41 @@ export function ReviewProfilesTab() {
   };
 
   useEffect(() => { loadProfiles(); }, [selectedProcess, selectedStatus]);
+  useEffect(() => { if (initialVideoId) setSelectedVideo(initialVideoId); }, [initialVideoId]);
+
+  const videoIds = useMemo(
+    () => Array.from(new Set(profiles.map((p) => p.evidence.video_id).filter((v): v is string => !!v))).sort(),
+    [profiles],
+  );
+  // The steps of one video read in time order.
+  const visible = useMemo(
+    () =>
+      profiles
+        .filter((p) => !selectedVideo || p.evidence.video_id === selectedVideo)
+        .sort(
+          (a, b) =>
+            (a.evidence.video_id ?? "").localeCompare(b.evidence.video_id ?? "") ||
+            (a.evidence.t_start ?? 0) - (b.evidence.t_start ?? 0),
+        ),
+    [profiles, selectedVideo],
+  );
+
+  useEffect(() => {
+    if (visible.length === 0) {
+      setSelectedProfile(null);
+    } else if (!selectedProfile || !visible.some((p) => p.profile_id === selectedProfile.profile_id)) {
+      selectProfile(visible[0]);
+    }
+  }, [visible]);
+
+  const selectedVideoId = selectedProfile?.evidence.video_id ?? null;
+  useEffect(() => {
+    if (!selectedVideoId || selectedVideoId in segments) return;
+    api
+      .getVideoSegments(selectedVideoId)
+      .then((list) => setSegments((prev) => ({ ...prev, [selectedVideoId]: list })))
+      .catch(() => setSegments((prev) => ({ ...prev, [selectedVideoId]: null })));
+  }, [selectedVideoId]);
 
   const selectProfile = (p: WorkProfile) => {
     setSelectedProfile(p);
@@ -223,6 +266,25 @@ export function ReviewProfilesTab() {
             </select>
           </div>
 
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <span style={{ fontFamily: "var(--font-display)", fontSize: "0.78rem", fontWeight: 700, color: "var(--text-secondary)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              Video:
+            </span>
+            <select
+              id="filter-video"
+              className="form-select"
+              style={{ width: 230, fontFamily: "var(--font-mono)", fontSize: "0.82rem" }}
+              value={selectedVideo}
+              onChange={(e) => setSelectedVideo(e.target.value)}
+            >
+              <option value="">Tất cả video</option>
+              {videoIds.map((v) => (
+                <option key={v} value={v}>{v}</option>
+              ))}
+              {selectedVideo && !videoIds.includes(selectedVideo) && <option value={selectedVideo}>{selectedVideo}</option>}
+            </select>
+          </div>
+
           <button id="btn-refresh" className="btn btn-ghost btn-sm" onClick={loadProfiles} style={{ marginLeft: "auto" }}>
             <RefreshCw size={13} />
             Refresh Queue
@@ -249,7 +311,7 @@ export function ReviewProfilesTab() {
                 <Layers size={14} />
               </div>
               Work Profiles
-              <span className="badge badge-cyan" style={{ marginLeft: "0.3rem" }}>{profiles.length}</span>
+              <span className="badge badge-cyan" style={{ marginLeft: "0.3rem" }}>{visible.length}</span>
             </div>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--text-muted)", letterSpacing: "0.06em" }}>
               QUEUE
@@ -262,13 +324,13 @@ export function ReviewProfilesTab() {
                 <div className="spinner" />
                 <span>Reading Station DB…</span>
               </div>
-            ) : profiles.length === 0 ? (
+            ) : visible.length === 0 ? (
               <div className="empty-state">
                 <FileText size={32} />
                 <p>No profiles match current filter criteria.</p>
               </div>
             ) : (
-              profiles.map((p) => {
+              visible.map((p) => {
                 const isSel = selectedProfile?.profile_id === p.profile_id;
                 return (
                   <div
@@ -276,11 +338,11 @@ export function ReviewProfilesTab() {
                     className={`profile-item ${isSel ? "selected" : ""}`}
                     onClick={() => selectProfile(p)}
                   >
-                    <div className="profile-step-num">0{p.step_order}</div>
+                    <div className="profile-step-num">{String(p.step_order).padStart(2, "0")}</div>
                     <div className="profile-info">
                       <div className="profile-step-text">{p.step}</div>
                       <div className="profile-meta">
-                        {p.profile_id} · v{p.version} ·{" "}
+                        {p.profile_id} · {formatTime(p.evidence.t_start)}–{formatTime(p.evidence.t_end)} · v{p.version} ·{" "}
                         <span style={{ color: p.confidence >= 0.9 ? "var(--status-success)" : "var(--status-warning)", fontWeight: 600 }}>
                           {(p.confidence * 100).toFixed(0)}%
                         </span>
@@ -346,23 +408,55 @@ export function ReviewProfilesTab() {
                 </span>
               </div>
 
-              <div className="cctv-grid">
-                {[
-                  { label: "FRAME 1 // ENTRY",  ts: selectedProfile.evidence.t_start?.toFixed(1) + "s" },
-                  { label: "FRAME 2 // ACTION", ts: (((selectedProfile.evidence.t_start || 0) + (selectedProfile.evidence.t_end || 5)) / 2).toFixed(1) + "s" },
-                  { label: "FRAME 3 // SETTLE", ts: selectedProfile.evidence.t_end?.toFixed(1) + "s" },
-                ].map(({ label, ts }) => (
-                  <div key={label} className="cctv-frame">
-                    <div className="cctv-rec-badge">
-                      <span className="cctv-rec-dot" />
-                      REC
+              {(() => {
+                const evidence = selectedProfile.evidence;
+                const keyframes = pickKeyframes(evidence.keyframes);
+                const videoSegments = evidence.video_id ? segments[evidence.video_id] : undefined;
+                const clipSegment = videoSegments?.find((s) => s.segment_id === evidence.segment_ids?.[0]);
+                const clipUrl = mediaUrl(clipSegment?.clip_path);
+                // The clip covers its whole segment; play only the step: from t_start, pause at t_end.
+                const stepStart = clipSegment ? Math.max(0, (evidence.t_start ?? clipSegment.t_start) - clipSegment.t_start) : 0;
+                const stepEnd = clipSegment ? (evidence.t_end ?? clipSegment.t_end) - clipSegment.t_start : 0;
+                return (
+                  <>
+                    <div className="cctv-grid">
+                      {keyframes.length > 0
+                        ? keyframes.map((path, i) => (
+                            <div key={path} className="cctv-frame has-image">
+                              <img src={mediaUrl(path) ?? undefined} alt={`Keyframe ${i + 1}`} loading="lazy" />
+                              <span className="cctv-label">KEYFRAME {i + 1}</span>
+                            </div>
+                          ))
+                        : ["ĐẦU", "GIỮA", "CUỐI"].map((label) => (
+                            <div key={label} className="cctv-frame">
+                              <div className="cctv-crosshair" />
+                              <span className="cctv-label">{label} // CHƯA CÓ KEYFRAME</span>
+                            </div>
+                          ))}
                     </div>
-                    <div className="cctv-crosshair" />
-                    <span className="cctv-label">{label}</span>
-                    <span className="cctv-timestamp">{ts}</span>
-                  </div>
-                ))}
-              </div>
+                    {clipUrl ? (
+                      <video
+                        key={selectedProfile.profile_id}
+                        className="evidence-clip"
+                        src={clipUrl}
+                        controls
+                        muted
+                        playsInline
+                        preload="metadata"
+                        onLoadedMetadata={(e) => { e.currentTarget.currentTime = stepStart; }}
+                        onPlay={(e) => { if (e.currentTarget.currentTime >= stepEnd) e.currentTarget.currentTime = stepStart; }}
+                        onTimeUpdate={(e) => { if (e.currentTarget.currentTime >= stepEnd) e.currentTarget.pause(); }}
+                      />
+                    ) : (
+                      <p style={{ padding: "0 1.35rem 1.1rem", fontSize: "0.9rem", color: "var(--text-muted)" }}>
+                        {evidence.video_id
+                          ? "Chưa có clip cho bước này (video chưa được cắt đoạn qua trang Tải dữ liệu)."
+                          : "Bước này không gắn với video."}
+                      </p>
+                    )}
+                  </>
+                );
+              })()}
             </div>
 
             {/* Knowledge Field Editor */}
@@ -419,6 +513,28 @@ export function ReviewProfilesTab() {
                       value={keyPoint}
                       onChange={(e) => setKeyPoint(e.target.value)}
                     />
+                  </div>
+
+                  <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                    <label className="form-label">
+                      <MessageSquareQuote size={12} color="var(--accent-cyan)" />
+                      Lời chuyên gia (transcript)
+                    </label>
+                    {selectedProfile.evidence.transcript_excerpt ? (
+                      <blockquote
+                        id="transcript-excerpt"
+                        style={{ margin: 0, padding: "0.6rem 0.9rem", borderLeft: "3px solid var(--accent-cyan)", background: "var(--bg-surface)", fontStyle: "italic" }}
+                      >
+                        “{selectedProfile.evidence.transcript_excerpt}”
+                      </blockquote>
+                    ) : (
+                      <div id="transcript-missing" className="alert alert-info" style={{ margin: 0 }}>
+                        <span>
+                          Chưa có transcript lời chuyên gia cho bước này (spec 03 chưa có ghi âm/ASR), nên AI không đề xuất lý do.
+                          Nếu chuyên gia biết vì sao làm như vậy, nhập vào ô lý do bên dưới và chọn nguồn EXPERT_INTERVIEW.
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="form-group">

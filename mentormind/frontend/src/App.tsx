@@ -3,7 +3,7 @@ import { api } from "./api";
 import { ReviewProfilesTab } from "./components/ReviewProfilesTab";
 import { AssistantTab } from "./components/AssistantTab";
 import { RcaTab } from "./components/RcaTab";
-import { UploadDocumentsTab } from "./components/UploadDocumentsTab";
+import { UploadTab } from "./components/UploadTab";
 import { LandingPage } from "./components/LandingPage";
 import {
   CheckSquare,
@@ -29,6 +29,8 @@ export default function App() {
     if (tab === "assistant" || tab === "rca" || tab === "review" || tab === "upload") return tab;
     return "review";
   });
+  // Set by "Duyệt các bước này" on the upload page: the review page opens on that video's steps.
+  const [reviewVideoId, setReviewVideoId] = useState<string | null>(null);
   const [healthStatus, setHealthStatus] = useState<{ status: string; neo4j: string; postgres: string } | null>(null);
   const [apiError, setApiError] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(() => {
@@ -183,17 +185,24 @@ export default function App() {
             onClick={() => setActiveTab("upload")}
           >
             <Upload size={15} />
-            <span>Tải tài liệu</span>
+            <span>Tải dữ liệu</span>
           </button>
         </div>
       </nav>
 
       {/* ── Main Content ── */}
       <main className="main-content">
-        {activeTab === "review"    && <ReviewProfilesTab />}
+        {activeTab === "review"    && <ReviewProfilesTab initialVideoId={reviewVideoId} />}
         {activeTab === "assistant" && <AssistantTab />}
         {activeTab === "rca"       && <RcaTab />}
-        {activeTab === "upload"    && <UploadDocumentsTab />}
+        {activeTab === "upload"    && (
+          <UploadTab
+            onReviewVideo={(videoId) => {
+              setReviewVideoId(videoId);
+              setActiveTab("review");
+            }}
+          />
+        )}
       </main>
     </div>
   );
