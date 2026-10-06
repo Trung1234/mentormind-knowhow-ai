@@ -124,3 +124,14 @@ def test_ac_06_a_line_across_a_boundary_goes_where_most_of_it_is() -> None:
     assert [t.text for t in aligned["VID-T-S002"]] == ["most in S002"]
     assert [t.text for t in aligned["VID-T-S003"]] == ["after the video"]  # nearest segment
     assert align_transcript([], lines) == {}
+
+
+def test_ac_10_languages_without_spaces_are_not_split_into_syllables() -> None:
+    thai = ASRSegment(
+        text="เราต้องการเพิ่มกำลังการผลิต",
+        t_start=30.2,
+        t_end=34.5,
+        words=words(("เรา", 30.2, 30.5), ("ต้องการ", 30.5, 31.0), ("เพิ่ม", 31.0, 31.4), ("กำลังการผลิต", 31.4, 34.5)),
+    )
+    result = ASRResult(segments=(thai,), language="th", duration_s=40, latency_s=1, provider="fake", model="m")
+    assert sentences(result) == [(30.2, 34.5, "เราต้องการเพิ่มกำลังการผลิต")]

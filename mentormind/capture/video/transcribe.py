@@ -47,7 +47,9 @@ def sentences(result: ASRResult) -> list[tuple[float, float, str]]:
     current: list[ASRWord] = []
 
     def flush() -> None:
-        text = " ".join(" ".join(w.text.split()) for w in current).strip()
+        # Whisper's word tokens carry their own leading space where the language has one: joining them
+        # with spaces would split Thai (or Chinese, Japanese) into syllables.
+        text = " ".join("".join(w.text for w in current).split())
         if text:
             out.append((current[0].t_start, current[-1].t_end, text))
         current.clear()
