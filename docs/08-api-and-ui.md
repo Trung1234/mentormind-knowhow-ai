@@ -23,8 +23,9 @@ CREATE TABLE jobs (
 |---|---|---|---|
 | `GET /health` | — | `{status, neo4j, postgres}` | |
 | `POST /ingest/documents` | multipart `files`, `classification` (bắt buộc) | `{job_id}` | chạy spec 02 run + index, xem dưới bảng |
-| `POST /videos` | multipart file, `process_id`, `classification` | `VideoAsset` | lưu `data/work/video/` |
-| `POST /videos/{video_id}/process` | `{method?, fps?}` | `{job_id}` | segment → transcribe → describe → propose-reasons |
+| `POST /videos` | multipart `file`, `process_id`, `classification` (bắt buộc) | `VideoAsset` | lưu `data/work/video/<video_id>/`, xem dưới bảng |
+| `POST /videos/{video_id}/process` | `{method?, fps?}` | `{job_id}` | segment → transcribe → describe → propose-reasons, xem dưới bảng |
+| `GET /videos/{video_id}/segments` | — | `list[Segment]` (spec 03 §3) | đọc `data/work/video/<video_id>/segments.json`; trang 1 lấy clip + keyframe từ đây |
 | `GET /jobs/{job_id}` | — | `{status, result, error}` | `queued/running/done/failed` |
 | `GET /profiles` | `process_id?`, `status?` | `list[WorkProfile]` | |
 | `GET /profiles/{id}` | — | `WorkProfile` + lịch sử review | |
@@ -32,7 +33,7 @@ CREATE TABLE jobs (
 | `POST /profiles/{id}/review` | `{action: approve\|reject, reviewer, comment?, error_tags[]}` | `WorkProfile` | approve → `kg.load_profiles`; reject sau khi đã approved → `kg.unload_profile` |
 | `POST /assistant/ask` | `AskRequest` | `AssistantAnswer` | spec 06 |
 | `POST /rca/investigate` | `RcaRequest` | `RcaReport` | 404 khi `LotNotFound` |
-| `GET /sigma/lots` | `process_id?` | `list[LotRecord]` | cho dropdown UI |
+| `GET /sigma/lots` | `process_id?` | `list[LotRecord]` | đọc Sigma adapter (spec 07, `KNOWHOW_SIGMA_ADAPTER`) — cùng nguồn với RCA Agent; cho dropdown UI |
 | `GET /media/{relpath}` | — | file | chỉ phục vụ file dưới `data/work/` và `data/samples/`; chặn `..` |
 
 `POST /ingest/documents`:
@@ -40,6 +41,13 @@ CREATE TABLE jobs (
 - Tệp lưu ở `data/work/docs/<job_id>/<tên tệp>`: chỉ giữ phần tên, bỏ mọi thành phần thư mục (`../`, `/`, `\`). Tên rỗng, `.`, `..` hoặc hai tệp trùng tên trong một lần gửi → 422.
 - Job chạy `ingest run` trên các tệp đó, ghi chunk vào `data/work/chunks/` như CLI (nên `knowhow ingest index` vẫn thấy), rồi chỉ index các `<doc_id>.jsonl` của lần tải này. Một tệp lỗi không dừng các tệp khác.
 - `result` = `{classification, files: [{name, doc_id, extractor, pages, chunks, skipped, error}], chunks_indexed}` (`core.schemas.DocumentIngestResult`). Không tệp nào ra chunk (mọi tệp lỗi hoặc không hỗ trợ) hoặc bước index lỗi → `failed`, `error` nêu lý do, `result` vẫn kèm các tệp đã xét.
+- Tài liệu không qua bước duyệt: chunk vào kho tìm kiếm ngay với nhãn đã chọn (spec 02); chỉ WorkProfile cần chuyên gia duyệt (constitution Điều 3).
+
+`POST /videos` và `POST /videos/{video_id}/process`:
+- `classification` bắt buộc như tài liệu; đuôi ngoài `.mp4 .mov .mkv .webm .avi .m4v` → 422. `video_id` = `VID-` + sha256[:12] của nội dung (spec 03 §3, trùng id mà `knowhow vlm describe` dùng). Tệp lưu ở `data/work/video/<video_id>/source<đuôi>`, kèm `video.json` = `VideoAsset` của spec 03 §3 (`duration_s`, `fps` đọc bằng OpenCV, `has_audio` bằng ffprobe, `process_id`, `data_classification`) để bước xử lý biết nhãn và công đoạn; tải lại cùng nội dung thì ghi đè `video.json`.
+- `process`: `video_id` chưa tải lên (không có `video.json`) → 404. Chưa có spec 03 nên chỉ nhận `method=fixed_window` (mặc định), method khác → 422: cắt đoạn 10 s bằng fallback của spec 04 FR-05 (clip + 3 keyframe mỗi đoạn, ghi `segments.json`). Khi spec 03 xong, job gọi `video segment` (và `transcribe`) của spec 03 ở bước này; phần sau giữ nguyên.
+- Rồi `DescribePipeline` đủ lượt A, B, C với VLM/LLM cấu hình trong `.env` (DataGuard kiểm trước lời gọi đầu tiên) → profile `draft` vào profile store như `knowhow vlm describe`. Có `transcript.json` (spec 03) thì profile có `transcript_excerpt` và job chạy thêm `propose-reasons`; chưa có thì `reason` để trống, chuyên gia nhập ở trang 1.
+- Trong lúc chạy `result.progress = {done, total}` (lượt gọi VLM đã xong / dự kiến). Xong → `result` = `{video_id, process_id, segments, profiles: [profile_id], failed_segments, transcript_lines, reasons_filled}`. Lỗi → `failed` + message.
 
 Job chạy bằng `BackgroundTasks` (MVP, một process). Lỗi trong job → `status=failed`, `error` có message, không làm sập server.
 
@@ -47,21 +55,23 @@ Job chạy bằng `BackgroundTasks` (MVP, một process). Lỗi trong job → `s
 Cấu hình: `layout="wide"`, cỡ chữ ≥ 16px, nút bấm lớn; UI chỉ gọi REST API, không import trực tiếp module nghiệp vụ.
 
 **Trang 1 — "Duyệt thao tác"**
-- Bộ lọc process + trạng thái (mặc định `draft` và `in_review`).
-- Mỗi profile: 3 keyframe, trình phát clip đúng `t_start–t_end`, các trường sửa được (step, hand_action, key_point, exceptions, pass_criteria).
+- Bộ lọc process + trạng thái (mặc định `draft` và `in_review`) + video (các `evidence.video_id` trong danh sách); các bước của một video xếp theo `t_start`.
+- Mỗi profile: 3 keyframe (ảnh thật từ `evidence.keyframes`, qua `/media`), trình phát clip đúng `t_start–t_end` (clip của đoạn chứa bước, lấy từ `GET /videos/{video_id}/segments`), các trường sửa được (step, hand_action, key_point, exceptions, pass_criteria).
+- Ô "Lời chuyên gia (transcript)" hiện `evidence.transcript_excerpt`; chưa có transcript thì ghi rõ và nhắc chuyên gia tự nhập lý do.
 - Ô `reason` + chọn `reason_source` (bắt buộc chọn khi có nhập reason).
 - Multi-select `error_tags` (bỏ sót / bịa bước / sai thứ tự / sai vật / sai thao tác / khác).
 - Nút **Duyệt** / **Từ chối** (từ chối bắt buộc nhập lý do).
 
 **Trang 2 — "Hỏi trợ lý"**
-- Chọn công đoạn, ô câu hỏi, câu trả lời với marker [n]; bấm citation → hiện keyframe/clip hoặc đoạn tài liệu.
+- Chọn công đoạn, ô câu hỏi, câu trả lời với marker [n]; bấm citation → hiện keyframe/clip hoặc đoạn tài liệu. API điền cho UI: mọi citation có `excerpt` (đoạn trích, lấy từ `snippet` của agent); citation `work_profile` có `title` (tên bước), `t_start`/`t_end` và `keyframe_url` (`/media/...`) lấy từ profile.
 - Khi `refused` → hiện thông điệp từ chối + tên chuyên gia gợi ý.
 
 **Trang 3 — "Truy nguyên lỗi"**
-- Chọn lot (từ `/sigma/lots`) hoặc nhập triệu chứng → bảng giả thuyết (màu theo likelihood), bảng 5-Why (cột "Đã xác minh"), danh sách lô liên quan, bước phòng ngừa, disclaimer.
+- Chọn lot (từ `/sigma/lots`) hoặc nhập triệu chứng → bảng giả thuyết (màu theo likelihood), bảng 5-Why (cột "Đã xác minh"), danh sách lô liên quan, bước phòng ngừa, disclaimer. Dropdown có lựa chọn "không chọn lot" để chỉ gửi triệu chứng.
 
-**Trang 4 — "Tải tài liệu"**
-- Chọn một hoặc nhiều tệp `.pdf .docx .xlsx .pptx` và nhãn dữ liệu (Công khai / Dữ liệu tổng hợp / Mật – dữ liệu nhà máy). Không chọn sẵn nhãn: nút **Tải lên & xử lý** bị vô hiệu tới khi có ít nhất một tệp và đã chọn nhãn.
+**Trang 4 — "Tải dữ liệu"** (video thao tác + tài liệu)
+- Video: chọn tệp video, mã công đoạn (mặc định `PACK01`) và nhãn dữ liệu (không chọn sẵn) → `POST /videos` → `POST /videos/{id}/process` → thanh tiến độ theo `result.progress`. Job id được nhớ trong trình duyệt nên tải lại trang vẫn theo dõi tiếp. Xong → danh sách các bước (profile của video, theo thời gian, kèm keyframe) + nút **Duyệt các bước này** mở trang 1 lọc theo video.
+- Tài liệu: chọn một hoặc nhiều tệp `.pdf .docx .xlsx .pptx` và nhãn dữ liệu (Công khai / Dữ liệu tổng hợp / Mật – dữ liệu nhà máy). Không chọn sẵn nhãn: nút **Tải lên & xử lý** bị vô hiệu tới khi có ít nhất một tệp và đã chọn nhãn.
 - Gửi `POST /ingest/documents`, rồi hỏi `GET /jobs/{id}` mỗi ~2 giây tới khi `done`/`failed`; hiện trạng thái Đang chờ / Đang xử lý / Hoàn tất / Lỗi.
 - Xong → bảng từng tệp (tên, `doc_id`, extractor, số trang, số chunk, bỏ qua/lỗi) và tổng số chunk đã index. Lỗi hiện bằng tiếng Việt, không có stack trace.
 
@@ -93,6 +103,10 @@ Cấu hình: `layout="wide"`, cỡ chữ ≥ 16px, nút bấm lớn; UI chỉ g�
 - **AC-10** Tên tệp có thành phần đường dẫn (VD `../../evil.pdf`) → tệp được lưu dưới `data/work/docs/<job_id>/` chỉ theo tên gốc (`evil.pdf`), không ghi ra ngoài thư mục đó.
 - **AC-11** Thiếu `classification` hoặc giá trị ngoài enum → 422, không lưu tệp, không tạo job (không còn mặc định `synthetic`).
 - **AC-12** Mọi tệp lỗi hoặc không hỗ trợ, hoặc bước index raise → `GET /jobs/{id}` trả `failed` + message; server vẫn phục vụ request khác.
+- **AC-13** `POST /videos` → `video_id` = `VID-` + sha256[:12] của nội dung; tệp và `video.json` nằm dưới `data/work/video/<video_id>/`; thiếu `classification` hoặc đuôi không phải video → 422, không lưu tệp.
+- **AC-14** `POST /videos/{id}/process` (VLM/LLM giả) → job `done`, `result.profiles` là các profile `draft` của video và `GET /profiles` trả chúng; `GET /videos/{id}/segments` trả các đoạn của lần chạy; `method` khác `fixed_window` → 422; video chưa tải lên → 404; pipeline raise → `failed` + message.
+- **AC-15** `GET /sigma/lots` trả đúng các lot của Sigma adapter (CSV mock), và `/rca/investigate` với bất kỳ lot nào trong đó không trả 404 (ở cả chế độ `mock` lẫn `live`).
+- **AC-16** `POST /assistant/ask` (live): citation có `excerpt` khi agent có `snippet`; citation `work_profile` của một profile có trong store mang `title` = tên bước, `t_start`/`t_end` của bước và `keyframe_url` dạng `/media/...` khi profile có keyframe.
 
 ## 7. Tasks
 - [ ] T08-1 Profile store + test.
@@ -102,6 +116,7 @@ Cấu hình: `layout="wide"`, cỡ chữ ≥ 16px, nút bấm lớn; UI chỉ g�
 - [ ] T08-5 Streamlit 3 trang (AC-08).
 - [ ] T08-6 `scripts/demo.sh` + fixture offline (AC-07) — phối hợp Trung (S2-3). Khung đã có (preflight + luồng §4); còn thiếu các lệnh của spec 02/03/05/06/07, `data/samples/review_decisions.json` và fixture FakeVLM qua env.
 - [x] T08-7 Tải tài liệu: `POST /ingest/documents` chạy thật spec 02 run + index (thay kết quả giả), `classification` bắt buộc, tên tệp chỉ giữ phần tên; trang 4 "Tải tài liệu" (AC-09..AC-12).
+- [x] T08-8 Luồng UI đầy đủ: tải video → job xử lý thật (cắt `fixed_window` tạm thay spec 03, keyframe, describe A–C, propose-reasons khi có transcript) → trang 1 có keyframe/clip/transcript và lọc theo video → trợ lý có trích dẫn đủ thông tin, RCA lấy lot từ Sigma adapter (AC-13..AC-16).
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
@@ -110,3 +125,4 @@ Cấu hình: `layout="wide"`, cỡ chữ ≥ 16px, nút bấm lớn; UI chỉ g�
 - v1.3 (29/9, review): cấu hình API (`app_name`, `cors_origins`) nằm trong `core.config.Settings` (spec 01 FR-03); khung `scripts/demo.sh` (T08-6 chưa xong).
 - v1.4 (02/10, review): review hoàn tác thất bại khôi phục graph theo bản đang lưu (profile đã approved được nạp lại, không bị gỡ khỏi graph); test AC-01 kiểm graph giữ bản cũ tới khi approve lại; demo nạp Sigma mock bằng `--classification synthetic` (spec 05 FR-05).
 - v1.5 (06/10, Phúc): `POST /ingest/documents` chạy thật spec 02 (`ingest run` rồi chỉ index các `<doc_id>.jsonl` của lần tải, qua `capture.ingest.index.index_files`; `ingest index` không đổi) thay cho kết quả giả; `classification` bắt buộc như spec 02 FR-01b (bỏ mặc định `synthetic` vốn có thể dán nhầm nhãn cho dữ liệu nhà máy); tên tệp chỉ giữ phần tên (trước đó `../../x.pdf` hay `/x.pdf` ghi ra ngoài `data/work/docs/`). Thêm trang 4 "Tải tài liệu" (FR-03 thành 4 trang), AC-09..AC-12, task T08-7. Trang 4 làm trong UI React (`mentormind/frontend/`) như 3 trang kia; mục 3 và T08-5 vẫn ghi Streamlit, chưa sửa.
+- v1.6 (06/10, Phúc): luồng UI đầy đủ (T08-8). `POST /videos` giữ video theo `video_id` = `VID-`+sha256[:12] nội dung (trùng id của `knowhow vlm describe`) kèm `video.json` (`VideoAsset` spec 03), `classification` bắt buộc; `POST /videos/{id}/process` chạy thật thay kết quả giả (cắt `fixed_window` 10 s của spec 04 FR-05 cho tới khi có spec 03, `DescribePipeline` A–C, lưu nháp vào profile store, `propose-reasons` khi có transcript, `result.progress`); thêm `GET /videos/{id}/segments`. `GET /sigma/lots` đọc Sigma adapter thay 3 lot viết cứng (`LOT-2026-*` không có trong Sigma nên RCA live luôn 404). Citation của `/assistant/ask` có `excerpt`, và `title`/thời điểm/`keyframe_url` cho bước thao tác. Trang 4 thành "Tải dữ liệu" (video + tài liệu); trang 1 có keyframe, clip, transcript, lọc video; trang 3 cho phép không chọn lot. AC-13..AC-16. Tài liệu không qua bước duyệt (ghi rõ ở §2).
