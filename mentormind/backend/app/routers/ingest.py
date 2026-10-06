@@ -3,9 +3,9 @@ from collections import Counter
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
-from pydantic import BaseModel
 
 from mentormind.backend.app.deps import get_profile_store
+from mentormind.backend.app.uploads import upload_name
 from mentormind.capture.ingest import cli as ingest_cli
 from mentormind.capture.ingest.index import index_files
 from mentormind.capture.ingest.pipeline import IngestResult, ingest_path
@@ -14,19 +14,6 @@ from mentormind.core.schemas import DataClassification, DocumentIngestFile, Docu
 from mentormind.knowledge_base.store.profile_store import ProfileStore
 
 router = APIRouter(tags=["ingest"])
-
-
-class VideoAsset(BaseModel):
-    video_id: str
-    filename: str
-    process_id: str
-    classification: str
-    path: str
-
-
-class ProcessVideoRequest(BaseModel):
-    method: str | None = "heuristic"
-    fps: float | None = 4.0
 
 
 def run_document_ingest_task(
@@ -91,19 +78,6 @@ def _why_no_chunks(f: DocumentIngestFile) -> str:
     return f.error if f.error.startswith(f.name) else f"{f.name}: {f.error}"
 
 
-def run_video_process_task(job_id: str, video_id: str, fps: float, store: ProfileStore) -> None:
-    store.update_job(job_id, JobStatus.RUNNING)
-    try:
-        result = {
-            "video_id": video_id,
-            "segments_count": 4,
-            "profiles_generated": 4,
-        }
-        store.update_job(job_id, JobStatus.DONE, result=result)
-    except Exception as e:
-        store.update_job(job_id, JobStatus.FAILED, error=str(e))
-
-
 @router.post("/ingest/documents")
 async def ingest_documents(
     background_tasks: BackgroundTasks,
@@ -112,7 +86,7 @@ async def ingest_documents(
     classification: DataClassification = Form(...),
     store: ProfileStore = Depends(get_profile_store),
 ) -> dict[str, str]:
-    names = [_upload_name(file.filename) for file in files]
+    names = [upload_name(file.filename) for file in files]
     duplicates = sorted(name for name, count in Counter(names).items() if count > 1)
     if duplicates:
         raise HTTPException(
@@ -129,65 +103,5 @@ async def ingest_documents(
     store.create_job(job_id, "document_ingest")
 
     background_tasks.add_task(run_document_ingest_task, job_id, upload_dir, classification, settings, store)
-
-    return {"job_id": job_id}
-
-
-def _upload_name(filename: str | None) -> str:
-    """The base name of an uploaded file; directory parts (``../``, ``/``, ``\\``) are dropped (AC-10)."""
-    name = Path((filename or "").replace("\\", "/")).name
-    if name in ("", ".", ".."):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"Tên tệp không hợp lệ: {filename!r}.",
-        )
-    return name
-
-
-@router.post("/videos", response_model=VideoAsset)
-async def upload_video(
-    file: UploadFile = File(...),
-    process_id: str = Form(...),
-    classification: DataClassification = Form(DataClassification.SYNTHETIC),
-) -> VideoAsset:
-    video_id = f"VID-{process_id}-{uuid.uuid4().hex[:6].upper()}"
-    settings = get_settings()
-    video_dir = Path(settings.work_dir) / "video"
-    video_dir.mkdir(parents=True, exist_ok=True)
-
-    ext = Path(file.filename).suffix if file.filename else ".mp4"
-    filename = f"{video_id}{ext}"
-    dest_path = video_dir / filename
-
-    with open(dest_path, "wb") as f:
-        content = await file.read()
-        f.write(content)
-
-    return VideoAsset(
-        video_id=video_id,
-        filename=filename,
-        process_id=process_id,
-        classification=classification.value,
-        path=f"data/work/video/{filename}",
-    )
-
-
-@router.post("/videos/{video_id}/process")
-def process_video(
-    video_id: str,
-    req: ProcessVideoRequest,
-    background_tasks: BackgroundTasks,
-    store: ProfileStore = Depends(get_profile_store),
-) -> dict[str, str]:
-    job_id = f"job-vid-{uuid.uuid4().hex[:8]}"
-    store.create_job(job_id, "video_process")
-
-    background_tasks.add_task(
-        run_video_process_task,
-        job_id,
-        video_id,
-        req.fps or 4.0,
-        store,
-    )
 
     return {"job_id": job_id}

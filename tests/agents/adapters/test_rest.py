@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -16,7 +17,9 @@ from mentormind.backend.app.routers import assistant as assistant_router
 from mentormind.backend.app.routers import rca as rca_router
 from mentormind.core.config import Settings
 from mentormind.core.providers.llm.backends.fake import FakeLLM
-from mentormind.core.schemas import AskRequest, DataClassification, RcaRequest
+from mentormind.core.schemas import AskRequest, Citation, DataClassification, RcaRequest, WorkProfile
+from mentormind.core.schemas import agents as spec06
+from mentormind.knowledge_base.store.profile_store import ProfileStore
 from tests.agents.fakes import (
     REASON_PROFILE,
     FakeEmbedder,
@@ -51,7 +54,7 @@ def rca_agent(llm: FakeLLM) -> RcaAgent:
 def test_by_default_the_routers_keep_their_demo_answers(monkeypatch: pytest.MonkeyPatch) -> None:
     assert Settings.model_fields["api_agents"].default == "mock"
     monkeypatch.setattr(rest, "get_settings", lambda: Settings(api_agents="mock"))
-    report = rca_router.investigate(RcaRequest(lot_id="LOT-2026-001"))
+    report = rca_router.investigate(RcaRequest(lot_id="LOT-PACK01-001"))
     assert len(report.five_whys) == 5  # the router's demo report
     answer = assistant_router.ask_assistant(AskRequest(process_id="PACK01", question="Cách xếp?"))
     assert answer.refused is False and answer.citations
@@ -117,3 +120,54 @@ def test_live_with_a_missing_component_is_503(monkeypatch: pytest.MonkeyPatch) -
     with pytest.raises(HTTPException) as exc:
         assistant_router.ask_assistant(AskRequest(process_id="PACK01", question="Vì sao?"))
     assert exc.value.status_code == 503
+
+
+def test_ac_16_citations_carry_what_the_ui_shows(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    keyframes = [str(tmp_path / "work" / "video" / "VID-1" / "keyframes" / f"VID-1-S001_k{i}.jpg") for i in range(3)]
+    profile = WorkProfile.model_validate(
+        {
+            "schema_version": "1.0",
+            "profile_id": "WP-PACK01-007",
+            "process_id": "PACK01",
+            "step_order": 1,
+            "step": "Đặt cốc vào thùng carton",
+            "objects": ["cốc"],
+            "exceptions": [],
+            "evidence": {"video_id": "VID-1", "t_start": 2.0, "t_end": 5.5, "keyframes": keyframes},
+            "confidence": 0.8,
+            "generated_by": "vlm",
+            "data_classification": "synthetic",
+            "status": "draft",
+            "created_at": "2026-10-06T10:00:00Z",
+            "version": 1,
+        }
+    )
+    ProfileStore(db_path=str(tmp_path / "profiles.sqlite")).save_profile(profile)
+    settings = Settings(
+        _env_file=None, api_agents="live", profile_db=tmp_path / "profiles.sqlite", work_dir=tmp_path / "work"
+    )
+    monkeypatch.setattr(rest, "get_settings", lambda: settings)
+    answer = spec06.AssistantAnswer(
+        answer="Đặt cốc vào thùng [1], dừng nếu pin cong [2].",
+        citations=[
+            Citation(source_type="work_profile", ref_id="WP-PACK01-007", snippet="Bước: Đặt cốc vào thùng carton"),
+            Citation(source_type="document", ref_id="DOC-4cffd639c070", snippet="Dừng đóng gói linh kiện đó."),
+            Citation(source_type="work_profile", ref_id="WP-PACK01-999", snippet="không có trong store"),
+        ],
+        confidence=0.8,
+        refused=False,
+    )
+    step, document, unknown = rest.from_answer(answer).citations
+    assert (step.title, step.t_start, step.t_end) == ("Đặt cốc vào thùng carton", 2.0, 5.5)
+    assert step.keyframe_url == "/media/video/VID-1/keyframes/VID-1-S001_k1.jpg"
+    assert step.excerpt == "Bước: Đặt cốc vào thùng carton"
+    assert document.excerpt == "Dừng đóng gói linh kiện đó." and document.title is None
+    assert document.keyframe_url is None
+    assert unknown.excerpt == "không có trong store" and unknown.title is None  # nothing to look up
+
+
+def test_citations_never_create_a_profile_store(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    db = tmp_path / "absent.sqlite"
+    monkeypatch.setattr(rest, "get_settings", lambda: Settings(_env_file=None, profile_db=db))
+    cited = rest.for_ui(Citation(source_type="work_profile", ref_id="WP-PACK01-001", snippet="x"))
+    assert cited.excerpt == "x" and cited.title is None and not db.exists()

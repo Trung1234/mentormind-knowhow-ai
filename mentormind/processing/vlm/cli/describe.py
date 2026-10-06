@@ -9,7 +9,6 @@ go to the sink of ``KNOWHOW_PROFILE_SINK`` (spec 08's store when present, else
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
@@ -187,21 +186,10 @@ def _segments(
     classification: DataClassification,
     window: float,
 ) -> list[Segment]:
-    from mentormind.core.schemas.video import Segment
-    from mentormind.processing.vlm.sweep.windows import fixed_window_segments, video_id_for
+    from mentormind.processing.vlm.segments import cut_fixed_windows, read_segments, segments_path
 
     if [video_id, video, segments].count(None) != 2:
         raise ValueError("Chọn đúng một nguồn: <video_id>, --video hoặc --segments.")
     if video is not None:
-        vid = video_id_for(video)
-        return fixed_window_segments(
-            video, out_dir=WORK / "video" / vid / "clips", classification=classification,
-            window_s=window, video_id=vid,
-        )  # fmt: skip
-    path = segments or WORK / "video" / str(video_id) / "segments.json"
-    if not path.is_file():
-        raise FileNotFoundError(f"Không thấy {path} (spec 03 `knowhow video segment` chưa chạy). Dùng --video <file>.")
-    loaded = [Segment.model_validate(s) for s in json.loads(path.read_text(encoding="utf-8"))]
-    if not loaded:
-        raise ValueError(f"{path} không có đoạn nào.")
-    return loaded
+        return cut_fixed_windows(video, work_dir=WORK, classification=classification, window_s=window)
+    return read_segments(segments or segments_path(WORK, str(video_id)))

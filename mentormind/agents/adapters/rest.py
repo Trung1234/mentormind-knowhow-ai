@@ -11,8 +11,10 @@ This module translates between those models and the agents' own (spec 06 §3, §
 
 from __future__ import annotations
 
+import sqlite3
 from collections.abc import Callable
 from functools import lru_cache
+from pathlib import Path
 from typing import TypeVar
 
 from pydantic import ValidationError
@@ -23,8 +25,8 @@ from mentormind.agents.work_assistant import WorkAssistant
 from mentormind.core.config import get_settings
 from mentormind.core.guard import ConfidentialDataError
 from mentormind.core.providers.errors import ProviderError
+from mentormind.core.schemas import Citation, WorkProfile, api
 from mentormind.core.schemas import agents as spec06
-from mentormind.core.schemas import api
 
 T = TypeVar("T")
 
@@ -65,8 +67,51 @@ def from_answer(answer: spec06.AssistantAnswer) -> api.AssistantAnswer:
         answer=answer.answer,
         refused=answer.refused,
         suggested_expert=answer.suggested_contact,
-        citations=answer.citations,
+        citations=[for_ui(c) for c in answer.citations],
     )
+
+
+def for_ui(citation: Citation) -> Citation:
+    """What page 2 shows for a citation (spec 08 §3, AC-16).
+
+    The agent puts the cited text in ``snippet``; the UI reads ``excerpt``. A cited profile also gets
+    its step as ``title``, its time span, and a keyframe served by ``GET /media``.
+    """
+    update: dict[str, object] = {}
+    if not citation.excerpt and citation.snippet:
+        update["excerpt"] = citation.snippet
+    profile = _stored_profile(citation.ref_id) if citation.source_type == "work_profile" else None
+    if profile is not None:
+        evidence = profile.evidence
+        update["title"] = citation.title or profile.step
+        update["t_start"] = evidence.t_start if citation.t_start is None else citation.t_start
+        update["t_end"] = evidence.t_end if citation.t_end is None else citation.t_end
+        if not citation.keyframe_url and evidence.keyframes:
+            # The middle keyframe of the step's first segment (spec 03 FR-05 order: start, middle, end).
+            update["keyframe_url"] = _media_url(evidence.keyframes[min(1, len(evidence.keyframes) - 1)])
+    return citation.model_copy(update=update)
+
+
+def _stored_profile(profile_id: str) -> WorkProfile | None:
+    from mentormind.knowledge_base.store.profile_store import ProfileStore
+
+    db = Path(get_settings().profile_db)
+    if not db.is_file():  # no store yet: never create one from here
+        return None
+    try:
+        return ProfileStore(db_path=str(db)).get_profile(profile_id)
+    except (sqlite3.Error, ValueError):  # a broken row only costs the citation its details
+        return None
+
+
+def _media_url(path: str) -> str | None:
+    """``GET /media`` URL of a file under the work or samples dir (spec 08 §2), else ``None``."""
+    settings = get_settings()
+    file = Path(path).resolve()
+    for base in (settings.work_dir, settings.samples_dir):
+        if file.is_relative_to(Path(base).resolve()):
+            return "/media/" + file.relative_to(Path(base).resolve()).as_posix()
+    return None
 
 
 def to_rca(request: api.RcaRequest) -> spec06.RcaRequest:

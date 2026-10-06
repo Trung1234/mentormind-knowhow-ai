@@ -14,6 +14,8 @@ from mentormind.core.schemas.api import (
     RcaRequest,
     ReviewAction,
     ReviewRequest,
+    VideoProcessProgress,
+    VideoProcessResult,
     WhyStep,
 )
 from mentormind.core.schemas.common import Citation, DataClassification
@@ -80,6 +82,8 @@ __all__ = [
     "VectorChunk",
     "VectorHit",
     "VideoAsset",
+    "VideoProcessProgress",
+    "VideoProcessResult",
     "WhyStep",
     "WorkProfile",
     "validate_against_contract",

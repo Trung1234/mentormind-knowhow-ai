@@ -86,6 +86,27 @@ class DocumentIngestResult(BaseModel):
     chunks_indexed: int = 0
 
 
+class VideoProcessProgress(BaseModel):
+    """VLM calls done so far / expected, while a video job runs."""
+
+    done: int = Field(ge=0)
+    total: int = Field(ge=0)
+
+
+class VideoProcessResult(BaseModel):
+    """``JobResponse.result`` of a ``POST /videos/{video_id}/process`` job (spec 08 §2, AC-14)."""
+
+    video_id: str
+    process_id: str
+    segments: int = 0
+    #: ``profile_id`` of the drafts saved for this video, in step order.
+    profiles: list[str] = Field(default_factory=list)
+    failed_segments: list[str] = Field(default_factory=list)
+    transcript_lines: int = 0
+    reasons_filled: int = 0
+    progress: VideoProcessProgress | None = None
+
+
 class AskRequest(BaseModel):
     process_id: str
     question: str

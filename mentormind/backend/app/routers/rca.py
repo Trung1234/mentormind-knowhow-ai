@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 
-from mentormind.backend.app.routers.sigma import SAMPLE_LOTS
+from mentormind.backend.app.routers.sigma import sigma_lots
 from mentormind.core.schemas import Hypothesis, RcaReport, RcaRequest, WhyStep
 
 router = APIRouter(prefix="/rca", tags=["rca"])
@@ -19,7 +19,7 @@ def investigate(req: RcaRequest) -> RcaReport:
 
     # AC-06: LotNotFound -> 404
     if req.lot_id:
-        existing_lot = next((lot for lot in SAMPLE_LOTS if lot.lot_id == req.lot_id), None)
+        existing_lot = next((lot for lot in sigma_lots() if lot.lot_id == req.lot_id), None)
         if not existing_lot:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -86,7 +86,7 @@ def investigate(req: RcaRequest) -> RcaReport:
                 verified=True,
             ),
         ],
-        related_lots=["LOT-2026-001", "LOT-2026-002"],
+        related_lots=["LOT-PACK01-001", "LOT-PACK01-002"],
         preventive_actions=[
             "Cập nhật video clip thao tác miết 2 tay chuẩn vào WorkProfile WP-PACK01-002.",
             "Tập huấn lại quy trình đóng nắp cho toàn bộ công nhân ca 2.",

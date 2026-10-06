@@ -200,7 +200,7 @@ def test_ac_06_rca_invalid_lot_not_found(client):
 
 
 def test_rca_investigate_valid_lot(client):
-    res = client.post("/rca/investigate", json={"lot_id": "LOT-2026-001"})
+    res = client.post("/rca/investigate", json={"lot_id": "LOT-PACK01-001"})
     assert res.status_code == 200
     data = res.json()
     assert len(data["hypotheses"]) > 0
