@@ -112,18 +112,24 @@ def test_the_expert_words_reach_the_profiles_and_propose_reasons(
         line("Đặt cốc vào thùng, xếp nghiêng để cốc không bị nứt.", 8, 10, label="factory_confidential"),
     ]
     result = run(FakeVLM(RUN_1), tmp_path, consistency=False, transcript=said)
-    excerpts = {p.step: p.evidence.transcript_excerpt for p in result.profiles}
-    assert excerpts["Nhặt cốc từ khay"] == "Nhặt cốc lên nhé. Đặt cốc vào thùng, xếp nghiêng để cốc không bị nứt."
-    assert excerpts["Kiểm tra nhãn"] is None  # segment 2: the expert said nothing
-    # A profile quoting factory words is factory data, whatever its segment's label.
-    quoting = {p.data_classification for p in result.profiles if p.evidence.transcript_excerpt}
-    assert quoting == {"factory_confidential"}
-    reasoned = propose_reasons([result.profiles[0]], FakeLLM([{"reason": "để cốc không bị nứt"}]))[0]
+    by_step = {p.step: p for p in result.profiles}
+    # Spec 04 §3 (AC-22): both lines fall in segment 1, each goes to the step it is about.
+    assert by_step["Nhặt cốc từ khay"].evidence.transcript_excerpt == "Nhặt cốc lên nhé."
+    placing = by_step["Đặt cốc vào thùng carton"]
+    assert placing.evidence.transcript_excerpt == "Đặt cốc vào thùng, xếp nghiêng để cốc không bị nứt."
+    assert by_step["Kiểm tra nhãn"].evidence.transcript_excerpt is None  # segment 2: the expert said nothing
+    # A profile quoting factory words is factory data, whatever its segment's label; the other is not.
+    assert placing.data_classification == "factory_confidential"
+    assert by_step["Nhặt cốc từ khay"].data_classification == "synthetic"
+    llm = FakeLLM([{"reason": "để cốc không bị nứt"}])
+    reasoned, untouched = propose_reasons([placing, by_step["Nhặt cốc từ khay"]], llm)
     assert (reasoned.reason, reasoned.reason_source, reasoned.status) == (
         "để cốc không bị nứt",
         "expert_verbal",
         "in_review",
     )
+    # The same reason is not in the picking step's own words: refused there (AC-09).
+    assert (untouched.reason, untouched.status) == (None, "draft")
 
 
 def test_without_spec_03_the_profiles_have_no_excerpt_as_before(

@@ -174,7 +174,7 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - [x] T04-12 Chuyển server tự host sang Ollama (`qwen3-vl:8b` Q4, `image-min-tokens` chỉnh được, script macOS/Linux + ngrok) (FR-08, AC-14, AC-15).
 - [x] T04-13 Lượt A trả lời bằng tiếng Việt: luật trong prompt + hậu kiểm ngôn ngữ dùng chung lượt sửa (AC-20).
 - [x] T04-14 Fallback `--video`: 3 keyframe mỗi đoạn + ghi `segments.json` của video (dùng chung cho CLI và API spec 08, `processing/vlm/segments.py`) (AC-21).
-- [ ] T04-15 Transcript theo từng bước (`lead`/`lag`), `--video` qua `VideoCapturePipeline` của spec 03 (AC-22).
+- [x] T04-15 Transcript theo từng bước (`lead`/`lag`), `--video` qua `VideoCapturePipeline` của spec 03 (AC-22).
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
@@ -197,3 +197,4 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - v1.17 (4/10, Phúc): FR-08 server tự host chuyển sang Ollama + `qwen3-vl:8b` Q4 (demo chạy trên Ollama); `VLM_SERVER_IMAGE_MIN_TOKENS` thay mức 1024 Ollama tự ép; FR-07 timeout mặc định 900 s, `KNOWHOW_VLM_MAX_TOKENS` 16384 cho phần thinking; T04-12.
 - v1.18 (4/10, Phúc): §3 lượt A phải trả tiếng Việt (prompt + hậu kiểm `passes/language.py`, dùng chung lượt sửa), AC-20, T04-13; đo LASI: model Q4 trả 63–83% tên bước bằng tiếng Anh.
 - v1.19 (06/10, Phúc): FR-05 fallback `--video` sinh 3 keyframe/đoạn (spec 03 FR-05, cache) và ghi `data/work/video/<video_id>/segments.json` để `describe <video_id>`, API spec 08 (job xử lý video, `GET /videos/{id}/segments`) và trang duyệt dùng lại; `probe_video` tạm thay `video probe` của spec 03; AC-21, T04-14. Khi spec 03 xong chỉ bước cắt đổi, phần đọc `segments.json`/`transcript.json` giữ nguyên.
+- v1.20 (06/10, Phúc): §3 transcript theo **từng bước** thay vì theo đoạn: mỗi câu (đã được spec 03 gán vào đoạn) thuộc đúng một bước — cửa sổ `[t_start − lead, t_end + lag]` trùng nhiều nhất (`KNOWHOW_TRANSCRIPT_LEAD_S`=2, `KNOWHOW_TRANSCRIPT_LAG_S`=3), rồi phần trùng với chính bước, rồi bước trước; không trùng → bước gần nhất. Trước đây mọi bước của một đoạn trích chung mọi câu của đoạn, nên `propose-reasons` có thể gán lý do của bước này cho bước kia. `--video` cắt bằng `VideoCapturePipeline` của spec 03 (`--method`). AC-22, T04-15.

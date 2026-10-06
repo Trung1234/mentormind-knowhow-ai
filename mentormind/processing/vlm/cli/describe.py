@@ -87,6 +87,8 @@ def describe_cmd(
             default_fps=fps or settings.vlm_fps,
             max_frames=settings.vlm_max_frames,
             consistency=consistency,
+            transcript_lead_s=settings.transcript_lead_s,
+            transcript_lag_s=settings.transcript_lag_s,
         )
         result = pipeline.run(loaded, work_dir, transcript)
     except ConfidentialDataError as exc:

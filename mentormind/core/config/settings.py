@@ -77,6 +77,10 @@ class Settings(BaseSettings):
     # JSON merged into every request body: vendor sampling knobs (e.g. {"presence_penalty": 1.5},
     # which stops Qwen3-VL from looping step lists).
     vlm_extra_body: dict[str, Any] = {}
+    # Spec 04 §3: a sentence of the expert belongs to the step whose [t_start - lead, t_end + lag]
+    # overlaps it most (experts explain just before acting and comment just after).
+    transcript_lead_s: float = 2.0
+    transcript_lag_s: float = 3.0
 
     # --- LLM (spec 06; also spec 04 pass C / propose-reasons) ---------------------------------
     # Empty = the LLM is the VLM: same provider, server, model and key as KNOWHOW_VLM_* (the
