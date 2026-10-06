@@ -93,6 +93,20 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 8192
     llm_extra_body: dict[str, Any] = {}
 
+    # --- Speech-to-text (spec 03 FR-07c) -----------------------------------------------------
+    # Registry name of the ASR provider (`knowhow video providers` lists them). Local only.
+    asr_provider: str = "faster_whisper"
+    # Empty = the provider's default model (faster_whisper: "small", downloaded once).
+    asr_model: str | None = None
+    asr_device: str = "cpu"
+    # CTranslate2 quantisation: int8 keeps Whisper small around 0.5 GB of RAM on a CPU.
+    asr_compute_type: str = "int8"
+    # Language of the expert's speech; empty = detected per file.
+    asr_language: str | None = "vi"
+    asr_beam_size: int = 5
+    # Voice activity detection (Silero, bundled): skips silence and music before decoding.
+    asr_vad: bool = True
+
     # --- Outbound guard for cloud calls (spec 01 FR-09b, spec 04 FR-02c) ---------------------
     # Mask PII in text sent to cloud providers. False = refuse instead (LeakGuard always runs).
     guard_mask_text: bool = True
