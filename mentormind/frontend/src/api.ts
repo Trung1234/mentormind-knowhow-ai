@@ -124,7 +124,7 @@ export const api = {
     return requestForm<VideoAsset>("/videos", form);
   },
 
-  processVideo: (videoId: string, method: CutMethod) => {
+  processVideo: (videoId: string, method: CutMethod | null) => {
     return request<{ job_id: string }>(`/videos/${encodeURIComponent(videoId)}/process`, {
       method: "POST",
       body: JSON.stringify({ method }),

@@ -41,16 +41,20 @@ def segment_cmd(
     process_id: ProcessId = None,
     classification: Classification = DataClassification.FACTORY_CONFIDENTIAL,
     method: Annotated[
-        str, typer.Option(help="hand_activity (nhịp tay) | scene (cảnh) | fixed_window (10 s).")
-    ] = "hand_activity",
+        str | None,
+        typer.Option(
+            help="hand_activity (nhịp tay) | scene (cảnh) | fixed_window (10 s); mặc định KNOWHOW_VIDEO_METHOD."
+        ),
+    ] = None,
 ) -> None:
     from mentormind.capture.video.pipeline import VideoCapturePipeline
     from mentormind.capture.video.segmenters import METHODS
 
+    settings = get_settings()
+    method = method or settings.video_method
     if method not in METHODS:
         typer.secho(f"Lỗi: --method phải là một trong {', '.join(METHODS)}.", fg=typer.colors.RED, err=True)
         raise typer.Exit(2)
-    settings = get_settings()
     try:
         result = VideoCapturePipeline(settings).run(
             video,

@@ -98,6 +98,9 @@ class Settings(BaseSettings):
     llm_extra_body: dict[str, Any] = {}
 
     # --- Video capture (spec 03) -------------------------------------------------------------
+    # Cutting method when a call names none (spec 03 FR-03): hand_activity (one operator, continuous
+    # footage) | scene (edited video with shot changes) | fixed_window (10 s windows).
+    video_method: Literal["hand_activity", "scene", "fixed_window"] = "hand_activity"
     # MediaPipe hand model of `hand_activity` cuts (FR-03), fetched once, SHA-256 pinned.
     video_hand_model: Path = REPO_ROOT / "data" / "work" / "models" / "hand_landmarker.task"
 

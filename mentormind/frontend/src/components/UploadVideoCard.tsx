@@ -102,7 +102,7 @@ const formatTime = (t?: number | null) => (t == null ? "—" : `${t.toFixed(1)}s
 export function UploadVideoCard({ onReview }: { onReview: (videoId: string) => void }) {
   const [file,           setFile]           = useState<File | null>(null);
   const [processId,      setProcessId]      = useState("PACK01");
-  const [method,         setMethod]         = useState<CutMethod>("hand_activity");
+  const [method,         setMethod]         = useState<CutMethod | "">("");
   const [classification, setClassification] = useState<DataClassification | "">("");
   const [busy,           setBusy]           = useState(false);
   const [tracked,        setTracked]        = useState<TrackedJob | null>(() => loadTracked());
@@ -168,7 +168,7 @@ export function UploadVideoCard({ onReview }: { onReview: (videoId: string) => v
     setSteps([]);
     try {
       const asset = await api.uploadVideo(file, processId.trim(), classification);
-      const { job_id } = await api.processVideo(asset.video_id, method);
+      const { job_id } = await api.processVideo(asset.video_id, method || null);
       const next: TrackedJob = {
         jobId: job_id,
         videoId: asset.video_id,
@@ -273,8 +273,9 @@ export function UploadVideoCard({ onReview }: { onReview: (videoId: string) => v
                 className="form-select"
                 value={method}
                 disabled={busy || running}
-                onChange={(e) => setMethod(e.target.value as CutMethod)}
+                onChange={(e) => setMethod(e.target.value as CutMethod | "")}
               >
+                <option value="">Mặc định của máy chủ (KNOWHOW_VIDEO_METHOD)</option>
                 {(Object.keys(METHOD_LABELS) as CutMethod[]).map((m) => (
                   <option key={m} value={m}>{METHOD_LABELS[m]}</option>
                 ))}

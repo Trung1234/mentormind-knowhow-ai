@@ -41,8 +41,8 @@ _CHUNK = 1 << 20
 
 
 class ProcessVideoRequest(BaseModel):
-    #: Spec 03 FR-03: hand_activity | scene | fixed_window; a missing library falls back down the chain.
-    method: str = "hand_activity"
+    #: Spec 03 FR-03: hand_activity | scene | fixed_window; None = KNOWHOW_VIDEO_METHOD.
+    method: str | None = None
     fps: float | None = Field(default=None, gt=0)
 
 
@@ -98,16 +98,17 @@ def process_video(
     background_tasks: BackgroundTasks,
     store: ProfileStore = Depends(get_profile_store),
 ) -> dict[str, str]:
-    if req.method not in METHODS:
+    settings = get_settings()
+    method = req.method or settings.video_method
+    if method not in METHODS:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"Không có cách cắt {req.method!r}; chọn một trong: {', '.join(METHODS)}.",
+            detail=f"Không có cách cắt {method!r}; chọn một trong: {', '.join(METHODS)}.",
         )
-    settings = get_settings()
     asset = _uploaded(settings, video_id)
     job_id = f"job-vid-{uuid.uuid4().hex[:8]}"
     store.create_job(job_id, "video_process")
-    background_tasks.add_task(run_video_process_task, job_id, asset, req.method, req.fps, settings, store)
+    background_tasks.add_task(run_video_process_task, job_id, asset, method, req.fps, settings, store)
     return {"job_id": job_id}
 
 

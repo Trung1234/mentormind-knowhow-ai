@@ -277,3 +277,14 @@ def test_ac_18_speech_is_transcribed_quoted_per_step_and_turned_into_reasons(
         "in_review",
     )
     assert (picking["reason"], picking["status"]) == (None, "draft")  # not in its own words: refused
+
+
+def test_ac_18_without_a_method_the_server_default_is_used(
+    client: TestClient, capture: Capture, settings: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(videos_router, "get_settings", lambda: settings.model_copy(update={"video_method": "scene"}))
+    capture.build = lambda method: SceneSegmenter(detect=lambda video, threshold: [(0.0, 10.0), (10.0, 20.0)])
+    video_id = _upload(client, synthetic_video(tmp_path / "pack.mp4", 20)).json()["video_id"]
+    job_id = client.post(f"/videos/{video_id}/process", json={"method": None}).json()["job_id"]
+    result = client.get(f"/jobs/{job_id}").json()["result"]
+    assert (result["method"], result["method_used"]) == ("scene", "scene")
