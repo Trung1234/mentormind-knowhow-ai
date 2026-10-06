@@ -10,7 +10,7 @@ import pytest
 from typer.testing import CliRunner
 
 from mentormind.capture.ingest import cli as ingest_cli
-from mentormind.capture.ingest.index import index_chunks, replace_docs
+from mentormind.capture.ingest.index import index_chunks, index_files, replace_docs
 from mentormind.capture.ingest.jsonl import write_chunks_atomic
 from mentormind.core.cli import app
 from mentormind.core.schemas import ChunkKind, DataClassification, DocumentChunk
@@ -136,6 +136,24 @@ def test_missing_directory_raises(tmp_path: Path) -> None:
 def test_empty_directory_is_a_noop(tmp_path: Path) -> None:
     result = index_chunks(tmp_path, _Spy())
     assert (result.upserted, result.files_ok, result.files_failed) == (0, 0, [])
+
+
+def test_index_files_upserts_only_the_given_files(tmp_path: Path) -> None:
+    # The upload API (spec 08 §2) indexes the chunk files of one upload, not the whole folder.
+    write_chunks_atomic(tmp_path / "a.jsonl", [_chunk("a", 0)])
+    write_chunks_atomic(tmp_path / "b.jsonl", [_chunk("b", 0), _chunk("b", 1)])
+    store = MemoryVectorStore()
+    result = index_files([tmp_path / "b.jsonl"], store)
+    assert (result.upserted, result.files_ok, result.doc_ids) == (2, 1, {"DOC-bbbbbbbbbbbb"})
+    assert {h.chunk.ref_id for h in _all(store)} == {"DOC-bbbbbbbbbbbb"}
+
+
+def test_index_files_rejects_a_bad_file_whole_and_checks_batch_size(tmp_path: Path) -> None:
+    (tmp_path / "a.jsonl").write_text("not json\n")
+    result = index_files([tmp_path / "a.jsonl"], _Spy())
+    assert result.upserted == 0 and [name for name, _ in result.files_failed] == ["a.jsonl"]
+    with pytest.raises(ValueError, match="batch_size"):
+        index_files([], _Spy(), batch_size=0)
 
 
 runner = CliRunner()

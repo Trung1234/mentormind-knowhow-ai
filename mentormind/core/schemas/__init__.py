@@ -3,6 +3,8 @@
 from mentormind.core.schemas.api import (
     AskRequest,
     AssistantAnswer,
+    DocumentIngestFile,
+    DocumentIngestResult,
     Hypothesis,
     JobResponse,
     JobStatus,
@@ -50,6 +52,8 @@ __all__ = [
     "ContractValidationError",
     "DataClassification",
     "DocumentChunk",
+    "DocumentIngestFile",
+    "DocumentIngestResult",
     "ErrorTag",
     "Evidence",
     "ExceptionCase",

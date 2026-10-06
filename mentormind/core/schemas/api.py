@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from mentormind.core.schemas.common import Citation
+from mentormind.core.schemas.common import Citation, DataClassification
 from mentormind.core.schemas.work_profile import (
     ErrorTag,
     ExceptionCase,
@@ -63,6 +63,27 @@ class JobResponse(BaseModel):
     error: str | None = None
     created_at: str | None = None
     finished_at: str | None = None
+
+
+class DocumentIngestFile(BaseModel):
+    """One uploaded file in the result of a ``POST /ingest/documents`` job (spec 08 §2)."""
+
+    name: str
+    doc_id: str | None = None
+    extractor: str | None = None
+    pages: int = 0
+    chunks: int = 0
+    #: Not a supported format (spec 02 FR-01); such a file has no ``error``.
+    skipped: bool = False
+    error: str | None = None
+
+
+class DocumentIngestResult(BaseModel):
+    """``JobResponse.result`` of a ``POST /ingest/documents`` job (spec 08 §2, AC-09)."""
+
+    classification: DataClassification
+    files: list[DocumentIngestFile] = Field(default_factory=list)
+    chunks_indexed: int = 0
 
 
 class AskRequest(BaseModel):
