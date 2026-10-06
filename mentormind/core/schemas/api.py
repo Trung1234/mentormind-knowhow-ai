@@ -86,23 +86,36 @@ class DocumentIngestResult(BaseModel):
     chunks_indexed: int = 0
 
 
-class VideoProcessProgress(BaseModel):
-    """VLM calls done so far / expected, while a video job runs."""
+VideoStage = Literal["cut", "transcribe", "describe", "merge", "reasons"]
 
-    done: int = Field(ge=0)
-    total: int = Field(ge=0)
+
+class VideoProcessProgress(BaseModel):
+    """Where a video job is: its stage and how far into it (spec 08 §2).
+
+    ``cut``: segments exported; ``transcribe``: seconds of audio heard; ``describe``: VLM calls of
+    passes A and B; ``merge``: pass C (0/1); ``reasons``: steps with an excerpt sent to propose-reasons.
+    """
+
+    stage: VideoStage = "describe"
+    done: float = Field(ge=0)
+    total: float = Field(ge=0)
 
 
 class VideoProcessResult(BaseModel):
-    """``JobResponse.result`` of a ``POST /videos/{video_id}/process`` job (spec 08 §2, AC-14)."""
+    """``JobResponse.result`` of a ``POST /videos/{video_id}/process`` job (spec 08 §2, AC-14, AC-18)."""
 
     video_id: str
     process_id: str
+    #: Cutting method asked for, and the one that ran (spec 03 FR-03 falls back when a library is missing).
+    method: str = "fixed_window"
+    method_used: str | None = None
     segments: int = 0
     #: ``profile_id`` of the drafts saved for this video, in step order.
     profiles: list[str] = Field(default_factory=list)
     failed_segments: list[str] = Field(default_factory=list)
     transcript_lines: int = 0
+    #: Steps quoting at least one sentence of the expert (spec 04 §3).
+    steps_with_excerpt: int = 0
     reasons_filled: int = 0
     progress: VideoProcessProgress | None = None
 

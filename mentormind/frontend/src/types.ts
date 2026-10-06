@@ -176,14 +176,20 @@ export interface Segment {
   data_classification: DataClassification;
 }
 
+export type CutMethod = "hand_activity" | "scene" | "fixed_window";
+export type VideoStage = "cut" | "transcribe" | "describe" | "merge" | "reasons";
+
 // Result of a POST /videos/{id}/process job (spec 08 §2).
 export interface VideoProcessResult {
   video_id: string;
   process_id: string;
+  method: CutMethod;
+  method_used?: CutMethod | null;
   segments: number;
   profiles: string[];
   failed_segments: string[];
   transcript_lines: number;
+  steps_with_excerpt: number;
   reasons_filled: number;
-  progress?: { done: number; total: number } | null;
+  progress?: { stage: VideoStage; done: number; total: number } | null;
 }

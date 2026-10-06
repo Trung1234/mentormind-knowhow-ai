@@ -1,5 +1,6 @@
 import {
   AssistantAnswer,
+  CutMethod,
   DataClassification,
   JobResponse,
   LotRecord,
@@ -123,10 +124,10 @@ export const api = {
     return requestForm<VideoAsset>("/videos", form);
   },
 
-  processVideo: (videoId: string) => {
+  processVideo: (videoId: string, method: CutMethod) => {
     return request<{ job_id: string }>(`/videos/${encodeURIComponent(videoId)}/process`, {
       method: "POST",
-      body: JSON.stringify({ method: "fixed_window" }),
+      body: JSON.stringify({ method }),
     });
   },
 

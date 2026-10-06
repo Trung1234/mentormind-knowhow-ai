@@ -1,14 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
 import { api, ApiError, mediaUrl } from "../api";
 import {
+  CutMethod,
   DataClassification,
   JobResponse,
   JobStatus,
   ProfileStatus,
   VideoProcessResult,
+  VideoStage,
   WorkProfile,
 } from "../types";
-import { AlertTriangle, CheckCircle2, Clapperboard, ListChecks, RotateCcw, ShieldCheck, Upload } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clapperboard, ListChecks, RotateCcw, Scissors, ShieldCheck, Upload } from "lucide-react";
 
 // Spec 08 §3, page 4 "Tải dữ liệu" — video: POST /videos, POST /videos/{id}/process, then poll GET /jobs/{id}.
 const ACCEPTED_TYPES = "video/*,.mkv";
@@ -28,6 +30,22 @@ const JOB_STATUS: Record<JobStatus, { label: string; badge: string }> = {
   done:    { label: "Hoàn tất",   badge: "badge badge-approved" },
   failed:  { label: "Lỗi",        badge: "badge badge-rejected" },
 };
+
+// Spec 03 FR-03: how the video is cut into segments; a missing library falls back down this list.
+const METHOD_LABELS: Record<CutMethod, string> = {
+  hand_activity: "Theo nhịp tay (MediaPipe)",
+  scene:         "Theo cảnh (PySceneDetect)",
+  fixed_window:  "Cố định 10 giây",
+};
+
+// Spec 08 §2: the stages of a video job, in order, with what `done/total` counts in each.
+const STAGES: { id: VideoStage; label: string; unit: string }[] = [
+  { id: "cut",        label: "Cắt đoạn",            unit: "đoạn" },
+  { id: "transcribe", label: "Nhận dạng lời nói",    unit: "giây audio" },
+  { id: "describe",   label: "VLM mô tả",            unit: "lượt đoạn (A, B)" },
+  { id: "merge",      label: "Gộp bước",             unit: "" },
+  { id: "reasons",    label: "Đề xuất lý do",        unit: "bước có lời chuyên gia" },
+];
 
 const STATUS_LABELS: Record<ProfileStatus, string> = {
   draft:     "Nháp",
@@ -84,6 +102,7 @@ const formatTime = (t?: number | null) => (t == null ? "—" : `${t.toFixed(1)}s
 export function UploadVideoCard({ onReview }: { onReview: (videoId: string) => void }) {
   const [file,           setFile]           = useState<File | null>(null);
   const [processId,      setProcessId]      = useState("PACK01");
+  const [method,         setMethod]         = useState<CutMethod>("hand_activity");
   const [classification, setClassification] = useState<DataClassification | "">("");
   const [busy,           setBusy]           = useState(false);
   const [tracked,        setTracked]        = useState<TrackedJob | null>(() => loadTracked());
@@ -149,7 +168,7 @@ export function UploadVideoCard({ onReview }: { onReview: (videoId: string) => v
     setSteps([]);
     try {
       const asset = await api.uploadVideo(file, processId.trim(), classification);
-      const { job_id } = await api.processVideo(asset.video_id);
+      const { job_id } = await api.processVideo(asset.video_id, method);
       const next: TrackedJob = {
         jobId: job_id,
         videoId: asset.video_id,
@@ -179,6 +198,7 @@ export function UploadVideoCard({ onReview }: { onReview: (videoId: string) => v
   const result = job?.result ?? null;
   const progress = result?.progress ?? null;
   const percent = progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
+  const stageIndex = progress ? STAGES.findIndex((s) => s.id === progress.stage) : -1;
   const running = !!tracked && (!job || job.status === "queued" || job.status === "running");
   const canUpload = !busy && !running && !!file && classification !== "" && processId.trim() !== "";
 
@@ -244,6 +264,24 @@ export function UploadVideoCard({ onReview }: { onReview: (videoId: string) => v
             </div>
 
             <div className="form-group">
+              <label className="form-label" htmlFor="select-video-method">
+                <Scissors size={12} color="var(--accent-cyan)" />
+                Cách cắt đoạn
+              </label>
+              <select
+                id="select-video-method"
+                className="form-select"
+                value={method}
+                disabled={busy || running}
+                onChange={(e) => setMethod(e.target.value as CutMethod)}
+              >
+                {(Object.keys(METHOD_LABELS) as CutMethod[]).map((m) => (
+                  <option key={m} value={m}>{METHOD_LABELS[m]}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
               <label className="form-label" htmlFor="select-video-classification">
                 <ShieldCheck size={12} color="var(--accent-cyan)" />
                 Nhãn dữ liệu (bắt buộc)
@@ -265,7 +303,7 @@ export function UploadVideoCard({ onReview }: { onReview: (videoId: string) => v
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
             <span style={{ fontSize: "0.9rem", color: "var(--text-muted)" }}>
-              Video được cắt thành các đoạn 10 giây (spec 03 chưa có cắt theo cảnh), VLM mô tả từng đoạn thành các bước nháp.
+              Video được cắt thành đoạn, có audio thì nhận dạng lời chuyên gia; VLM mô tả từng đoạn thành các bước nháp, mỗi bước kèm lời nói về chính nó.
             </span>
             <button id="btn-upload-video" className="btn btn-primary btn-lg" onClick={handleUpload} disabled={!canUpload}>
               {busy ? <div className="spinner" /> : <Upload size={16} />}
@@ -303,12 +341,24 @@ export function UploadVideoCard({ onReview }: { onReview: (videoId: string) => v
             </div>
 
             {running && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                <div id="video-stages" style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                  {STAGES.map((stage, i) => (
+                    <span
+                      key={stage.id}
+                      className={`badge ${i < stageIndex ? "badge-approved" : i === stageIndex ? "badge-review" : "badge-muted"}`}
+                    >
+                      {i + 1}. {stage.label}
+                    </span>
+                  ))}
+                </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem" }}>
                   <span>
-                    {progress
-                      ? `VLM đã mô tả ${progress.done}/${progress.total} lượt đoạn (lượt A và B, mỗi đoạn 10 giây)`
-                      : "Đang cắt video thành các đoạn…"}
+                    {progress && stageIndex >= 0
+                      ? STAGES[stageIndex].unit
+                        ? `${STAGES[stageIndex].label}: ${Math.round(progress.done)}/${Math.round(progress.total)} ${STAGES[stageIndex].unit}`
+                        : `${STAGES[stageIndex].label}…`
+                      : "Đang đọc video…"}
                   </span>
                   <span style={{ color: "var(--text-muted)" }}>Đã chạy {formatElapsed(now - tracked.startedAt)}</span>
                 </div>
@@ -316,9 +366,7 @@ export function UploadVideoCard({ onReview }: { onReview: (videoId: string) => v
                   <div className="confidence-fill" style={{ width: `${percent}%` }} />
                 </div>
                 <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                  {progress && progress.done >= progress.total
-                    ? "Đang gộp các bước trùng giữa các đoạn (lượt C)…"
-                    : "Có thể chuyển trang khác; quay lại đây vẫn theo dõi tiếp."}
+                  Có thể chuyển trang khác; quay lại đây vẫn theo dõi tiếp.
                 </span>
               </div>
             )}
@@ -335,11 +383,13 @@ export function UploadVideoCard({ onReview }: { onReview: (videoId: string) => v
                 <div className="alert alert-success">
                   <CheckCircle2 size={15} style={{ flexShrink: 0, marginTop: 2 }} />
                   <span>
-                    Hoàn tất: {result.segments} đoạn → <strong>{result.profiles.length} bước nháp</strong> chờ chuyên gia duyệt.
+                    Hoàn tất: cắt {METHOD_LABELS[result.method_used ?? result.method]?.toLowerCase()}
+                    {result.method_used && result.method_used !== result.method && ` (không dùng được ${METHOD_LABELS[result.method].toLowerCase()})`}
+                    {" "}→ {result.segments} đoạn → <strong>{result.profiles.length} bước nháp</strong> chờ chuyên gia duyệt.
                     {result.failed_segments.length > 0 && ` ${result.failed_segments.length} đoạn VLM trả lỗi.`}
                     {result.transcript_lines === 0
-                      ? " Chưa có transcript lời chuyên gia: lý do (reason) để trống, chuyên gia nhập khi duyệt."
-                      : ` Đã điền lý do từ transcript cho ${result.reasons_filled} bước.`}
+                      ? " Không nhận được lời nói nào: lý do (reason) để trống, chuyên gia nhập khi duyệt."
+                      : ` Lời nói: ${result.transcript_lines} câu, ${result.steps_with_excerpt} bước có lời chuyên gia, ${result.reasons_filled} bước được đề xuất lý do (chờ duyệt).`}
                   </span>
                 </div>
 

@@ -1,7 +1,8 @@
-"""spec 08 §2, AC-13..AC-15 — video upload + processing, and the Sigma lots behind the RCA page.
+"""spec 08 §2, AC-13..AC-18 — video upload + processing, and the Sigma lots behind the RCA page.
 
-No ffmpeg, no VLM server: clips are small synthetic videos (``tests.processing.vlm.video_fakes``),
-the VLM/LLM are the scripted fakes of the pipeline tests. ``TestClient`` runs the background job
+No ffmpeg, no model, no network: clips are small synthetic videos (``tests.capture.video.fakes``),
+the cutting methods, the ASR, the VLM and the LLM are fakes injected through
+``videos.capture_pipeline`` and the provider factories. ``TestClient`` runs the background job
 before ``post`` returns, so the job is finished when it is read back.
 """
 
@@ -10,7 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -22,15 +23,27 @@ from mentormind.backend.app.deps import get_profile_store
 from mentormind.backend.app.main import app
 from mentormind.backend.app.routers import sigma as sigma_router
 from mentormind.backend.app.routers import videos as videos_router
+from mentormind.capture.video import VideoCapturePipeline
+from mentormind.capture.video.segmenters import (
+    FixedWindowSegmenter,
+    HandActivitySegmenter,
+    Method,
+    SceneSegmenter,
+    Segmenter,
+    SegmenterUnavailable,
+)
 from mentormind.core.config import Settings
 from mentormind.core.providers import llm as llm_providers
 from mentormind.core.providers import vlm as vlm_providers
+from mentormind.core.providers.asr import ASRSegment
+from mentormind.core.providers.asr.backends.fake import FakeASR
 from mentormind.core.providers.llm.backends.fake import FakeLLM
 from mentormind.core.providers.vlm.backends.fake import FakeVLM
 from mentormind.core.schemas import VideoAsset
 from mentormind.knowledge_base.sigma.adapter import CsvSigmaAdapter
 from mentormind.knowledge_base.store.profile_store import ProfileStore
 from tests.capture.video.fakes import fake_ffmpeg, synthetic_video
+from tests.capture.video.test_transcribe_and_align import fake_extract
 from tests.processing.vlm.test_pipeline import RUN_1, RUN_2
 
 MERGE = {
@@ -57,8 +70,28 @@ def store(settings: Settings) -> ProfileStore:
     return ProfileStore(db_path=str(settings.profile_db))
 
 
+class Capture:
+    """What the API's spec 03 pipeline runs with in these tests; each test may change it."""
+
+    def __init__(self) -> None:
+        self.speech: list[ASRSegment] = []
+        self.build: Callable[[Method], Segmenter] = lambda method: FixedWindowSegmenter(motion=False)
+
+    def pipeline(self, settings: Settings) -> VideoCapturePipeline:
+        return VideoCapturePipeline(settings, build=self.build, asr=lambda: FakeASR(self.speech), extract=fake_extract)
+
+
 @pytest.fixture
-def client(settings: Settings, store: ProfileStore, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
+def capture(monkeypatch: pytest.MonkeyPatch) -> Capture:
+    fakes = Capture()
+    monkeypatch.setattr(videos_router, "capture_pipeline", fakes.pipeline)
+    return fakes
+
+
+@pytest.fixture
+def client(
+    settings: Settings, store: ProfileStore, capture: Capture, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[TestClient]:
     fake_ffmpeg(monkeypatch)
     monkeypatch.setattr(videos_router, "get_settings", lambda: settings)
     monkeypatch.setattr(vlm_providers, "get_vlm_provider", lambda s=None: FakeVLM([*RUN_1, *RUN_2]))
@@ -109,8 +142,8 @@ def test_ac_14_processing_saves_drafts_segments_and_progress(
     job = client.get(f"/jobs/{job_id}").json()
     assert job["status"] == "done", job
     result = job["result"]
-    assert (result["video_id"], result["segments"]) == (video_id, 2)
-    assert result["progress"] == {"done": 4, "total": 4}  # passes A and B, one call per segment each
+    assert (result["video_id"], result["segments"], result["transcript_lines"]) == (video_id, 2, 0)
+    assert result["method"] == "hand_activity"  # the default
     drafts = {p["profile_id"]: p for p in client.get("/profiles", params={"process_id": "PACK01"}).json()}
     assert result["profiles"] and set(result["profiles"]) <= set(drafts)
     for profile_id in result["profiles"]:
@@ -127,8 +160,8 @@ def test_ac_14_unknown_video_or_method_is_refused(client: TestClient, tmp_path: 
     assert client.post("/videos/..%2F..%2Fetc/process", json={}).status_code == 404
     assert client.get("/videos/VID-000000000000/segments").status_code == 404
     video_id = _upload(client, synthetic_video(tmp_path / "pack.mp4", 4)).json()["video_id"]
-    res = client.post(f"/videos/{video_id}/process", json={"method": "scene"})
-    assert res.status_code == 422 and "spec 03" in res.json()["detail"]
+    res = client.post(f"/videos/{video_id}/process", json={"method": "magic"})
+    assert res.status_code == 422 and "hand_activity" in res.json()["detail"]
 
 
 def test_ac_14_a_failing_pipeline_ends_the_job_failed(
@@ -185,3 +218,62 @@ def test_ac_17_a_job_left_running_by_a_restart_ends_failed(client: TestClient, s
     assert stale["status"] == "failed" and "khởi động lại" in stale["error"]
     assert stale["result"] == {"progress": {"done": 3, "total": 40}}  # what it got done is kept
     assert client.get("/jobs/job-vid-now").json()["status"] == "running"
+
+
+def test_ac_18_hand_activity_without_mediapipe_cuts_by_scene(
+    client: TestClient, capture: Capture, tmp_path: Path
+) -> None:
+    def build(method: Method) -> Segmenter:
+        if method == "hand_activity":
+
+            def missing() -> Any:
+                raise SegmenterUnavailable("thiếu MediaPipe")
+
+            return HandActivitySegmenter(detector=missing)
+        return SceneSegmenter(detect=lambda video, threshold: [(0.0, 10.0), (10.0, 20.0)])
+
+    capture.build = build
+    video_id = _upload(client, synthetic_video(tmp_path / "pack.mp4", 20)).json()["video_id"]
+    job_id = client.post(f"/videos/{video_id}/process", json={"method": "hand_activity"}).json()["job_id"]
+    result = client.get(f"/jobs/{job_id}").json()["result"]
+    assert (result["method"], result["method_used"], result["segments"]) == ("hand_activity", "scene", 2)
+    assert {s["method"] for s in client.get(f"/videos/{video_id}/segments").json()} == {"scene"}
+
+
+def test_ac_18_speech_is_transcribed_quoted_per_step_and_turned_into_reasons(
+    client: TestClient, capture: Capture, store: ProfileStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_ffmpeg(monkeypatch, audio=True)
+    capture.speech = [
+        ASRSegment(text="Nhặt cốc lên nhé.", t_start=0.5, t_end=1.5),
+        ASRSegment(text="Xếp nghiêng để cốc không bị nứt.", t_start=9.0, t_end=10.5),
+    ]
+    monkeypatch.setattr(
+        llm_providers, "get_llm_provider", lambda s=None: FakeLLM([MERGE, {"reason": "để cốc không bị nứt"}])
+    )
+    stages: list[str] = []
+    update_job = store.update_job
+
+    def spy(job_id: str, status: Any, result: Any = None, error: Any = None) -> Any:
+        if result and result.get("progress") and (not stages or stages[-1] != result["progress"]["stage"]):
+            stages.append(result["progress"]["stage"])
+        return update_job(job_id, status, result=result, error=error)
+
+    monkeypatch.setattr(store, "update_job", spy)
+    video_id = _upload(client, synthetic_video(tmp_path / "pack.mp4", 20)).json()["video_id"]
+    job_id = client.post(f"/videos/{video_id}/process", json={"method": "fixed_window"}).json()["job_id"]
+    job = client.get(f"/jobs/{job_id}").json()
+    assert job["status"] == "done", job
+    result = job["result"]
+    assert (result["transcript_lines"], result["steps_with_excerpt"], result["reasons_filled"]) == (2, 2, 1)
+    assert stages == ["cut", "transcribe", "describe", "merge", "reasons"]
+    profiles = {p["step"]: p for p in client.get("/profiles", params={"process_id": "PACK01"}).json()}
+    picking, placing = profiles["Nhặt cốc từ khay"], profiles["Đặt cốc vào thùng carton"]
+    assert picking["evidence"]["transcript_excerpt"] == "Nhặt cốc lên nhé."  # each step only its own words
+    assert placing["evidence"]["transcript_excerpt"] == "Xếp nghiêng để cốc không bị nứt."
+    assert (placing["reason"], placing["reason_source"], placing["status"]) == (
+        "để cốc không bị nứt",
+        "expert_verbal",
+        "in_review",
+    )
+    assert (picking["reason"], picking["status"]) == (None, "draft")  # not in its own words: refused

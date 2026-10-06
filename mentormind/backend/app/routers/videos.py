@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from mentormind.backend.app.deps import get_profile_store
 from mentormind.backend.app.uploads import upload_name
+from mentormind.capture.video.segmenters import METHODS, Method
 from mentormind.core.config import Settings, get_settings
 from mentormind.core.schemas import (
     DataClassification,
@@ -26,21 +27,22 @@ from mentormind.core.schemas import (
 from mentormind.knowledge_base.store.profile_store import ProfileStore
 
 if TYPE_CHECKING:
+    from mentormind.capture.video import VideoCapturePipeline
     from mentormind.core.providers.vlm import VLMProvider
+    from mentormind.core.schemas.api import VideoStage
 
 router = APIRouter(prefix="/videos", tags=["videos"])
 
 VIDEO_SUFFIXES = (".avi", ".m4v", ".mkv", ".mov", ".mp4", ".webm")
 VIDEO_ID = re.compile(r"VID-[0-9a-f]{12}")
-#: Cutting methods available today: only spec 03's fallback, until spec 03 lands (FR-03).
-METHODS = ("fixed_window",)
 WINDOW_S = 10.0
 DEFAULT_PROCESS_ID = "PACK01"
 _CHUNK = 1 << 20
 
 
 class ProcessVideoRequest(BaseModel):
-    method: str = "fixed_window"
+    #: Spec 03 FR-03: hand_activity | scene | fixed_window; a missing library falls back down the chain.
+    method: str = "hand_activity"
     fps: float | None = Field(default=None, gt=0)
 
 
@@ -99,13 +101,13 @@ def process_video(
     if req.method not in METHODS:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"Chưa hỗ trợ cách cắt {req.method!r} (spec 03 chưa có); dùng: {', '.join(METHODS)}.",
+            detail=f"Không có cách cắt {req.method!r}; chọn một trong: {', '.join(METHODS)}.",
         )
     settings = get_settings()
     asset = _uploaded(settings, video_id)
     job_id = f"job-vid-{uuid.uuid4().hex[:8]}"
     store.create_job(job_id, "video_process")
-    background_tasks.add_task(run_video_process_task, job_id, asset, req.fps, settings, store)
+    background_tasks.add_task(run_video_process_task, job_id, asset, req.method, req.fps, settings, store)
     return {"job_id": job_id}
 
 
@@ -124,7 +126,7 @@ def get_segments(video_id: str) -> list[Segment]:
 
 
 def run_video_process_task(
-    job_id: str, asset: VideoAsset, fps: float | None, settings: Settings, store: ProfileStore
+    job_id: str, asset: VideoAsset, method: Method, fps: float | None, settings: Settings, store: ProfileStore
 ) -> None:
     """The background job of ``POST /videos/{id}/process``; any error ends it ``failed`` (AC-05)."""
     store.update_job(job_id, JobStatus.RUNNING)
@@ -133,32 +135,39 @@ def run_video_process_task(
         store.update_job(job_id, JobStatus.RUNNING, result=progress.model_dump(mode="json"))
 
     try:
-        result = describe_video(asset, fps=fps, settings=settings, report=report)
+        result = describe_video(asset, method=method, fps=fps, settings=settings, report=report)
     except Exception as exc:
         store.update_job(job_id, JobStatus.FAILED, error=str(exc) or type(exc).__name__)
         return
     store.update_job(job_id, JobStatus.DONE, result=result.model_dump(mode="json"))
 
 
+def capture_pipeline(settings: Settings) -> "VideoCapturePipeline":
+    """Spec 03's pipeline as the API runs it (tests put fake detectors and a fake ASR here)."""
+    from mentormind.capture.video import VideoCapturePipeline
+
+    return VideoCapturePipeline(settings, window_s=WINDOW_S)
+
+
 def describe_video(
     asset: VideoAsset,
     *,
+    method: Method,
     fps: float | None,
     settings: Settings,
     report: Callable[[VideoProcessResult], None],
 ) -> VideoProcessResult:
-    """Cut, describe (passes A, B, C) and save draft profiles; propose reasons when a transcript exists.
+    """Cut and transcribe (spec 03), describe (spec 04 passes A, B, C), save drafts, propose reasons.
 
-    Same steps as ``knowhow vlm describe --video`` then ``propose-reasons`` (spec 04 FR-05).
+    Same steps as ``knowhow video segment`` + ``transcribe``, then ``knowhow vlm describe`` and
+    ``propose-reasons``; ``report`` gets the result so far with the stage it is in (spec 08 §2).
     """
-    from mentormind.capture.video import VideoCapturePipeline
     from mentormind.core.guard import DataGuard
     from mentormind.core.providers.llm import get_llm_provider
     from mentormind.core.providers.vlm import get_vlm_provider
     from mentormind.processing.vlm.passes.reasons import propose_reasons
     from mentormind.processing.vlm.pipeline import DescribePipeline
     from mentormind.processing.vlm.profiles import FileProfileSink, get_profile_sink
-    from mentormind.processing.vlm.transcript import load_transcript
 
     work = settings.work_dir
     sink = get_profile_sink(settings, work_dir=work)
@@ -169,45 +178,66 @@ def describe_video(
     DataGuard.check(asset.data_classification, llm)
 
     process_id = asset.process_id or DEFAULT_PROCESS_ID
-    segments = (
-        VideoCapturePipeline(settings, window_s=WINDOW_S)
-        .run(
-            Path(asset.path),
-            work_dir=work,
-            process_id=process_id,
-            classification=asset.data_classification,
-            method="fixed_window",
-            transcribe=False,
-            video_id=asset.video_id,
-        )
-        .segments
-    )
-    transcript = load_transcript(work, asset.video_id)
-    result = VideoProcessResult(
-        video_id=asset.video_id, process_id=process_id, segments=len(segments), transcript_lines=len(transcript)
-    )
-    total = 2 * len(segments)  # passes A and B: one VLM call per segment each
+    result = VideoProcessResult(video_id=asset.video_id, process_id=process_id, method=method)
 
-    def progress(done: int) -> None:
-        result.progress = VideoProcessProgress(done=min(done, total), total=total)
+    def stage(name: "VideoStage", done: float, total: float) -> None:
+        result.progress = VideoProcessProgress(stage=name, done=round(min(done, total), 1), total=round(total, 1))
         report(result)
 
-    progress(0)
-    _on_each_call(vlm, progress)
-    pipeline = DescribePipeline(
-        vlm, llm=llm, process_id=process_id, default_fps=fps or settings.vlm_fps, max_frames=settings.vlm_max_frames
+    captured = capture_pipeline(settings).run(
+        Path(asset.path),
+        work_dir=work,
+        process_id=process_id,
+        classification=asset.data_classification,
+        method=method,
+        transcribe=True,
+        video_id=asset.video_id,
+        progress=stage,
     )
-    described = pipeline.run(segments, work / "vlm" / asset.video_id / f"describe-{vlm.name}", transcript)
-    stored = sink.save(asset.video_id, described.profiles)
+    result.method_used = captured.method_used
+    result.segments = len(captured.segments)
+    result.transcript_lines = len(captured.transcript)
+
+    calls = 2 * len(captured.segments)  # passes A and B: one VLM call per segment each
+
+    def described(done: int) -> None:
+        stage("describe", done, calls)
+        if done >= calls:
+            stage("merge", 0, 1)  # pass C, one LLM call, comes next
+
+    stage("describe", 0, calls)
+    _on_each_call(vlm, described)
+    pipeline = DescribePipeline(
+        vlm,
+        llm=llm,
+        process_id=process_id,
+        default_fps=fps or settings.vlm_fps,
+        max_frames=settings.vlm_max_frames,
+        transcript_lead_s=settings.transcript_lead_s,
+        transcript_lag_s=settings.transcript_lag_s,
+    )
+    work_dir = work / "vlm" / asset.video_id / f"describe-{vlm.name}"
+    drafts = pipeline.run(captured.segments, work_dir, captured.transcript)
+    stored = sink.save(asset.video_id, drafts.profiles)
     result.profiles = [p.profile_id for p in stored]
-    result.failed_segments = described.failed_segments
-    if any(p.evidence.transcript_excerpt and p.reason is None for p in stored):
-        updated = propose_reasons(stored, llm)
-        changed = [new for old, new in zip(stored, updated, strict=True) if old.reason != new.reason]
-        if changed:
-            # As `knowhow vlm propose-reasons`: the file sink rewrites the video, the store only what changed.
-            sink.save(asset.video_id, updated if isinstance(sink, FileProfileSink) else changed)
-        result.reasons_filled = len(changed)
+    result.failed_segments = drafts.failed_segments
+
+    quoting = [p for p in stored if p.evidence.transcript_excerpt]
+    result.steps_with_excerpt = len(quoting)
+    waiting = [p for p in quoting if p.reason is None]
+    proposed = {}
+    for done, profile in enumerate(waiting):
+        stage("reasons", done, len(waiting))
+        [after] = propose_reasons([profile], llm)
+        if after.reason != profile.reason:
+            proposed[after.profile_id] = after
+    if proposed:
+        # As `knowhow vlm propose-reasons`: the file sink rewrites the video, the store only what changed.
+        everything = [proposed.get(p.profile_id, p) for p in stored]
+        sink.save(asset.video_id, everything if isinstance(sink, FileProfileSink) else list(proposed.values()))
+    if waiting:
+        stage("reasons", len(waiting), len(waiting))
+    result.reasons_filled = len(proposed)
     return result
 
 

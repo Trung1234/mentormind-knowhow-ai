@@ -518,7 +518,7 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
                   <div className="form-group" style={{ gridColumn: "1 / -1" }}>
                     <label className="form-label">
                       <MessageSquareQuote size={12} color="var(--accent-cyan)" />
-                      Lời chuyên gia (transcript)
+                      Lời chuyên gia về bước này (transcript)
                     </label>
                     {selectedProfile.evidence.transcript_excerpt ? (
                       <blockquote
@@ -527,10 +527,18 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
                       >
                         “{selectedProfile.evidence.transcript_excerpt}”
                       </blockquote>
-                    ) : (
+                    ) : null}
+                    {selectedProfile.evidence.transcript_excerpt && selectedProfile.reason && selectedProfile.reason_source === "expert_verbal" && selectedProfile.status === "in_review" ? (
+                      <div id="reason-proposed" className="alert alert-info" style={{ margin: "0.5rem 0 0" }}>
+                        <span>
+                          Lý do bên dưới do AI trích từ đúng lời chuyên gia ở trên (propose-reasons). Kiểm tra lại, sửa nếu cần, rồi Duyệt.
+                        </span>
+                      </div>
+                    ) : null}
+                    {selectedProfile.evidence.transcript_excerpt ? null : (
                       <div id="transcript-missing" className="alert alert-info" style={{ margin: 0 }}>
                         <span>
-                          Chưa có transcript lời chuyên gia cho bước này (spec 03 chưa có ghi âm/ASR), nên AI không đề xuất lý do.
+                          Không có lời chuyên gia nào nói về bước này (video không có tiếng, hoặc lúc làm bước này chuyên gia không nói), nên AI không đề xuất lý do.
                           Nếu chuyên gia biết vì sao làm như vậy, nhập vào ô lý do bên dưới và chọn nguồn EXPERT_INTERVIEW.
                         </span>
                       </div>
