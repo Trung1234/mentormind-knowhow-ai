@@ -1,5 +1,5 @@
 /**
- * MentorMind — Denso Hackathon Interactive Presentation Controller (English Edition)
+ * MentorMind — Denso Hackathon Interactive Presentation Controller (Vietnamese Edition)
  * Features: Keyboard navigation, 8-slide overview grid, presenter notes, pitch timer, 
  * interactive layer inspector, and fullscreen mode.
  */
@@ -37,148 +37,16 @@ document.addEventListener('DOMContentLoaded', () => {
   let timerInterval = null;
   let timerRunning = false;
 
-  // Presenter Notes Database (English)
+  // Presenter Notes Database (Vietnamese)
   const presenterNotesData = [
-    {
-      slide: 1,
-      title: "Slide 1: Introduction & Vision",
-      time: "Target: 30s",
-      notes: `
-        <h4>Objective:</h4>
-        <p>Establish high authority, project identity, and introduce the core mission for the Denso Hackathon judges.</p>
-        <h4>Key Talking Points:</h4>
-        <ul>
-          <li>Good morning esteemed Denso judges and committee members! We are team <strong>MentorMind</strong>.</li>
-          <li>Our mission is: <em>Accumulate Master Know-How for AI to Learn</em>.</li>
-          <li>Rather than requiring tedious, manual documentation that nobody reads, MentorMind captures tacit know-how directly from natural operational workflow and verbal reasoning.</li>
-          <li>Today, we walk you through our 4 key pillars: Context, Problem Statement, Cautionary Lessons, and our 5-Layer System Architecture.</li>
-        </ul>
-      `
-    },
-    {
-      slide: 2,
-      title: "Slide 2: Context & Critical Pain Points",
-      time: "Target: 45s",
-      notes: `
-        <h4>Objective:</h4>
-        <p>Highlight the acute urgency of tacit knowledge loss in precision automotive manufacturing.</p>
-        <h4>Key Talking Points:</h4>
-        <ul>
-          <li>Why is this urgent for Denso? A massive retirement wave is cresting: veteran master technicians take decades of unwritten, instinctual know-how out the door.</li>
-          <li>Traditional SOPs are static and cannot convey micro-gestures, hand orientation angles, or tactile feedback.</li>
-          <li>In automotive precision assembly, a single millimeter misalignment in kitting triggers cascading defects across full batches.</li>
-          <li>Multimodal VLM + GraphRAG provides the technical breakthrough needed to bridge this gap.</li>
-        </ul>
-      `
-    },
-    {
-      slide: 3,
-      title: "Slide 3: Challenge & 4 Deliverables",
-      time: "Target: 45s",
-      notes: `
-        <h4>Objective:</h4>
-        <p>Demonstrate exact alignment with the Denso Hackathon prompt and commit to 4 tangible deliverables.</p>
-        <h4>Key Talking Points:</h4>
-        <ul>
-          <li>The Challenge: Capture workflows and reasoning into a centralized knowledge base, reusing tacit wisdom with LLMs — with zero manual documentation.</li>
-          <li>Our 4 Core Deliverables over the 3-month roadmap:
-            <ol>
-              <li><strong>Standardized Template:</strong> WorkProfile JSON Schema capturing steps, reasons ("why"), and exceptions.</li>
-              <li><strong>Hybrid Knowledge Base:</strong> Neo4j GraphRAG coupled with PostgreSQL pgvector.</li>
-              <li><strong>Dual AI Assistants:</strong> Station-side apprentice assistant + 5-Why RCA Agent.</li>
-              <li><strong>Usefulness Report:</strong> Rigorous Ragas benchmark scoring (Faithfulness &ge; 0.85).</li>
-            </ol>
-          </li>
-        </ul>
-      `
-    },
-    {
-      slide: 4,
-      title: "Slide 4: Case Study & Cautionary Ethics",
-      time: "Target: 45s",
-      notes: `
-        <h4>Objective:</h4>
-        <p>Set MentorMind apart by showcasing our ethical awareness and deep understanding of workplace psychology.</p>
-        <h4>Key Talking Points:</h4>
-        <ul>
-          <li>We analyzed an investigative case study: <em>"Factory Workers Are Training AI to Replace Them… Here's the Truth"</em>.</li>
-          <li>In that case, workers wore head-mounted cameras throughout full shifts to capture egocentric motor skills for cheap lab training.</li>
-          <li>The consequence: Workers realized they were training their replacements — creating immediate distrust, passive sabotage, and knowledge hoarding.</li>
-          <li>Critical insight: Any AI system that makes artisans feel covertly exploited will face instant rejection on the factory floor!</li>
-        </ul>
-      `
-    },
-    {
-      slide: 5,
-      title: "Slide 5: Paradigm Shift: Two Opposing Approaches",
-      time: "Target: 45s",
-      notes: `
-        <h4>Objective:</h4>
-        <p>Deliver the core philosophical punchline: "Capture & Empower" versus "Extract & Replace".</p>
-        <h4>Key Talking Points:</h4>
-        <ul>
-          <li>This comparison is the soul of MentorMind:
-            <ul>
-              <li><strong>Extract & Replace:</strong> Treats humans as temporary data farms to be automated away.</li>
-              <li><strong>Capture & Empower (MentorMind):</strong> Treats master artisans as respected mentors whose names and insights are cited in every AI response.</li>
-            </ul>
-          </li>
-          <li>Technicians earn tangible career benefits and bonus recognition when sharing the "why" behind their techniques.</li>
-        </ul>
-      `
-    },
-    {
-      slide: 6,
-      title: "Slide 6: The 4-Step MentorMind Loop",
-      time: "Target: 45s",
-      notes: `
-        <h4>Objective:</h4>
-        <p>Explain the elegant, frictionless operational loop from station camera to active assistant.</p>
-        <h4>Key Talking Points:</h4>
-        <ul>
-          <li><strong>Step 1 - Capture:</strong> Fixed station camera records 3–5 min normal work cycles without altering takt time.</li>
-          <li><strong>Step 2 - Explain & Incentivize:</strong> Master takes 30s to explain "why rotate 90°?" and receives immediate bonus credit.</li>
-          <li><strong>Step 3 - Multimodal AI Processing:</strong> 3-pass VLM (Qwen3-VL self-hosted) + Docling OCR auto-generates WorkProfile drafts. Master simply clicks "Approve".</li>
-          <li><strong>Step 4 - Store & Activate:</strong> GraphRAG + Vector ingestion with permanent expert attribution.</li>
-        </ul>
-      `
-    },
-    {
-      slide: 7,
-      title: "Slide 7: 5-Layer Technical Architecture",
-      time: "Target: 60s",
-      notes: `
-        <h4>Objective:</h4>
-        <p>Convince technical judges of enterprise viability: self-hosted VLM, data security, GraphRAG, and dual agents.</p>
-        <h4>Key Talking Points:</h4>
-        <ul>
-          <li>Our 5-Layer Engineering Architecture:
-            <ul>
-              <li><strong>Layer 1: Multimodal Ingestion:</strong> 4–8 fps video, audio commentary, Docling OCR for blueprints & SOPs.</li>
-              <li><strong>Layer 2: Multimodal VLM:</strong> Air-gapped self-hosted Qwen3-VL 8B (BF16 on 24GB GPU) with MediaPipe Hands temporal segmentation.</li>
-              <li><strong>Layer 3: Knowledge Base:</strong> PostgreSQL pgvector (Dense HNSW + Lexical RRF) + Neo4j Graph + Sigma MES Adapter.</li>
-              <li><strong>Layer 4: Dual Agents:</strong> Station Work Assistant (strict refusal guards & citations) + RCA 5-Why Agent.</li>
-              <li><strong>Layer 5: Continuous Evaluation:</strong> Automated Ragas metrics (Faithfulness &ge; 0.85).</li>
-            </ul>
-          </li>
-        </ul>
-      `
-    },
-    {
-      slide: 8,
-      title: "Slide 8: 3-Month Roadmap & Vision",
-      time: "Target: 30s",
-      notes: `
-        <h4>Objective:</h4>
-        <p>Close with a crisp, credible timeline and an inspiring human-centric vision statement.</p>
-        <h4>Key Talking Points:</h4>
-        <ul>
-          <li>Month 1: Standardization & Capture pipeline; Month 2: Knowledge Base & Dual Agents; Month 3: Ragas evaluation & Denso kitting pilot.</li>
-          <li>We conclude with our founding motto: <em>"Preserve Master Know-How — Empower Human Artisans, Never Replace Them."</em></li>
-          <li>Thank you, and we welcome your questions!</li>
-        </ul>
-      `
-    }
+    { slide: 1, title: "Slide 1: Mở đầu", time: "30s", notes: `<h4>Câu mở</h4><p>MentorMind biến video thao tác, lời giải thích và tài liệu sản xuất thành tri thức có kiểm chứng.</p><ul><li>Nhấn mạnh value proposition: video + lời chuyên gia → WorkProfile đã duyệt → AI Assistant có trích nguồn.</li><li>Định vị: giải pháp hỗ trợ con người, không thay thế chuyên gia.</li></ul>` },
+    { slide: 2, title: "Slide 2: Vấn đề & insight", time: "45s", notes: `<h4>Câu chốt</h4><p><strong>Action khác Reason.</strong> Video cho thấy hành động; lý do phải được chuyên gia xác nhận.</p><ul><li>SOP thường không ghi đủ mẹo thực tế.</li><li>Không cho AI biến suy đoán thành know-how.</li></ul>` },
+    { slide: 3, title: "Slide 3: Flow giải pháp", time: "50s", notes: `<h4>Ý chính</h4><ul><li>Input → Trích xuất → Hồ sơ nháp → Chuyên gia duyệt → Khai thác.</li><li>Transcript chỉ là artifact; output nghiệp vụ chính là WorkProfile có evidence.</li></ul>` },
+    { slide: 4, title: "Slide 4: Kiến trúc & công nghệ", time: "55s", notes: `<h4>Ý chính</h4><ul><li>Trình bày trạng thái thật: đã implement, demo/đang nối, roadmap.</li><li>Nhấn mạnh data governance: public/synthetic, factory confidential, approved knowledge.</li></ul>` },
+    { slide: 5, title: "Slide 5: Prototype validation", time: "45s", notes: `<h4>Ý chính</h4><ul><li>Team đã thử trên video LASI để chọn hướng VLM.</li><li>Thêm actor cải thiện recall/precision; 8B nhanh hơn 32B trong test này.</li><li>Nói rõ đây là preliminary, không overclaim accuracy sản xuất.</li></ul>` },
+    { slide: 6, title: "Slide 6: Demo Golden Path", time: "55s", notes: `<h4>Ý chính</h4><ul><li>Demo một vertical slice PACK01: upload → review → hỏi assistant.</li><li>Nhấn câu guardrail: chưa có evidence đã duyệt thì hệ thống không được bịa.</li></ul>` },
+    { slide: 7, title: "Slide 7: KPI & giá trị", time: "45s", notes: `<h4>Ý chính</h4><ul><li>Đánh giá bằng faithfulness, context precision/recall và thời gian tra cứu.</li><li>Business value: giữ tri thức, train người mới, hỗ trợ RCA, tôn trọng chuyên gia.</li></ul>` },
+    { slide: 8, title: "Slide 8: Roadmap & kết luận", time: "35s", notes: `<h4>Câu kết</h4><p>Video cho biết chuyên gia làm gì. Chuyên gia cho biết tại sao. MentorMind biến cả hai thành tri thức có kiểm chứng.</p>` }
   ];
 
   // Initialize Slide Dots
@@ -187,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
     slides.forEach((_, idx) => {
       const dot = document.createElement('button');
       dot.className = `slide-dot ${idx === 0 ? 'active' : ''}`;
-      dot.title = `Go to Slide ${idx + 1}`;
+      dot.title = `Đến slide ${idx + 1}`;
       dot.setAttribute('aria-label', `Slide ${idx + 1}`);
       dot.addEventListener('click', () => goToSlide(idx));
       slideDotsContainer.appendChild(dot);
@@ -287,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
       thumb.innerHTML = `
         <span class="thumb-idx">${cat} · 0${idx + 1}</span>
         <h4 class="thumb-title">${title}</h4>
-        <span class="thumb-desc">Click to jump to slide</span>
+        <span class="thumb-desc">Bấm để chuyển slide</span>
       `;
       thumb.addEventListener('click', () => {
         goToSlide(idx);
@@ -398,56 +266,13 @@ document.addEventListener('DOMContentLoaded', () => {
     viewDiagramBtn.addEventListener('click', () => toggleLightboxModal(true));
   }
 
-  // Interactive Layer Inspector on Slide 7 (English)
+  // Interactive Layer Inspector on Slide 7 (Vietnamese)
   const layersData = [
-    {
-      name: "Layer 1: Capture & Multimodal Ingestion",
-      tag: "MULTIMODAL INGESTION",
-      desc: "Captures high-fidelity factory data without interrupting active production flows:",
-      details: [
-        "Station camera: 4–8 fps video sampling optimized for rapid hand movements",
-        "Commentary mic: Captures spontaneous artisan verbal explanations",
-        "Docling / mmore: Structured OCR extraction of engineering drawings and assembly SOPs"
-      ]
-    },
-    {
-      name: "Layer 2: Multimodal VLM Pipeline",
-      tag: "3-PASS VLM PIPELINE",
-      desc: "Transforms raw video and speech into structured WorkProfiles via a 3-pass loop:",
-      details: [
-        "Pass 1 - Segmentation: MediaPipe Hands detects gesture boundaries and action cadence",
-        "Pass 2 - Action Description: Self-hosted Qwen3-VL 8B (BF16) outputs steps, key points, and reasons",
-        "Pass 3 - Task Graph Synthesis: Resolves conflicting actions and enforces JSON schema compliance"
-      ]
-    },
-    {
-      name: "Layer 3: Hybrid Knowledge Base",
-      tag: "GRAPHRAG & PGVECTOR",
-      desc: "Combines explicit structural graph relationships with semantic vector retrieval:",
-      details: [
-        "Neo4j Knowledge Graph: Models Equipment –has→ Symptom –caused_by→ RootCause –fixed_by→ Procedure",
-        "PostgreSQL + pgvector: Hybrid dense HNSW + lexical full-text search merged via Reciprocal Rank Fusion (RRF)",
-        "Sigma MES Adapter: Binds WorkProfiles to real lot numbers, product IDs, and defect histories"
-      ]
-    },
-    {
-      name: "Layer 4: Dual AI Agents",
-      tag: "SPECIALIZED AGENTS",
-      desc: "Two purpose-built agents catering to distinct factory personas:",
-      details: [
-        "Work Assistant: Real-time station Q&A for novice technicians with strict source citations and refusal guards",
-        "RCA Agent: 5-Why root cause analysis assistant for shift leads, cross-referencing past incidents and generating A3/8D drafts"
-      ]
-    },
-    {
-      name: "Layer 5: Continuous Evaluation",
-      tag: "CONTINUOUS EVALUATION",
-      desc: "Empirical benchmarking and shopfloor business KPI validation:",
-      details: [
-        "Ragas Benchmark: Guarantees Faithfulness ≥ 0.85 and Answer Relevancy ≥ 0.80 on curated golden QA sets",
-        "Shopfloor A/B Testing: Quantifies defect resolution time reduction and first-time-right assembly rates"
-      ]
-    }
+    { name: "Tầng 1: Thu thập đa phương thức", tag: "CAPTURE", desc: "Thu thập dữ liệu hiện trường mà không làm gián đoạn công việc:", details: ["Video thao tác theo công đoạn", "Audio giải thích của chuyên gia", "SOP, bản vẽ, Excel làm evidence bổ sung"] },
+    { name: "Tầng 2: Chuẩn hóa tri thức", tag: "EXTRACT", desc: "Biến dữ liệu thô thành cấu trúc có thể duyệt:", details: ["Transcript segment và keyframe", "Step/action/observation theo timestamp", "WorkProfile draft với reason null nếu chưa có evidence"] },
+    { name: "Tầng 3: Chuyên gia duyệt", tag: "HUMAN-IN-THE-LOOP", desc: "Không đưa tri thức vào KB nếu chưa được xác nhận:", details: ["Reviewer sửa key point, reason, ngoại lệ", "Gắn trạng thái draft/approved", "Giữ attribution và nguồn gốc tri thức"] },
+    { name: "Tầng 4: Knowledge Base", tag: "VECTOR + GRAPH", desc: "Kết hợp truy vấn semantic và quan hệ nghiệp vụ:", details: ["PostgreSQL + pgvector cho search", "Neo4j cho quan hệ công đoạn-lỗi-nguyên nhân", "Mock Sigma để truy xuất lot/defect"] },
+    { name: "Tầng 5: Agent & Evaluation", tag: "AGENT + EVAL", desc: "Kích hoạt tri thức sau duyệt:", details: ["Work Assistant trả lời có citation", "RCA Agent hỗ trợ 5-Why", "Ragas/Golden QA kiểm tra faithfulness và relevancy"] }
   ];
 
   const layerRows = document.querySelectorAll('.layer-row');
