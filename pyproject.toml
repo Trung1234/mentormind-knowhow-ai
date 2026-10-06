@@ -23,8 +23,10 @@ ingest = ["docling>=2.132", "psycopg[binary]>=3.2", "transformers>=4.44", "torch
 # spec 03 (CPU only): faster-whisper = ASR backend `faster_whisper` (spec 03 FR-07, core.providers.asr),
 # scenedetect = `scene` cuts, mediapipe = `hand_activity` (Tasks API: hand_landmarker.task, downloaded
 # once). scenedetect without its [opencv] extra and mediapipe without opencv-contrib-python (see
-# [tool.uv] below): cv2 comes from opencv-python-headless (extra vlm).
-video = ["faster-whisper>=1.1", "scenedetect>=0.7", "mediapipe>=0.10.14"]
+# [tool.uv] below): cv2 comes from opencv-python-headless (extra vlm). mediapipe < 1: the 1.0.0/1.0.1
+# macOS wheels abort the process when a HandLandmarker opens ("Check failed: service_ Service is
+# unavailable" from a Metal helper, even with the CPU delegate); 0.10.33+ run on the CPU with numpy 2.
+video = ["faster-whisper>=1.1", "scenedetect>=0.7", "mediapipe>=0.10.33,<1"]
 vlm = [
     "pillow>=10.3",
     "opencv-python-headless>=4.9",
