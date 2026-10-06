@@ -45,22 +45,44 @@ class TranscriptSegment(BaseModel):
     data_classification: DataClassification
 ```
 
-## 4. Functional Requirements
-- **FR-01** `knowhow video probe <file>` trả `VideoAsset` (ffprobe).
-- **FR-02** `knowhow video segment <file> --process-id PACK01 --classification synthetic` tạo `Segment` list + file JSON tại `data/work/video/<video_id>/segments.json`.
-- **FR-03** Chiến lược cắt theo thứ tự ưu tiên, cấu hình được bằng `--method`:
-  1. `hand_activity` (Should): MediaPipe Hands, tính năng lượng chuyển động cổ tay; ranh giới ở điểm năng lượng thấp kéo dài ≥ 0.4s.
-  2. `scene` (Must): PySceneDetect `ContentDetector`.
-  3. `fixed_window` (Must, fallback): cửa sổ 10s.
-- **FR-04** Hậu xử lý: gộp đoạn < 3s vào đoạn kế bên; tách đoạn > 20s thành các đoạn ≤ 15s.
-- **FR-05** Mỗi đoạn xuất 3 keyframe (đầu, giữa, cuối) JPG, cạnh dài 768px.
-- **FR-06** Mỗi đoạn xuất `clip_path` mp4 (ffmpeg `-c copy` nếu được, không thì re-encode H.264).
-- **FR-07** `knowhow video transcribe <file>` (Should): nếu `has_audio`, chạy Whisper local (faster-whisper, model `small`, `language="vi"` mặc định, cấu hình được) → `TranscriptSegment` list tại `transcript.json`. Không dùng ASR cloud.
-- **FR-07b** `knowhow video transcribe --recall-audio <audio_file> --video-id <VID-...> [--offset <s>]` (Should): nhận file ghi âm video-cued recall (architecture mục 4) cho video câm. Timestamp transcript = timestamp audio + `offset` (mặc định 0, tức chuyên gia bắt đầu ghi âm cùng lúc phát video). Kết quả `source="cued_recall"`, `data_classification` lấy từ `VideoAsset`, ghi nối vào `transcript.json` của video đó.
-- **FR-08** `align_transcript(segments, transcripts) -> dict[segment_id, list[TranscriptSegment]]` gán mỗi câu transcript vào đoạn có overlap thời gian lớn nhất.
+## 4. Kiến trúc — chỉ CPU, tập trung thao tác của người
+Hệ thống mô tả thao tác của **người**; không có xử lý riêng cho robot/máy (VLM vẫn ghi `actor`, spec 04 §3). Mọi bước chạy trên CPU.
 
-## 5. Acceptance Criteria
-- **AC-01** 3 video demo trong `data/samples/video/` → mỗi video ra ≥ 3 đoạn, mọi đoạn có 3 keyframe và 1 clip tồn tại trên đĩa.
+```
+mentormind/capture/video/          (import nhẹ: thư viện nặng chỉ nạp trong hàm dùng nó)
+  probe.py        video_id_for, probe (FR-01)
+  segmenters/     base (Segmenter, Cut, chuỗi fallback), fixed_window, scene, hand_activity, motion
+  postprocess.py  FR-04
+  media.py        keyframe (FR-05), clip (FR-06)
+  transcribe.py   FR-07/07b: câu từ word timestamps, recall audio
+  align.py        align_transcript (FR-08) — export ở mentormind.capture.video (spec 04 import theo tên)
+  store.py        đọc/ghi video.json, segments.json, transcript.json
+  pipeline.py     VideoCapturePipeline (FR-09)
+  cli.py          knowhow video probe|segment|transcribe|providers
+mentormind/core/providers/asr/     ASR là provider như VLM/LLM (FR-07c)
+```
+Fallback `fixed_window` + keyframe mà spec 04 viết tạm (`processing/vlm/segments.py`, `sweep/windows.py`) chuyển hết vào đây; `processing/vlm` chỉ import lại, không giữ bản thứ hai.
+
+## 5. Functional Requirements
+- **FR-01** `knowhow video probe <file> [--process-id] [--classification]` trả `VideoAsset` (ffprobe: thời lượng, fps, có audio không; `video_id` = `VID-` + sha256[:12] nội dung).
+- **FR-02** `knowhow video segment <file> --process-id PACK01 --classification synthetic [--method]` tạo `Segment` list + file JSON tại `data/work/video/<video_id>/segments.json`, kèm `video.json` (`VideoAsset`), keyframe và clip.
+- **FR-03** Chiến lược cắt, chọn bằng `--method` (mặc định `hand_activity`); thiếu thư viện/model của một cách thì rơi xuống cách sau, ghi log cảnh báo, không crash, và báo cách thực dùng:
+  1. `hand_activity` (Should): MediaPipe Tasks `HandLandmarker` (CPU; model `hand_landmarker.task` tải một lần vào `KNOWHOW_VIDEO_HAND_MODEL`, ghim SHA-256). Khung thu nhỏ cạnh dài 256 px, 5 fps. Năng lượng = tốc độ cổ tay (landmark 0) trung bình các bàn tay thấy được, đơn vị bề rộng khung/giây; không thấy tay = nghỉ. Ranh giới ở giữa mỗi quãng năng lượng < 0.05 kéo dài ≥ 0.4 s.
+  2. `scene` (Must): PySceneDetect `ContentDetector` (ngưỡng 27, khung thu nhỏ).
+  3. `fixed_window` (Must, fallback): cửa sổ 10 s.
+
+  Mỗi đoạn có `motion_score` 0..1 cho sampler của spec 04: `hand_activity` = tốc độ cổ tay trung bình / 0.5 (cắt ở 1); `scene`, `fixed_window` = chênh lệch điểm ảnh trung bình giữa hai khung liên tiếp (xám, 160 px, 4 fps) / 20 (cắt ở 1).
+- **FR-04** Hậu xử lý: gộp đoạn < 3 s vào đoạn liền trước (đoạn đầu: liền sau); tách đoạn > 20 s thành các phần bằng nhau ≤ 15 s. Video ngắn hơn 3 s là một đoạn.
+- **FR-05** Mỗi đoạn xuất 3 keyframe (đầu, giữa, cuối − 0.05 s) JPG, cạnh dài ≤ 768 px, ở `data/work/video/<video_id>/keyframes/<segment_id>_k{0,1,2}.jpg`; đã có thì không ghi lại.
+- **FR-06** Mỗi đoạn xuất `clip_path` mp4 ở `data/work/video/<video_id>/clips/<segment_id>.mp4`: luôn re-encode H.264 (`yuv420p`, `+faststart`, rộng 640 px, bỏ audio) — `-c copy` cắt ở keyframe của nguồn nên lệch ranh giới, và codec nguồn có thể không phát được trên trình duyệt (UI spec 08 phát clip).
+- **FR-07** `knowhow video transcribe <file> [--classification]` (Should): nếu `has_audio`, tách audio (ffmpeg → WAV 16 kHz mono, không nạp cả video vào RAM) rồi gọi ASR provider (FR-07c) → câu cắt theo word timestamps (dấu `. ? ! …`, quãng lặng ≥ 0.8 s, hoặc câu dài quá 15 s) → `TranscriptSegment` list tại `transcript.json` (thay các câu `inline` cũ, giữ câu `cued_recall`). Không dùng ASR cloud.
+- **FR-07b** `knowhow video transcribe --recall-audio <audio_file> --video-id <VID-...> [--offset <s>]` (Should): nhận file ghi âm video-cued recall (architecture mục 4) cho video câm. Timestamp transcript = timestamp audio + `offset` (mặc định 0, tức chuyên gia bắt đầu ghi âm cùng lúc phát video). Kết quả `source="cued_recall"`, `data_classification` lấy từ `VideoAsset` (`video.json`), ghi nối vào `transcript.json` của video đó.
+- **FR-07c** ASR là provider như VLM/LLM (spec 04 §2, constitution Điều 5): `core.providers.asr` — `ASRProvider(ProviderBase)` với template method `transcribe(audio, *, classification, language)` chạy `DataGuard` **trước** khi đọc file rồi gọi `_transcribe`; registry `@register_asr`, `get_asr_provider(settings)`, `catalog`, lỗi qua `core.providers.errors`. Backend: `faster_whisper` (local, `is_cloud=False`, CPU `int8`, model `small`, `word_timestamps`, VAD) và `fake` (kịch bản, cho test). Chỉ đăng ký backend local. Cấu hình `KNOWHOW_ASR_*` (provider, model, device, compute_type, language=`vi`, beam_size). Model nạp lười, một lần mỗi process, dùng chung giữa các job. `knowhow video providers` liệt kê provider ASR.
+- **FR-08** `align_transcript(segments, transcripts) -> dict[segment_id, list[TranscriptSegment]]` gán mỗi câu transcript vào đoạn có overlap thời gian lớn nhất (bằng nhau → đoạn trước; câu nằm ngoài mọi đoạn → đoạn gần nhất). Export ở `mentormind.capture.video` (spec 04 §3 import theo tên này).
+- **FR-09** `VideoCapturePipeline`: probe → cắt (FR-03, fallback) → hậu xử lý → keyframe + clip → transcribe nếu `has_audio` → ghi `video.json`, `segments.json`, `transcript.json`; báo tiến độ từng giai đoạn qua callback. CLI (`knowhow video …`) và API (spec 08) gọi chung lớp này. Đọc video theo luồng; capture/model của một lần chạy được giải phóng khi xong (riêng model ASR giữ lại theo FR-07c).
+
+## 6. Acceptance Criteria
+- **AC-01** 3 video (video tổng hợp trong test, tới khi có `data/samples/video/`) → mỗi video ra ≥ 3 đoạn, mọi đoạn có 3 keyframe và 1 clip tồn tại trên đĩa.
 - **AC-02** Không đoạn nào < 3s hoặc > 20s sau hậu xử lý.
 - **AC-03** Các đoạn liên tiếp không chồng lấn và phủ ≥ 95% thời lượng video.
 - **AC-04** `--method hand_activity` khi thiếu MediaPipe → tự rơi về `scene`, log cảnh báo, không crash.
@@ -68,14 +90,19 @@ class TranscriptSegment(BaseModel):
 - **AC-06** `align_transcript` với dữ liệu giả lập: câu nằm vắt qua ranh giới được gán cho đoạn chứa phần lớn thời lượng của câu.
 - **AC-07** Mọi `Segment` và `TranscriptSegment` mang đúng `data_classification` của `VideoAsset` gốc.
 - **AC-08** `--recall-audio` với `--offset 12.5` trên audio giả lập → mọi `t_start` được cộng 12.5, `source="cued_recall"`; `--video-id` không tồn tại → báo lỗi, không ghi file.
+- **AC-09** ASR provider cloud + `factory_confidential` → `ConfidentialDataError` trước khi mở file audio; tên provider chưa đăng ký → `ProviderConfigError` liệt kê tên có sẵn; hai lần `get_asr_provider` cùng cấu hình trả cùng một instance (model nạp một lần).
+- **AC-10** Word timestamps giả lập → câu cắt ở dấu kết câu và ở quãng lặng ≥ 0.8 s; câu mang mốc của từ đầu/cuối.
+- **AC-11** `hand_activity` với bộ dò tay giả lập: quãng nghỉ ≥ 0.4 s thành ranh giới, quãng nghỉ ngắn hơn thì không; `motion_score` của mọi đoạn trong [0, 1] và đoạn tay chạy nhanh có điểm cao hơn đoạn tay chậm.
 
-## 6. Tasks
+## 7. Tasks
 - [ ] T03-1 Models + `probe`.
 - [ ] T03-2 Cắt `scene` + `fixed_window` + hậu xử lý (AC-01..03).
 - [ ] T03-3 Keyframe + clip export.
-- [ ] T03-4 `hand_activity` với MediaPipe + fallback (AC-04).
-- [ ] T03-5 `transcribe` faster-whisper + `align_transcript` (AC-05, AC-06).
+- [ ] T03-4 `hand_activity` với MediaPipe + fallback (AC-04, AC-11).
+- [ ] T03-5 `transcribe` faster-whisper + `align_transcript` (AC-05, AC-06, AC-10).
 - [ ] T03-6 Lan truyền `data_classification` (AC-07) + `--recall-audio` (AC-08).
+- [ ] T03-7 ASR provider `core.providers.asr` (`faster_whisper`, `fake`) + `knowhow video providers` (AC-09).
+- [ ] T03-8 `VideoCapturePipeline` + CLI `knowhow video`; gộp fallback của spec 04 vào `capture/video` (FR-09).
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
