@@ -2,8 +2,8 @@
 
 The audio is taken out of the video by ffmpeg (16 kHz mono WAV, streamed — the video is never held
 in memory) and handed to the ASR provider of ``KNOWHOW_ASR_PROVIDER`` (FR-07c). Sentences are cut
-from the word timestamps: at a sentence mark (. ? ! …), at a pause of 0.8 s or more, or when a
-sentence would run past 15 s. Every line carries the video's label (AC-07).
+from the word timestamps: at a sentence mark (. ? ! …), at a pause of 0.8 s or more, at the end of each
+stretch Whisper returns, or past 15 s at the next word boundary (never inside a word). Every line carries the video's label (AC-07).
 """
 
 from __future__ import annotations
@@ -40,9 +40,6 @@ def extract_audio(video: Path, wav: Path) -> None:
 
 def sentences(result: ASRResult) -> list[tuple[float, float, str]]:
     """``(t_start, t_end, text)`` of every sentence heard (AC-10)."""
-    words = [word for segment in result.segments for word in segment.words]
-    if not words:  # an engine without word timestamps: one sentence per stretch of speech
-        return [(s.t_start, s.t_end, s.text.strip()) for s in result.segments if s.text.strip()]
     out: list[tuple[float, float, str]] = []
     current: list[ASRWord] = []
 
@@ -54,15 +51,21 @@ def sentences(result: ASRResult) -> list[tuple[float, float, str]]:
             out.append((current[0].t_start, current[-1].t_end, text))
         current.clear()
 
-    for word in words:
-        if current and (
-            word.t_start - current[-1].t_end >= PAUSE_S or word.t_end - current[0].t_start > MAX_SENTENCE_S
-        ):
-            flush()
-        current.append(word)
-        if _SENTENCE_END.search(word.text.strip().rstrip(_CLOSERS)):
-            flush()
-    flush()
+    for segment in result.segments:
+        if not segment.words:  # an engine without word timestamps: the stretch is one sentence
+            if segment.text.strip():
+                out.append((segment.t_start, segment.t_end, segment.text.strip()))
+            continue
+        for word in segment.words:
+            too_long = word.t_end - current[0].t_start > MAX_SENTENCE_S if current else False
+            # A long sentence is cut only where a word starts (a token with a leading space): never
+            # inside a word of a language written without spaces (Thai "ครั|บ").
+            if current and (word.t_start - current[-1].t_end >= PAUSE_S or (too_long and word.text[:1].isspace())):
+                flush()
+            current.append(word)
+            if _SENTENCE_END.search(word.text.strip().rstrip(_CLOSERS)):
+                flush()
+        flush()  # Whisper ends a stretch of speech at a phrase boundary
     return out
 
 

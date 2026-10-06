@@ -135,3 +135,11 @@ def test_ac_10_languages_without_spaces_are_not_split_into_syllables() -> None:
     )
     result = ASRResult(segments=(thai,), language="th", duration_s=40, latency_s=1, provider="fake", model="m")
     assert sentences(result) == [(30.2, 34.5, "เราต้องการเพิ่มกำลังการผลิต")]
+
+
+def test_ac_10_a_long_sentence_is_never_cut_inside_a_word() -> None:
+    syllables = tuple(ASRWord(text=t, t_start=i * 2.0, t_end=i * 2.0 + 2.0) for i, t in enumerate("กขคงจฉชซญดตถ"))
+    thai = ASRSegment(text="".join("กขคงจฉชซญดตถ"), t_start=0, t_end=24, words=syllables)  # 24 s, no space
+    spoken = ASRSegment(text="Đặt cốc", t_start=30, t_end=31, words=words((" Đặt", 30, 30.5), (" cốc", 30.5, 31)))
+    result = ASRResult(segments=(thai, spoken), language="th", duration_s=40, latency_s=1, provider="fake", model="m")
+    assert sentences(result) == [(0.0, 24.0, "กขคงจฉชซญดตถ"), (30, 31, "Đặt cốc")]
