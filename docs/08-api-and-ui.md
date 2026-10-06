@@ -101,7 +101,7 @@ Cấu hình: `layout="wide"`, cỡ chữ ≥ 16px, nút bấm lớn; UI chỉ g�
 - [ ] T08-4 API assistant/rca/sigma/media (AC-04, AC-06).
 - [ ] T08-5 Streamlit 3 trang (AC-08).
 - [ ] T08-6 `scripts/demo.sh` + fixture offline (AC-07) — phối hợp Trung (S2-3). Khung đã có (preflight + luồng §4); còn thiếu các lệnh của spec 02/03/05/06/07, `data/samples/review_decisions.json` và fixture FakeVLM qua env.
-- [ ] T08-7 Tải tài liệu: `POST /ingest/documents` chạy thật spec 02 run + index (thay kết quả giả), `classification` bắt buộc, tên tệp chỉ giữ phần tên; trang 4 "Tải tài liệu" (AC-09..AC-12).
+- [x] T08-7 Tải tài liệu: `POST /ingest/documents` chạy thật spec 02 run + index (thay kết quả giả), `classification` bắt buộc, tên tệp chỉ giữ phần tên; trang 4 "Tải tài liệu" (AC-09..AC-12).
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.

@@ -120,3 +120,33 @@ export interface LotRecord {
   defect_type?: string;
   status: string;
 }
+
+export type DataClassification = "public" | "synthetic" | "factory_confidential";
+export type JobStatus = "queued" | "running" | "done" | "failed";
+
+export interface JobResponse<T = unknown> {
+  job_id: string;
+  kind: string;
+  status: JobStatus;
+  result?: T | null;
+  error?: string | null;
+  created_at?: string | null;
+  finished_at?: string | null;
+}
+
+// Result of a POST /ingest/documents job (spec 08 §2).
+export interface DocumentIngestFile {
+  name: string;
+  doc_id?: string | null;
+  extractor?: string | null;
+  pages: number;
+  chunks: number;
+  skipped: boolean;
+  error?: string | null;
+}
+
+export interface DocumentIngestResult {
+  classification: DataClassification;
+  files: DocumentIngestFile[];
+  chunks_indexed: number;
+}

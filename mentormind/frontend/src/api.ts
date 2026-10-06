@@ -1,5 +1,7 @@
 import {
   AssistantAnswer,
+  DataClassification,
+  JobResponse,
   LotRecord,
   ProfilePatchRequest,
   ProfileStatus,
@@ -10,6 +12,33 @@ import {
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
+// An HTTP error from the API; `detail` is FastAPI's `detail` field when the body had one.
+export class ApiError extends Error {
+  status: number;
+  detail: unknown;
+
+  constructor(status: number, message: string, detail: unknown) {
+    super(message);
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
+async function toApiError(res: Response): Promise<ApiError> {
+  let errMsg = `${res.status} ${res.statusText}`;
+  let detail: unknown;
+  try {
+    const errJson = await res.json();
+    detail = errJson.detail;
+    if (errJson.detail) {
+      errMsg = typeof errJson.detail === "string" ? errJson.detail : JSON.stringify(errJson.detail);
+    }
+  } catch {
+    // ignore json parse error
+  }
+  return new ApiError(res.status, errMsg, detail);
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${BASE_URL}${path}`;
   const headers = {
@@ -18,18 +47,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   };
 
   const res = await fetch(url, { ...options, headers });
-  if (!res.ok) {
-    let errMsg = `${res.status} ${res.statusText}`;
-    try {
-      const errJson = await res.json();
-      if (errJson.detail) {
-        errMsg = typeof errJson.detail === "string" ? errJson.detail : JSON.stringify(errJson.detail);
-      }
-    } catch {
-      // ignore json parse error
-    }
-    throw new Error(errMsg);
-  }
+  if (!res.ok) throw await toApiError(res);
+  return res.json() as Promise<T>;
+}
+
+// Multipart variant: no Content-Type header, so the browser sets multipart/form-data with its boundary.
+async function requestForm<T>(path: string, body: FormData): Promise<T> {
+  const res = await fetch(`${BASE_URL}${path}`, { method: "POST", body });
+  if (!res.ok) throw await toApiError(res);
   return res.json() as Promise<T>;
 }
 
@@ -79,6 +104,17 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ lot_id: lotId || undefined, symptom: symptom || undefined }),
     });
+  },
+
+  uploadDocuments: (files: File[], classification: DataClassification) => {
+    const form = new FormData();
+    files.forEach((file) => form.append("files", file));
+    form.append("classification", classification);
+    return requestForm<{ job_id: string }>("/ingest/documents", form);
+  },
+
+  getJob: <T = unknown>(jobId: string) => {
+    return request<JobResponse<T>>(`/jobs/${encodeURIComponent(jobId)}`);
   },
 
   getMediaUrl: (relpath: string) => {
