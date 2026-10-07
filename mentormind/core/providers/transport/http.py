@@ -64,17 +64,23 @@ def _decode_object(response: httpx.Response) -> dict[str, Any]:
 
 
 class HttpxClient:
-    """:class:`HttpClient` over ``httpx`` with per-call timeout and bounded retries."""
+    """:class:`HttpClient` over ``httpx`` with per-call timeout and bounded retries.
+
+    ``connect_timeout_s`` caps connecting separately (an unreachable server fails fast instead of
+    hanging for the whole ``timeout_s``); unset, it is ``timeout_s`` like every other phase.
+    """
 
     def __init__(
         self,
         *,
         timeout_s: float = DEFAULT_TIMEOUT_S,
+        connect_timeout_s: float | None = None,
         retry: RetryPolicy | None = None,
         sleep: Callable[[float], None] = time.sleep,
         transport: httpx.BaseTransport | None = None,
     ) -> None:
-        self._client = httpx.Client(timeout=timeout_s, transport=transport)
+        timeout = httpx.Timeout(timeout_s, connect=connect_timeout_s) if connect_timeout_s else httpx.Timeout(timeout_s)
+        self._client = httpx.Client(timeout=timeout, transport=transport)
         self._retry = retry or RetryPolicy()
         self._sleep = sleep
 
@@ -96,6 +102,11 @@ class HttpxClient:
         headers: Mapping[str, str] | None = None,
     ) -> dict[str, Any]:
         """POST ``path`` as multipart ``field`` plus form ``data``; the file is streamed, reopened per try.
+
+        An upload is a long job on the server (a whole recording, a scanned PDF): once it was sent,
+        no answer within the read timeout (or a proxy's 504) is final, never resent — the server
+        is still working on it, and a copy would only queue behind it. Connection errors, 429 and
+        the other 5xx are retried as usual.
 
         Raises:
             ProviderError: the file cannot be read, or the request failed after the retries.
@@ -120,6 +131,11 @@ class HttpxClient:
                 response = self._request(method, url, headers=headers, json=json, upload=upload, data=data)
             except httpx.TransportError as exc:  # timeouts, refused connections, DNS...
                 last_error = ProviderError(f"{method} {shown} failed: {exc!r}")
+                if upload is not None and isinstance(exc, httpx.ReadTimeout):
+                    raise ProviderError(
+                        f"{method} {shown}: no answer within the read timeout; the upload is not resent "
+                        f"(the server may still be processing it): {exc!r}"
+                    ) from exc
             else:
                 if response.is_success:
                     return _decode_object(response)
@@ -128,6 +144,8 @@ class HttpxClient:
                     status_code=response.status_code,
                 )
                 if response.status_code not in self._retry.retriable_statuses:
+                    raise last_error
+                if upload is not None and response.status_code == 504:  # a proxy gave up; the server did not
                     raise last_error
                 retry_after = _retry_after_seconds(response)
             if attempt < self._retry.max_retries:

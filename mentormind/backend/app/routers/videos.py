@@ -226,9 +226,13 @@ def describe_video(
     sink = get_profile_sink(settings, work_dir=work)
     vlm = get_vlm_provider(settings)
     llm = get_llm_provider(settings)
+    capture = capture_pipeline(settings)
     # Before cutting or calling anything: this label may not reach a cloud provider (constitution art. 2).
+    # The ASR too when the video will be transcribed: it may be the inference server at a cloud URL.
     DataGuard.check(asset.data_classification, vlm)
     DataGuard.check(asset.data_classification, llm)
+    if asset.has_audio:
+        DataGuard.check(asset.data_classification, capture.speech_to_text())
 
     process_id = asset.process_id or DEFAULT_PROCESS_ID
     result = VideoProcessResult(video_id=asset.video_id, process_id=process_id, method=method)
@@ -237,7 +241,7 @@ def describe_video(
         result.progress = VideoProcessProgress(stage=name, done=round(min(done, total), 1), total=round(total, 1))
         report(result)
 
-    captured = capture_pipeline(settings).run(
+    captured = capture.run(
         Path(asset.path),
         work_dir=work,
         process_id=process_id,

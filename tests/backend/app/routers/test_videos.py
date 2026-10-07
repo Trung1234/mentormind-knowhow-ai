@@ -290,6 +290,27 @@ def test_ac_18_speech_is_transcribed_quoted_per_step_and_turned_into_reasons(
     ]
 
 
+def test_ac_18_a_cloud_asr_refuses_factory_audio_before_anything_is_cut(
+    client: TestClient, settings: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_ffmpeg(monkeypatch, audio=True)
+    cloud = FakeASR([], name="inference_server", is_cloud=True)  # remote ASR at an undeclared public URL
+    monkeypatch.setattr(
+        videos_router,
+        "capture_pipeline",
+        lambda s: VideoCapturePipeline(s, build=lambda m: FixedWindowSegmenter(motion=False), asr=lambda: cloud),
+    )
+    video = synthetic_video(tmp_path / "pack.mp4", 20)
+    video_id = _upload(client, video, classification="factory_confidential").json()["video_id"]
+    job_id = client.post(f"/videos/{video_id}/process", json={"method": "fixed_window"}).json()["job_id"]
+    job = client.get(f"/jobs/{job_id}").json()
+    assert job["status"] == "failed" and "factory_confidential" in job["error"]
+    assert job["result"] is None  # failed before the "cut" stage even started
+    folder = settings.work_dir / "video" / video_id
+    assert not (folder / "segments.json").exists() and not (folder / "keyframes").exists()
+    assert cloud.calls == []
+
+
 @pytest.mark.parametrize(("step_times", "span"), [("segment", (8.0, 15.0)), ("model", (8.0, 11.5))])
 def test_ac_28_the_video_job_times_steps_by_the_setting(
     client: TestClient,

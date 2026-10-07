@@ -17,7 +17,7 @@ from mentormind.capture.ingest.index import index_files
 from mentormind.capture.ingest.jsonl import write_chunks_atomic
 from mentormind.core.config import Settings
 from mentormind.core.guard import ConfidentialDataError
-from mentormind.core.schemas import ChunkKind, DataClassification, DocumentChunk
+from mentormind.core.schemas import ChunkKind, DataClassification, DocumentChunk, WorkProfile
 from mentormind.core.schemas.vector import VectorChunk
 from mentormind.knowledge_base.store.embedder import RemoteEmbedder
 from mentormind.knowledge_base.store.vector_store import (
@@ -161,3 +161,50 @@ def test_ac_20_the_work_assistant_falls_back_to_the_configured_embedder(monkeypa
         _env_file=None, llm_provider="fake", trace_dir=None, embedder="remote", inference_url=PRIVATE_URL
     )
     assert isinstance(factory.build_work_assistant(settings).embedder, RemoteEmbedder)
+
+
+def test_ac_21_public_steps_publish_and_unload_through_a_cloud_embedder(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The KG loader finds a step's old chunk with a blank query: a lookup by filters, nothing embedded."""
+    from types import SimpleNamespace
+
+    from mentormind.knowledge_base.kg.loader import KnowledgeGraphLoader
+    from mentormind.knowledge_base.store import pgvector_store
+    from tests.backend.app.test_deletion import StepGraph, step
+
+    embedder, server = remote(PUBLIC_URL)
+    vectors = MemoryVectorStore(embedder)
+    loader = KnowledgeGraphLoader(StepGraph(), vectors)
+    public = WorkProfile.model_validate(
+        {
+            **step(1).model_dump(),
+            "status": "approved",
+            "data_classification": "public",
+            "review": {"reviewer": "Kỹ sư QA", "reviewed_at": "2026-10-08T00:00:00Z"},
+        }
+    )
+    assert loader.load_profiles([public]).loaded == 1  # approve
+    loader.unload_profile(public.profile_id)  # reject / delete
+    assert len(server.requests) == 1  # only the public chunk itself went out
+    assert vectors.search("", k=1, filters={"ref_id": public.profile_id}) == []
+
+    sent: list[str] = []
+
+    class Connection:
+        def __enter__(self) -> "Connection":
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+        def execute(self, statement: Any, params: Any = None) -> Any:
+            sent.append(statement.as_string())
+            return SimpleNamespace(fetchall=lambda: [])
+
+    monkeypatch.setattr(pgvector_store.psycopg, "connect", lambda dsn: Connection())
+    store = pgvector_store.PgVectorStore("postgresql://x", "knowhow_chunks", embedder, verify=False)
+    assert store.search("", k=1, filters={"source_type": "work_profile", "ref_id": "WP-PACK01-001"}) == []
+    [statement] = sent
+    assert "<=>" not in statement and "ORDER BY c.chunk_id" in statement
+    assert len(server.requests) == 1  # the lookup embedded nothing
+    with pytest.raises(ConfidentialDataError):  # a real (unlabelled) query is still refused
+        store.search("câu hỏi")

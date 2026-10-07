@@ -31,13 +31,18 @@ def test_locality_is_judged_from_the_url_like_the_vlm() -> None:
     assert declared.is_cloud is False
 
 
-def test_the_key_falls_back_to_the_vlm_key_and_blank_means_none() -> None:
-    def endpoint(**values: Any) -> InferenceEndpoint:
-        return InferenceEndpoint.from_settings(Settings(_env_file=None, inference_url=PRIVATE_URL, **values))
+def test_ac_19_the_key_falls_back_to_the_vlm_key_of_the_same_host_only() -> None:
+    def endpoint(vlm_base_url: str | None = "http://10.0.0.5:11434/v1", **values: Any) -> InferenceEndpoint:
+        settings = Settings(_env_file=None, inference_url=PRIVATE_URL, vlm_base_url=vlm_base_url, **values)
+        return InferenceEndpoint.from_settings(settings)
 
     assert endpoint(inference_api_key=SecretStr("inf"), vlm_api_key=SecretStr("vlm")).api_key == "inf"
     assert endpoint(inference_api_key=SecretStr(" "), vlm_api_key=SecretStr("vlm")).api_key == "vlm"
     assert endpoint(inference_api_key=None, vlm_api_key=None).api_key is None
+    # A cloud vendor's key forced in KNOWHOW_VLM_API_KEY never goes to another server.
+    vendor = {"vlm_provider": "qwen_api", "vlm_api_key": SecretStr("sk-vendor"), "inference_api_key": None}
+    assert endpoint(vlm_base_url=None, **vendor).api_key is None
+    assert endpoint(vlm_base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1", **vendor).api_key is None
     settings = Settings(_env_file=None, inference_url=PRIVATE_URL, inference_timeout_s=60, inference_max_retries=1)
     assert (InferenceEndpoint.from_settings(settings).timeout_s, settings.inference_max_retries) == (60, 1)
     assert Settings(_env_file=None).inference_timeout_s == 1800
@@ -64,6 +69,43 @@ def test_a_file_upload_is_multipart_and_reopened_on_retry(tmp_path: Path) -> Non
     for request in server.requests:
         fields, files = multipart(request)
         assert files == {"file": ("a.wav", b"RIFF-bytes")} and fields == {"a": ["1"], "b[]": ["x", "y"]}
+
+
+def test_ac_19_an_upload_that_got_no_answer_in_time_is_not_resent(tmp_path: Path) -> None:
+    audio = tmp_path / "a.wav"
+    audio.write_bytes(b"RIFF-bytes")
+    timeouts: list[dict[str, float]] = []
+
+    def slow(request: httpx.Request) -> httpx.Response:
+        timeouts.append(request.extensions["timeout"])
+        raise httpx.ReadTimeout("no answer", request=request)
+
+    def client(handler: Any) -> InferenceClient:
+        endpoint = InferenceEndpoint.resolve(PRIVATE_URL, max_retries=2)
+        return InferenceClient(endpoint, transport=httpx.MockTransport(handler), sleep=lambda s: None)
+
+    with pytest.raises(ProviderError, match="not resent"):
+        client(slow).post_file("/audio/transcriptions", audio)
+    assert len(timeouts) == 1  # the server is still transcribing: a copy would only queue behind it
+    assert timeouts[0]["connect"] == 10.0 and timeouts[0]["read"] == 1800.0  # unreachable = fails fast
+    gateway: list[httpx.Request] = []
+
+    def proxy_gave_up(request: httpx.Request) -> httpx.Response:
+        gateway.append(request)
+        return httpx.Response(504)
+
+    with pytest.raises(ProviderError) as caught:
+        client(proxy_gave_up).post_file("/documents/convert", audio)
+    assert caught.value.status_code == 504 and len(gateway) == 1
+    refused: list[httpx.Request] = []
+
+    def unreachable(request: httpx.Request) -> httpx.Response:
+        refused.append(request)
+        raise httpx.ConnectError("refused", request=request)
+
+    with pytest.raises(ProviderError):
+        client(unreachable).post_file("/audio/transcriptions", audio)
+    assert len(refused) == 3  # nothing reached the server: retried
 
 
 def test_errors_never_show_the_basic_auth_password(tmp_path: Path) -> None:

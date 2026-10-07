@@ -13,6 +13,7 @@ import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
@@ -24,6 +25,8 @@ from mentormind.core.providers.transport import HttpxClient, RetryPolicy
 from mentormind.core.providers.transport.http import redact_url
 
 INFERENCE_URL_ENV = "KNOWHOW_INFERENCE_URL"
+#: Connecting may take this long; the long ``KNOWHOW_INFERENCE_TIMEOUT_S`` is for the answer.
+CONNECT_TIMEOUT_S = 10.0
 
 
 class InferenceEndpoint(BaseModel):
@@ -68,7 +71,7 @@ class InferenceEndpoint(BaseModel):
 
     @classmethod
     def from_settings(cls, settings: Settings) -> InferenceEndpoint:
-        """``KNOWHOW_INFERENCE_*``; an empty key falls back to ``KNOWHOW_VLM_API_KEY`` (same server)."""
+        """``KNOWHOW_INFERENCE_*``; an empty key falls back to ``KNOWHOW_VLM_API_KEY`` on the VLM's host."""
         return cls.resolve(
             settings.inference_url,
             api_key=inference_api_key(settings),
@@ -79,11 +82,24 @@ class InferenceEndpoint(BaseModel):
 
 
 def inference_api_key(settings: Settings) -> SecretStr | None:
-    """``KNOWHOW_INFERENCE_API_KEY``, else ``KNOWHOW_VLM_API_KEY``; blank values count as unset."""
-    for secret in (settings.inference_api_key, settings.vlm_api_key):
+    """``KNOWHOW_INFERENCE_API_KEY``; blank values count as unset.
+
+    Empty, it falls back to ``KNOWHOW_VLM_API_KEY`` only when ``KNOWHOW_VLM_BASE_URL`` has the same
+    host as ``KNOWHOW_INFERENCE_URL`` (the self-hosted VLM box also serving inference): a cloud
+    vendor's key forced there must never reach another server, over plain HTTP on a LAN least of all.
+    """
+    secrets = [settings.inference_api_key]
+    if _same_host(settings.vlm_base_url, settings.inference_url):
+        secrets.append(settings.vlm_api_key)
+    for secret in secrets:
         if secret is not None and secret.get_secret_value().strip():
             return secret
     return None
+
+
+def _same_host(a: str | None, b: str | None) -> bool:
+    hosts = [urlsplit(url.strip()).hostname if url and url.strip() else None for url in (a, b)]
+    return hosts[0] is not None and hosts[0] == hosts[1]
 
 
 class InferenceClient:
@@ -104,6 +120,7 @@ class InferenceClient:
         self.endpoint = endpoint
         self._http = HttpxClient(
             timeout_s=endpoint.timeout_s,
+            connect_timeout_s=min(CONNECT_TIMEOUT_S, endpoint.timeout_s),
             retry=RetryPolicy(max_retries=endpoint.max_retries),
             sleep=sleep,
             transport=transport,

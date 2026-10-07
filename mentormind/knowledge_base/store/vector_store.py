@@ -116,7 +116,12 @@ class VectorStore(Protocol):
         ...
 
     def search(self, query: str, k: int = 8, filters: Mapping[str, Any] | None = None) -> list[VectorHit]:
-        """Top ``k`` chunks for ``query`` that pass ``filters``, best first."""
+        """Top ``k`` chunks for ``query`` that pass ``filters``, best first.
+
+        A blank ``query`` is a lookup by ``filters`` (the KG loader finding a step's chunk): nothing
+        is embedded, hits come by ``chunk_id`` with score 0, so it works with an embedder that may
+        not see unlabelled text (a remote one at a cloud URL, spec 02 FR-07d).
+        """
         ...
 
     def delete(self, ids: Iterable[str]) -> int:
@@ -218,6 +223,8 @@ class MemoryVectorStore:
         candidates = [c for c in self._chunks.values() if _passes(c, clauses)]
         if not candidates or k <= 0:
             return []
+        if not query.strip():  # a lookup by filters: nothing to embed or rank
+            return [VectorHit(chunk=c, score=0.0) for c in sorted(candidates, key=lambda c: c.chunk_id)[:k]]
         query_vector = self._embedder.embed([query])[0]
         dense = sorted(candidates, key=lambda c: _cosine(query_vector, c.embedding or []), reverse=True)
         lexical_scores = _bm25(tokens(query), candidates)

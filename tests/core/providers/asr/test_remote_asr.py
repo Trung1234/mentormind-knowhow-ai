@@ -127,13 +127,14 @@ def test_ac_17_settings_select_remote_and_a_missing_url_names_the_variable(tmp_p
         _env_file=None,
         asr_provider="remote",
         inference_url=PUBLIC_URL,
+        vlm_base_url="https://inference.example.com/ollama/v1",  # the VLM is that same server
         vlm_api_key=SecretStr("same-server"),
         asr_language="th",
     )
     provider = get_asr_provider(settings)
     assert isinstance(provider, RemoteASR) and provider.is_cloud is True and provider.language == "th"
     assert provider.model == SERVER_DEFAULT_MODEL and provider.where == "server"
-    assert provider._client.endpoint.api_key == "same-server"  # KNOWHOW_INFERENCE_API_KEY empty -> VLM key
+    assert provider._client.endpoint.api_key == "same-server"  # KNOWHOW_INFERENCE_API_KEY empty -> VLM key, same host
     assert provider._client.endpoint.timeout_s == settings.inference_timeout_s == 1800
 
 
