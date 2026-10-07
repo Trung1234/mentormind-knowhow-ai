@@ -78,6 +78,8 @@ class VideoCapturePipeline:
         seconds["probe"] = time.perf_counter() - started
 
         started = time.perf_counter()
+        if progress is not None:
+            progress("cut", 0, 0)  # segments not known yet; finding them takes 10-30 s on CPU (AC-15)
         cuts, used = cut_with_fallback(method, video, asset, build=self._build)
         cuts = postprocess(cuts, asset.duration_s)
         seconds["cut"] = time.perf_counter() - started
@@ -96,6 +98,8 @@ class VideoCapturePipeline:
 
         if transcribe and asset.has_audio:
             started = time.perf_counter()
+            if progress is not None:
+                progress("transcribe", 0, asset.duration_s)  # before the audio and the ASR model load (AC-15)
             transcribe_video(
                 asset,
                 self._asr(),

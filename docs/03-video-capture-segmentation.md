@@ -79,7 +79,7 @@ Fallback `fixed_window` + keyframe mà spec 04 viết tạm (`processing/vlm/seg
 - **FR-07b** `knowhow video transcribe --recall-audio <audio_file> --video-id <VID-...> [--offset <s>]` (Should): nhận file ghi âm video-cued recall (architecture mục 4) cho video câm. Timestamp transcript = timestamp audio + `offset` (mặc định 0, tức chuyên gia bắt đầu ghi âm cùng lúc phát video). Kết quả `source="cued_recall"`, `data_classification` lấy từ `VideoAsset` (`video.json`), ghi vào `transcript.json` của video đó. Một bản ghi âm sở hữu khoảng video nó phủ (`offset` → `offset` + độ dài audio): câu `cued_recall` cũ bắt đầu trong khoảng đó bị thay, câu ngoài khoảng và câu `inline` giữ nguyên — chạy lại cùng bản ghi không nhân đôi câu (ASR chia câu khác nhau mỗi lần nên không so được theo chữ).
 - **FR-07c** ASR là provider như VLM/LLM (spec 04 §2, constitution Điều 5): `core.providers.asr` — `ASRProvider(ProviderBase)` với template method `transcribe(audio, *, classification, language)` chạy `DataGuard` **trước** khi đọc file rồi gọi `_transcribe`; registry `@register_asr`, `get_asr_provider(settings)`, `catalog`, lỗi qua `core.providers.errors`. Backend: `faster_whisper` (local, `is_cloud=False`, CPU `int8`, model `small`, `word_timestamps`, VAD) và `fake` (kịch bản, cho test). Chỉ đăng ký backend local. Cấu hình `KNOWHOW_ASR_*` (provider, model, device, compute_type, language, beam_size); `language` mặc định để trống = Whisper tự nhận ngôn ngữ từng file (tiếng Việt, tiếng Thái… đều được, lý do trích từ lời nào giữ nguyên ngôn ngữ đó); đặt giá trị để ép một ngôn ngữ — ép sai ngôn ngữ làm Whisper bịa câu (đo trên LASI: lời tiếng Thái ép `vi` ra câu tiếng Việt vô nghĩa). Model nạp lười, một lần mỗi process, dùng chung giữa các job. `knowhow video providers` liệt kê provider ASR.
 - **FR-08** `align_transcript(segments, transcripts) -> dict[segment_id, list[TranscriptSegment]]` gán mỗi câu transcript vào đoạn có overlap thời gian lớn nhất (bằng nhau → đoạn trước; câu nằm ngoài mọi đoạn → đoạn gần nhất). Export ở `mentormind.capture.video` (spec 04 §3 import theo tên này).
-- **FR-09** `VideoCapturePipeline`: probe → cắt (FR-03, fallback) → hậu xử lý → keyframe + clip → transcribe nếu `has_audio` → ghi `video.json`, `segments.json`, `transcript.json`; báo tiến độ từng giai đoạn qua callback. CLI (`knowhow video …`) và API (spec 08) gọi chung lớp này. Đọc video theo luồng; capture/model của một lần chạy được giải phóng khi xong (riêng model ASR giữ lại theo FR-07c).
+- **FR-09** `VideoCapturePipeline`: probe → cắt (FR-03, fallback) → hậu xử lý → keyframe + clip → transcribe nếu `has_audio` → ghi `video.json`, `segments.json`, `transcript.json`; báo tiến độ từng giai đoạn qua callback; mỗi giai đoạn báo `done=0` ngay khi bắt đầu (cắt: trước khi dò cảnh/tay, `total=0` vì chưa biết số đoạn; transcribe: trước khi tách audio và nạp model ASR, `total` = thời lượng video) để giao diện không đứng ở giai đoạn trước. CLI (`knowhow video …`) và API (spec 08) gọi chung lớp này. Đọc video theo luồng; capture/model của một lần chạy được giải phóng khi xong (riêng model ASR giữ lại theo FR-07c).
 
 ## 6. Acceptance Criteria
 - **AC-01** 3 video (video tổng hợp trong test, tới khi có `data/samples/video/`) → mỗi video ra ≥ 3 đoạn, mọi đoạn có 3 keyframe và 1 clip tồn tại trên đĩa.
@@ -97,6 +97,7 @@ Fallback `fixed_window` + keyframe mà spec 04 viết tạm (`processing/vlm/seg
 - **AC-12** Bộ cắt raise lỗi bất kỳ khi chạy (không chỉ thiếu thư viện) → rơi xuống cách sau, log có lý do; `fixed_window` lỗi → lỗi được báo ra.
 - **AC-13** `hand_activity` với bộ dò tay giả lập thấy tay ở 5% số khung → rơi về `scene`; thấy ở ≥ 10% → giữ `hand_activity`.
 - **AC-14** `--recall-audio` chạy hai lần cùng `offset` → số câu `cued_recall` không đổi; bản ghi ở `offset` khác (khoảng không chồng) → câu cũ giữ nguyên; câu `inline` không bao giờ bị xoá.
+- **AC-15** Pipeline với callback tiến độ: sự kiện đầu tiên là `("cut", 0, 0)`; sự kiện `transcribe` đầu tiên là `("transcribe", 0, thời lượng)` và đến trước khi provider ASR được dựng.
 
 ## 7. Tasks
 - [x] T03-1 Models + `probe`.
@@ -108,6 +109,7 @@ Fallback `fixed_window` + keyframe mà spec 04 viết tạm (`processing/vlm/seg
 - [x] T03-7 ASR provider `core.providers.asr` (`faster_whisper`, `fake`) + `knowhow video providers` (AC-09).
 - [x] T03-8 `VideoCapturePipeline` + CLI `knowhow video`; gộp fallback của spec 04 vào `capture/video` (FR-09).
 - [x] T03-9 Lấy từ nhánh `viethoang/video-capture`: fallback khi bộ cắt lỗi, ngưỡng thấy tay 10%, recall thay khoảng nó phủ, chặn PyAV khi import scenedetect (AC-12..AC-14).
+- [x] T03-10 Báo `done=0` khi bắt đầu mỗi giai đoạn (FR-09, AC-15).
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
@@ -117,3 +119,4 @@ Fallback `fixed_window` + keyframe mà spec 04 viết tạm (`processing/vlm/seg
 - v1.4 (06/10, Phúc): `KNOWHOW_VIDEO_METHOD` = cách cắt mặc định khi không chọn (FR-03).
 - v1.5 (06/10, Phúc): FR-07 cắt câu không bao giờ giữa từ (tiếng Thái viết liền: "ครั|บ" trên LASI), dừng ở cuối mỗi đoạn nói của Whisper; ghép token giữ nguyên khoảng trắng của Whisper.
 - v1.6 (07/10, Phúc): lấy 4 điểm từ nhánh `viethoang/video-capture` của Hoàng — FR-03 rơi xuống cách sau cả khi bộ cắt lỗi lúc chạy hoặc `hand_activity` thấy tay < 10% số khung, `scene` không nạp PyAV; FR-07b recall thay câu cũ trong khoảng nó phủ thay vì nối thêm (chạy lại từng nhân đôi câu). Luật "ít hơn 3 đoạn thì đổi cách" của nhánh đó không lấy: FR-04 đã chia đoạn > 20 s nên chỉ video rất ngắn mới < 3 đoạn. AC-12..AC-14, T03-9.
+- v1.7 (07/10, Phúc): FR-09 mỗi giai đoạn báo `done=0` khi bắt đầu — trước đây giao diện đứng ở "Cắt đoạn 30/30" suốt lúc tách audio, nạp/tải model Whisper và nghe câu đầu. AC-15, T03-10.

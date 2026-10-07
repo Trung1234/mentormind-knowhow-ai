@@ -107,3 +107,28 @@ def test_clips_are_browser_playable_h264_and_stale_ones_are_redone(
     second = shots.run(video, work_dir=tmp_path / "w", process_id=None, classification=SYNTHETIC, method="scene")
     assert (second.segments[0].t_start, second.segments[0].t_end) == (0.0, 4.0)
     assert Path(second.segments[0].clip_path).read_bytes() != b"from the 10 s cut"  # bounds changed: redone
+
+
+def test_ac_15_each_stage_reports_its_start_before_the_slow_work(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_ffmpeg(monkeypatch, audio=True)
+    events: list[tuple[str, float, float]] = []
+
+    def asr() -> FakeASR:
+        events.append(("asr built", 0, 0))  # loading Whisper is slow: the stage must already show
+        return FakeASR([SPEECH])
+
+    pipeline_ = VideoCapturePipeline(Settings(_env_file=None), asr=asr, extract=fake_extract)
+    result = pipeline_.run(
+        synthetic_video(tmp_path / "in.mp4", 25),
+        work_dir=tmp_path / "work",
+        process_id="PACK01",
+        classification=SYNTHETIC,
+        method="fixed_window",
+        progress=lambda stage, done, total: events.append((stage, done, total)),
+    )
+    assert events[0] == ("cut", 0, 0)
+    first = next(i for i, e in enumerate(events) if e[0] == "transcribe")
+    assert events[first] == ("transcribe", 0, result.asset.duration_s)
+    assert events.index(("asr built", 0, 0)) > first

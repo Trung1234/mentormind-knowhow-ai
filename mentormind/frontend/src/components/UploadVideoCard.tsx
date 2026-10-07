@@ -349,14 +349,14 @@ export function UploadVideoCard({ onReview }: { onReview: (videoId: string) => v
                       key={stage.id}
                       className={`badge ${i < stageIndex ? "badge-approved" : i === stageIndex ? "badge-review" : "badge-muted"}`}
                     >
-                      {i + 1}. {stage.label}
+                      {i < stageIndex ? "✓ " : ""}{i + 1}. {stage.label}
                     </span>
                   ))}
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem" }}>
                   <span>
                     {progress && stageIndex >= 0
-                      ? STAGES[stageIndex].unit
+                      ? STAGES[stageIndex].unit && progress.total > 0
                         ? `${STAGES[stageIndex].label}: ${Math.round(progress.done)}/${Math.round(progress.total)} ${STAGES[stageIndex].unit}`
                         : `${STAGES[stageIndex].label}…`
                       : "Đang đọc video…"}
