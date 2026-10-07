@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -10,7 +11,10 @@ import pytest
 
 from mentormind.core.providers.llm.backends.fake import FakeLLM
 from mentormind.core.providers.vlm.backends.fake import FakeVLM
+from mentormind.core.schemas.video import Segment
 from mentormind.core.schemas.work_profile import validate_against_contract
+from mentormind.processing.vlm.passes import ObservedStep
+from mentormind.processing.vlm.passes.step_times import ModelSpans, PlacedStep
 from mentormind.processing.vlm.pipeline import DescribePipeline, read_profiles
 from tests.processing.vlm.passes.test_describe import fake_sampler, segments, step
 
@@ -59,6 +63,27 @@ def test_passes_a_b_c_end_in_valid_drafts(tmp_path: Path) -> None:
     for artefact in ("pass_a", "pass_b/pass_a", "pass_c.json", "predictions.json"):
         assert (work / artefact).exists(), artefact  # FR-06: every pass kept for debugging
     assert [p.step for p in read_profiles(work / "profiles.json")] == [p.step for p in result.profiles]
+
+
+class RecordingSpans(ModelSpans):
+    """``KNOWHOW_VLM_STEP_TIMES=model``, noting each segment it places."""
+
+    def __init__(self) -> None:
+        self.placed: list[str] = []
+
+    def place(self, steps: Sequence[ObservedStep], segment: Segment) -> list[PlacedStep]:
+        self.placed.append(segment.segment_id)
+        return super().place(steps, segment)
+
+
+def test_ac_25_both_pass_a_runs_keep_the_model_spans_when_asked(tmp_path: Path) -> None:
+    llm = FakeLLM([{"steps": [{"step": "Đặt cốc vào thùng carton", "source_ids": ["s2", "s3"]}]}])
+    timer = RecordingSpans()
+    result = run(FakeVLM([*RUN_1, *RUN_2]), tmp_path, llm=llm, step_timer=timer)
+    assert timer.placed == ["VID-TEST-S001", "VID-TEST-S002"] * 2  # passes A and B
+    # The model's spans, as before spec 04 v1.22: 0-2 s; 8-10 s in S001 merged with 10-11.5 s in S002.
+    spans = {p.step: (p.evidence.t_start, p.evidence.t_end) for p in result.profiles}
+    assert spans == {"Nhặt cốc từ khay": (0.0, 2.0), "Đặt cốc vào thùng carton": (8.0, 11.5)}
 
 
 def test_without_b_and_c_it_is_pass_a_alone(tmp_path: Path) -> None:

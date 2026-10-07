@@ -58,6 +58,7 @@ def describe_cmd(
     from mentormind.core.providers.errors import ProviderError
     from mentormind.core.providers.llm.context import strictest
     from mentormind.core.providers.vlm import get_vlm_provider
+    from mentormind.processing.vlm.passes.step_times import get_step_timer
     from mentormind.processing.vlm.pipeline import DescribePipeline
     from mentormind.processing.vlm.profiles import ProfileSinkError, get_profile_sink
     from mentormind.processing.vlm.transcript import load_transcript
@@ -89,6 +90,7 @@ def describe_cmd(
             consistency=consistency,
             transcript_lead_s=settings.transcript_lead_s,
             transcript_lag_s=settings.transcript_lag_s,
+            step_timer=get_step_timer(settings.vlm_step_times),
         )
         result = pipeline.run(loaded, work_dir, transcript)
     except ConfidentialDataError as exc:

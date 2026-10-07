@@ -81,6 +81,10 @@ class Settings(BaseSettings):
     # overlaps it most (experts explain just before acting and comment just after).
     transcript_lead_s: float = 2.0
     transcript_lag_s: float = 3.0
+    # Spec 04 §3: where pass A puts a step inside its segment (processing.vlm.passes.step_times).
+    # segment = the steps tile the segment in start order; model = the VLM's own ~1 s spans. Tiling
+    # matched the hand-labelled LASI steps better (time recall 0.59 -> 0.85, mean IoU 0.34 -> 0.50).
+    vlm_step_times: Literal["segment", "model"] = "segment"
 
     # --- LLM (spec 06; also spec 04 pass C / propose-reasons) ---------------------------------
     # Empty = the LLM is the VLM: same provider, server, model and key as KNOWHOW_VLM_* (the

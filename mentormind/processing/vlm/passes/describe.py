@@ -6,10 +6,9 @@ validate the answer against :data:`PASS_A_SCHEMA`; an invalid answer is retried 
 while the other segments carry on (AC-06). Raw answers are kept under
 ``data/work/vlm/<video_id>/pass_a/`` (FR-06).
 
-The model points at the instant it sees an action (~1 s spans), so a segment's steps, in start
-order, tile the segment instead: each runs from its own start (the first from the segment start)
-to the next step's start (the last to the segment end); the model's ``t_end_rel`` is not used
-(spec 04 §3, AC-24).
+Where each step starts and ends is up to a :class:`~processing.vlm.passes.step_times.StepTimer`
+(``KNOWHOW_VLM_STEP_TIMES``): by default the steps tile their segment in start order (AC-24), or
+they keep the model's own spans clamped into the segment (AC-25).
 
 Post-processing into WorkProfiles lives in :mod:`processing.vlm.passes.postprocess`.
 """
@@ -18,7 +17,6 @@ from __future__ import annotations
 
 import json
 import logging
-from bisect import bisect_right
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
@@ -35,12 +33,12 @@ from mentormind.processing.vlm.frames.sampler import SampledFrames, sample_frame
 from mentormind.processing.vlm.passes.language import english_fields
 from mentormind.processing.vlm.passes.models import (
     FailedSegment,
-    ObservedStep,
     PassAOutput,
     PassAResult,
     TimedStep,
 )
 from mentormind.processing.vlm.passes.prompting import render_prompt
+from mentormind.processing.vlm.passes.step_times import DEFAULT_STEP_TIMER, StepTimer
 
 PASS_A_TEMPERATURE = 0.2
 #: Repair reason when pass A answered in English (spec 04 §3): the steps become Vietnamese SOPs.
@@ -87,8 +85,13 @@ def describe_segments(
     max_frames: int,
     temperature: float = PASS_A_TEMPERATURE,
     sampler: Sampler = sample_frames,
+    step_timer: StepTimer = DEFAULT_STEP_TIMER,
 ) -> PassAResult:
-    """Run pass A over ``segments`` (in order). Never raises for one bad segment."""
+    """Run pass A over ``segments`` (in order). Never raises for one bad segment.
+
+    ``step_timer`` places each segment's steps in time (spec 04 §3; the callers pass
+    ``get_step_timer(settings.vlm_step_times)``).
+    """
     result = PassAResult()
     for segment in segments:
         _describe_one(
@@ -101,6 +104,7 @@ def describe_segments(
             max_frames=max_frames,
             temperature=temperature,
             sampler=sampler,
+            step_timer=step_timer,
         )
     if result.failed:
         (work_dir / "failed_segments.json").write_text(
@@ -121,6 +125,7 @@ def _describe_one(
     max_frames: int,
     temperature: float,
     sampler: Sampler,
+    step_timer: StepTimer,
 ) -> None:
     sampled = sampler(
         segment,
@@ -172,7 +177,7 @@ def _describe_one(
         return
     if output.scene:
         result.scenes[segment.segment_id] = output.scene
-    for step, start, end in _tile(output.steps, segment):
+    for step, start, end in step_timer.place(output.steps, segment):
         result.steps.append(
             TimedStep(
                 segment_id=segment.segment_id,
@@ -188,26 +193,6 @@ def _describe_one(
                 keyframes=list(segment.keyframes),
             )
         )
-
-
-def _tile(steps: Sequence[ObservedStep], segment: Segment) -> list[tuple[ObservedStep, float, float]]:
-    """``steps`` in start order with absolute spans that tile ``segment`` (spec 04 §3, AC-24).
-
-    Starts are clamped to the segment and rounded to 0.01 s. Steps sharing a start share one span;
-    a start clamped to the segment end shares the span of the group before it, so ``t_end > t_start``
-    unless the segment itself lasts 0 s.
-    """
-    seg_start = round(segment.t_start, 2)
-    seg_end = round(segment.t_start + max(segment.t_end - segment.t_start, 0.0), 2)
-    ordered = sorted(steps, key=lambda s: s.t_start_rel)  # stable: ties keep the model's order
-    starts = [min(round(segment.t_start + s.t_start_rel, 2), seg_end) for s in ordered]
-    # Span boundaries: the segment start (opened by the first group), then every later distinct start.
-    marks = [seg_start, *sorted({t for t in starts[1:] if starts[0] < t < seg_end})]
-    tiled = []
-    for step, start in zip(ordered, starts, strict=True):
-        i = bisect_right(marks, start) - 1
-        tiled.append((step, marks[i], marks[i + 1] if i + 1 < len(marks) else seg_end))
-    return tiled
 
 
 def _account(result: PassAResult, response: VLMResponse) -> None:
