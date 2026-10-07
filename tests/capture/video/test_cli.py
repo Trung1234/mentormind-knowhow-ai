@@ -35,6 +35,7 @@ def test_providers_lists_the_local_asr_backends() -> None:
 def test_ac_17_providers_lists_remote_on_the_inference_server(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("KNOWHOW_ASR_PROVIDER", "remote")
     monkeypatch.setenv("KNOWHOW_INFERENCE_URL", "https://team:s3cret@inference.example.com/v1")
+    monkeypatch.setenv("KNOWHOW_LOCAL_HOSTS", "[]")
     get_settings.cache_clear()
     result = runner.invoke(app, ["video", "providers"])
     assert result.exit_code == 0, result.output

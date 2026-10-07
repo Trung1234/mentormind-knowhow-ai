@@ -149,7 +149,8 @@ def test_ac_21_cloud_url_refuses_factory_documents_before_any_upload(tmp_path: P
 def test_ac_21_cli_reports_a_missing_url_or_a_refusal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("KNOWHOW_DOC_EXTRACTOR", "remote")
     monkeypatch.setenv("KNOWHOW_TOKEN_COUNTER", "whitespace")
-    monkeypatch.delenv("KNOWHOW_INFERENCE_URL", raising=False)
+    monkeypatch.setenv("KNOWHOW_INFERENCE_URL", "")  # empty beats a value in a developer's .env
+    monkeypatch.setenv("KNOWHOW_LOCAL_HOSTS", "[]")
     get_settings.cache_clear()
     try:
         args = ["ingest", "run", "--input", str(pdf(tmp_path)), "--out", str(tmp_path / "out")]
