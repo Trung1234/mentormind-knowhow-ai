@@ -7,7 +7,8 @@ hand them a fake and never touch the network (constitution art. 6).
 from __future__ import annotations
 
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
+from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import urlsplit, urlunsplit
 
@@ -85,6 +86,22 @@ class HttpxClient:
     def get_json(self, url: str, *, headers: Mapping[str, str] | None = None) -> dict[str, Any]:
         return self._send("GET", url, headers=headers)
 
+    def post_file(
+        self,
+        url: str,
+        path: Path,
+        *,
+        field: str = "file",
+        data: Mapping[str, str | Sequence[str]] | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> dict[str, Any]:
+        """POST ``path`` as multipart ``field`` plus form ``data``; the file is streamed, reopened per try.
+
+        Raises:
+            ProviderError: the file cannot be read, or the request failed after the retries.
+        """
+        return self._send("POST", url, headers=headers, upload=(field, path), data=data)
+
     def _send(
         self,
         method: str,
@@ -92,13 +109,15 @@ class HttpxClient:
         *,
         headers: Mapping[str, str] | None,
         json: dict[str, Any] | None = None,
+        upload: tuple[str, Path] | None = None,
+        data: Mapping[str, str | Sequence[str]] | None = None,
     ) -> dict[str, Any]:
         shown = redact_url(url)
         last_error: ProviderError | None = None
         for attempt in range(self._retry.max_retries + 1):
             retry_after: float | None = None
             try:
-                response = self._client.request(method, url, headers=headers, json=json)
+                response = self._request(method, url, headers=headers, json=json, upload=upload, data=data)
             except httpx.TransportError as exc:  # timeouts, refused connections, DNS...
                 last_error = ProviderError(f"{method} {shown} failed: {exc!r}")
             else:
@@ -115,3 +134,24 @@ class HttpxClient:
                 self._sleep(self._retry.delay_for(attempt, retry_after))
         assert last_error is not None
         raise last_error
+
+    def _request(
+        self,
+        method: str,
+        url: str,
+        *,
+        headers: Mapping[str, str] | None,
+        json: dict[str, Any] | None,
+        upload: tuple[str, Path] | None,
+        data: Mapping[str, str | Sequence[str]] | None,
+    ) -> httpx.Response:
+        if upload is None:
+            return self._client.request(method, url, headers=headers, json=json)
+        field, path = upload
+        form = {key: value if isinstance(value, str) else list(value) for key, value in (data or {}).items()}
+        try:
+            handle = path.open("rb")
+        except OSError as exc:
+            raise ProviderError(f"Không đọc được {path.name}: {exc}") from exc
+        with handle:
+            return self._client.request(method, url, headers=headers, data=form, files={field: (path.name, handle)})

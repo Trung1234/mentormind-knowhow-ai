@@ -40,7 +40,8 @@ class Settings(BaseSettings):
     embed_dim: int = 1024
     embed_model: str = "BAAI/bge-m3"
     # "hashing" is a no-model stand-in for dev; it must not fill a table that bge-m3 will later use.
-    embedder: Literal["bge-m3", "hashing"] = "bge-m3"
+    # "remote" = the same bge-m3 on the team's inference server (KNOWHOW_INFERENCE_URL, spec 02 FR-07d).
+    embedder: Literal["bge-m3", "hashing", "remote"] = "bge-m3"
 
     # --- Document ingest (spec 02) ----------------------------------------------------------
     process_id_regex: str = r"\b[A-Z]{3,5}\d{2}\b"
@@ -48,6 +49,8 @@ class Settings(BaseSettings):
     part_number_regex: str = r"\b[A-Z]{2}\d{6}-\d{4}\b"
     # Matches of process_id_regex that are not processes (ISO27, REV01...).
     process_id_stoplist: list[str] = []
+    # Where Docling runs (spec 02 FR-02c): here (ingest extra) or on the team's inference server.
+    doc_extractor: Literal["docling", "remote"] = "docling"
     # Command of the mmore install used as the degraded PDF fallback (not a project extra).
     mmore_bin: str = "mmore"
     # bge-m3 matches the embedder; "whitespace" is for offline runs and undercounts CJK.
@@ -105,7 +108,8 @@ class Settings(BaseSettings):
     video_hand_model: Path = REPO_ROOT / "data" / "work" / "models" / "hand_landmarker.task"
 
     # --- Speech-to-text (spec 03 FR-07c) -----------------------------------------------------
-    # Registry name of the ASR provider (`knowhow video providers` lists them). Local only.
+    # Registry name of the ASR provider (`knowhow video providers` lists them): faster_whisper runs
+    # here, remote on the team's inference server (KNOWHOW_INFERENCE_URL). Never a third-party API.
     asr_provider: str = "faster_whisper"
     # Empty = the provider's default model (faster_whisper: "small", downloaded once).
     asr_model: str | None = None
@@ -118,6 +122,19 @@ class Settings(BaseSettings):
     asr_beam_size: int = 5
     # Voice activity detection (Silero, bundled): skips silence and music before decoding.
     asr_vad: bool = True
+
+    # --- Team inference server (spec 02 FR-02c/FR-07d, spec 03 FR-07c) ------------------------
+    # The heavy CPU models — Whisper (KNOWHOW_ASR_PROVIDER=remote), Docling/OCR
+    # (KNOWHOW_DOC_EXTRACTOR=remote), bge-m3 (KNOWHOW_EMBEDDER=remote) — on the team's own server.
+    # Base URL of its API, e.g. https://host/v1 (``user:pass@`` basic auth allowed, never shown in
+    # errors). Local or cloud is judged from the URL like the VLM's: a private address or a host
+    # in KNOWHOW_LOCAL_HOSTS is local; anything else is cloud and never gets factory_confidential data.
+    inference_url: str | None = None
+    # Bearer token; empty = KNOWHOW_VLM_API_KEY (usually the same server); both empty = no header.
+    inference_api_key: SecretStr | None = None
+    # One request may be a 30-minute recording through Whisper on a CPU: minutes, not seconds.
+    inference_timeout_s: float = 1800.0
+    inference_max_retries: int = 2
 
     # --- Outbound guard for cloud calls (spec 01 FR-09b, spec 04 FR-02c) ---------------------
     # Mask PII in text sent to cloud providers. False = refuse instead (LeakGuard always runs).
