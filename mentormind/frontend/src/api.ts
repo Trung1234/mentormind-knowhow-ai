@@ -2,14 +2,18 @@ import {
   AssistantAnswer,
   CutMethod,
   DataClassification,
+  DocumentDeleteResult,
+  DocumentInfo,
   JobResponse,
   LotRecord,
+  ProfileDeleteResult,
   ProfilePatchRequest,
   ProfileStatus,
   RcaReport,
   ReviewRequest,
   Segment,
   VideoAsset,
+  VideoDeleteResult,
   WorkProfile,
 } from "./types";
 
@@ -90,6 +94,17 @@ export const api = {
     });
   },
 
+  deleteProfile: (profileId: string) => {
+    return request<ProfileDeleteResult>(`/profiles/${encodeURIComponent(profileId)}`, { method: "DELETE" });
+  },
+
+  deleteProfiles: (profileIds: string[]) => {
+    return request<ProfileDeleteResult>("/profiles/delete", {
+      method: "POST",
+      body: JSON.stringify({ profile_ids: profileIds }),
+    });
+  },
+
   getSigmaLots: (processId?: string) => {
     const qs = processId ? `?process_id=${processId}` : "";
     return request<LotRecord[]>(`/sigma/lots${qs}`);
@@ -133,6 +148,16 @@ export const api = {
 
   getVideoSegments: (videoId: string) => {
     return request<Segment[]>(`/videos/${encodeURIComponent(videoId)}/segments`);
+  },
+
+  deleteVideo: (videoId: string) => {
+    return request<VideoDeleteResult>(`/videos/${encodeURIComponent(videoId)}`, { method: "DELETE" });
+  },
+
+  getDocuments: () => request<DocumentInfo[]>("/documents"),
+
+  deleteDocument: (docId: string) => {
+    return request<DocumentDeleteResult>(`/documents/${encodeURIComponent(docId)}`, { method: "DELETE" });
   },
 
   getJob: <T = unknown>(jobId: string) => {
