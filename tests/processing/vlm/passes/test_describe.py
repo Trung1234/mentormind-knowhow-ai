@@ -1,5 +1,5 @@
 """spec 04 T04-3 — pass A: valid drafts (AC-01), no reason (AC-02), repair + failures (AC-06),
-steps tiling their segment (AC-24), or keeping the model's spans by KNOWHOW_VLM_STEP_TIMES (AC-25)."""
+steps tiling their segment (AC-24), or keeping the model's spans by KNOWHOW_VLM_STEP_TIMES (AC-28)."""
 
 from __future__ import annotations
 

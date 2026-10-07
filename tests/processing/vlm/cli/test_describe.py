@@ -1,4 +1,4 @@
-"""spec 04 FR-05 — ``knowhow vlm describe`` and ``knowhow vlm propose-reasons``; AC-25 for describe."""
+"""spec 04 FR-05 — ``knowhow vlm describe`` and ``knowhow vlm propose-reasons``; AC-28 for describe."""
 
 from __future__ import annotations
 
@@ -9,7 +9,6 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from mentormind.core.config import get_settings
 from mentormind.core.providers.llm.backends.fake import FakeLLM
 from mentormind.core.providers.vlm.backends.fake import FakeVLM
 from mentormind.core.schemas.common import DataClassification

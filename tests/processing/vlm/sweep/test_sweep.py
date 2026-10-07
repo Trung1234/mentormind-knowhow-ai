@@ -1,4 +1,4 @@
-"""spec 04 T04-6 — matching rule, metrics, the CSV of AC-07, truth file, fixed windows; AC-25."""
+"""spec 04 T04-6 — matching rule, metrics, the CSV of AC-07, truth file, fixed windows; AC-28."""
 
 from __future__ import annotations
 

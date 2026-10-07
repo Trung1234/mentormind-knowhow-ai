@@ -1,10 +1,10 @@
-"""Where a pass-A step starts and ends inside its segment (spec 04 §3, AC-24, AC-25).
+"""Where a pass-A step starts and ends inside its segment (spec 04 §3, AC-24, AC-28).
 
 The VLM answers every step with ``t_start_rel``/``t_end_rel`` (seconds from the segment start). A
 :class:`StepTimer` turns them into absolute spans; ``KNOWHOW_VLM_STEP_TIMES`` picks one by name:
 
     segment  SegmentTiling  (default) the steps tile the segment in start order (AC-24)
-    model    ModelSpans     the model's own spans, clamped into the segment (AC-25)
+    model    ModelSpans     the model's own spans, clamped into the segment (AC-28)
 
 The model points at the instant it sees an action (~1 s spans). On the LASI video, against the
 hand-labelled steps, tiling measured better (time recall 0.59 -> 0.85, mean time IoU 0.34 -> 0.50),
@@ -63,7 +63,7 @@ class SegmentTiling(StepTimer):
 
 
 class ModelSpans(StepTimer):
-    """The model's own ``t_start_rel``-``t_end_rel``, clamped into the segment, in its order (AC-25).
+    """The model's own ``t_start_rel``-``t_end_rel``, clamped into the segment, in its order (AC-28).
 
     An end before the start becomes the start; both are cut at the segment end.
     """

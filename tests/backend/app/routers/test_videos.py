@@ -299,7 +299,7 @@ def test_ac_28_the_video_job_times_steps_by_the_setting(
     step_times: str,
     span: tuple[float, float],
 ) -> None:
-    """Spec 04 AC-25: KNOWHOW_VLM_STEP_TIMES reaches pass A of the API job."""
+    """Spec 04 AC-28: KNOWHOW_VLM_STEP_TIMES reaches pass A of the API job."""
     configured = settings.model_copy(update={"vlm_step_times": step_times})
     monkeypatch.setattr(videos_router, "get_settings", lambda: configured)
     video_id = _upload(client, synthetic_video(tmp_path / "pack.mp4", 20)).json()["video_id"]

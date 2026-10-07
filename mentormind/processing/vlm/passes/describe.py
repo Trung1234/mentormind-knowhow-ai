@@ -8,7 +8,7 @@ while the other segments carry on (AC-06). Raw answers are kept under
 
 Where each step starts and ends is up to a :class:`~processing.vlm.passes.step_times.StepTimer`
 (``KNOWHOW_VLM_STEP_TIMES``): by default the steps tile their segment in start order (AC-24), or
-they keep the model's own spans clamped into the segment (AC-25).
+they keep the model's own spans clamped into the segment (AC-28).
 
 Post-processing into WorkProfiles lives in :mod:`processing.vlm.passes.postprocess`.
 """

@@ -1,4 +1,4 @@
-"""spec 04 §6, AC-25 — ``knowhow vlm sweep`` places the steps by KNOWHOW_VLM_STEP_TIMES and says so."""
+"""spec 04 §6, AC-28 — ``knowhow vlm sweep`` places the steps by KNOWHOW_VLM_STEP_TIMES and says so."""
 
 from __future__ import annotations
 
