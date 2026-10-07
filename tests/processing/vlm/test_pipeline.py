@@ -50,7 +50,8 @@ def test_passes_a_b_c_end_in_valid_drafts(tmp_path: Path) -> None:
     assert [p.step for p in result.profiles] == ["Nhặt cốc từ khay", "Đặt cốc vào thùng carton"]
     merged = result.profiles[1]
     assert merged.evidence.segment_ids == ["VID-TEST-S001", "VID-TEST-S002"]
-    assert (merged.evidence.t_start, merged.evidence.t_end) == (8.0, 11.5)
+    # Pass A tiles each segment (AC-24): 8-10 s in S001, then 10-15 s until "Kiểm tra nhãn" in S002.
+    assert (merged.evidence.t_start, merged.evidence.t_end) == (8.0, 15.0)
     for profile in result.profiles:
         validate_against_contract(profile)
         assert profile.status == "draft" and profile.reason is None

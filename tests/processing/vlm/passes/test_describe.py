@@ -1,4 +1,5 @@
-"""spec 04 T04-3 — pass A: valid drafts (AC-01), no reason (AC-02), repair + failures (AC-06)."""
+"""spec 04 T04-3 — pass A: valid drafts (AC-01), no reason (AC-02), repair + failures (AC-06),
+steps tiling their segment (AC-24)."""
 
 from __future__ import annotations
 
@@ -94,7 +95,7 @@ def test_ac_01_three_segments_become_valid_drafts_numbered_from_one(tmp_path: Pa
         validate_against_contract(profile)
         assert (profile.status, profile.generated_by) == ("draft", "vlm")
     second = profiles[2]
-    assert (second.evidence.t_start, second.evidence.t_end) == (11.0, 14.0)
+    assert (second.evidence.t_start, second.evidence.t_end) == (10.0, 20.0)  # the only step: whole segment
     assert second.evidence.segment_ids == ["VID-TEST-S002"]
     assert second.model_info is not None and second.model_info.fps == 4.0
     assert (tmp_path / "pass_a" / "VID-TEST-S001.json").is_file()  # FR-06 raw answer kept
@@ -128,9 +129,41 @@ def test_repair_prompt_recovers_a_segment(tmp_path: Path) -> None:
 
 
 def test_relative_times_are_clamped_to_the_segment(tmp_path: Path) -> None:
-    vlm = FakeVLM([{"steps": [step("Nhặt cốc", 8, 25)]}])
+    # A start past the segment end is clamped to it and shares the span of the group before.
+    steps = [step("Nhặt cốc", 2, 3), step("Đặt cốc vào thùng", 5, 6), step("Đậy nắp thùng", 12, 25)]
+    vlm = FakeVLM([{"steps": steps}])
     result = run(vlm, tmp_path)
-    assert (result.steps[0].t_start, result.steps[0].t_end) == (8.0, 10.0)
+    spans = [(s.t_start, s.t_end) for s in result.steps if s.segment_id == "VID-TEST-S001"]
+    assert spans == [(0.0, 5.0), (5.0, 10.0), (5.0, 10.0)]
+
+
+def test_ac_24_steps_tile_their_segment_in_start_order(tmp_path: Path) -> None:
+    # LASI video 2026-10-08: the model points at the instant it sees an action (116.9-117.0 s), so
+    # the review page played ~1 s per step and pass B dropped same-name steps a few tenths apart.
+    vlm = FakeVLM(
+        [
+            {  # out of order, instantaneous spans
+                "steps": [
+                    step("Đặt cốc vào thùng", 6.9, 7.0),
+                    step("Nhặt cốc", 2.1, 2.2),
+                    step("Đậy nắp thùng", 8.4, 8.4),
+                ]
+            },
+            {"steps": [step("Dán nhãn lên thùng", 4.0, 4.1)]},
+            {"steps": [step("Nhặt cốc", 3.0, 3.1), step("Xoay cốc", 3.0, 3.0), step("Đặt cốc vào khay", 6.0, 6.5)]},
+        ]
+    )
+    result = run(vlm, tmp_path)
+    assert [(s.segment_id[-1], s.step, s.t_start, s.t_end) for s in result.steps] == [
+        ("1", "Nhặt cốc", 0.0, 6.9),  # the first step opens the segment
+        ("1", "Đặt cốc vào thùng", 6.9, 8.4),  # ... each ends when the next one starts
+        ("1", "Đậy nắp thùng", 8.4, 10.0),  # ... the last closes it
+        ("2", "Dán nhãn lên thùng", 10.0, 20.0),  # one step: the whole segment
+        ("3", "Nhặt cốc", 20.0, 26.0),  # same start: same span, the model's order kept
+        ("3", "Xoay cốc", 20.0, 26.0),
+        ("3", "Đặt cốc vào khay", 26.0, 30.0),
+    ]
+    assert all(s.t_end > s.t_start for s in result.steps)
 
 
 @pytest.fixture(autouse=True)
