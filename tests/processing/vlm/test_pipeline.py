@@ -121,10 +121,10 @@ def test_the_expert_words_reach_the_profiles_and_propose_reasons(
     # A profile quoting factory words is factory data, whatever its segment's label; the other is not.
     assert placing.data_classification == "factory_confidential"
     assert by_step["Nhặt cốc từ khay"].data_classification == "synthetic"
-    llm = FakeLLM([{"reason": "để cốc không bị nứt"}])
+    llm = FakeLLM([{"has_reason": True, "purpose_span": "để cốc không bị nứt"}])
     reasoned, untouched = propose_reasons([placing, by_step["Nhặt cốc từ khay"]], llm)
     assert (reasoned.reason, reasoned.reason_source, reasoned.status) == (
-        "để cốc không bị nứt",
+        "Đặt cốc vào thùng, xếp nghiêng để cốc không bị nứt.",  # the expert's sentence (AC-26)
         "expert_verbal",
         "in_review",
     )
