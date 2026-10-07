@@ -58,13 +58,6 @@ class VideoCapturePipeline:
         self._asr = asr or (lambda: get_asr_provider(settings))
         self._extract = extract
 
-    def speech_to_text(self) -> ASRProvider:
-        """The ASR ``run`` transcribes with, for a ``DataGuard`` check before cutting (spec 08 §2).
-
-        Building it is cheap for the real providers: the model itself loads on first use.
-        """
-        return self._asr()
-
     def run(
         self,
         video: Path,

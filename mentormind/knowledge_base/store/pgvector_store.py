@@ -163,18 +163,6 @@ class PgVectorStore:
         if k <= 0:
             return []
         where, params = build_where(parse_filters(filters or {}))
-        columns = sql.SQL(", ").join(
-            sql.SQL("c.{}{}").format(sql.Identifier(c), sql.SQL("::text" if c == "data_classification" else ""))
-            for c in _COLUMNS
-        )
-        if not query.strip():  # a lookup by filters (VectorStore.search): no embedding, no ranking
-            params["k"] = k
-            lookup = sql.SQL(
-                "SELECT {columns}, 0.0 FROM {table} c WHERE {where} ORDER BY c.chunk_id LIMIT %(k)s"
-            ).format(columns=columns, table=self._table, where=where)
-            with psycopg.connect(self._dsn) as conn:
-                rows = conn.execute(lookup, params).fetchall()
-            return [VectorHit(chunk=_to_chunk(row[:-1]), score=0.0) for row in rows]
         pool = max(k * _POOL_PER_HIT, _MIN_POOL)
         params.update(q=vector_literal(self._embedder.embed([query])[0]), pool=pool, k=k)
         terms = tokens(query)  # \w+ only: safe to build a tsquery from
@@ -204,7 +192,10 @@ class PgVectorStore:
             lexical=lexical,
             rrf=sql.Literal(RRF_K),
             union=union,
-            columns=columns,
+            columns=sql.SQL(", ").join(
+                sql.SQL("c.{}{}").format(sql.Identifier(c), sql.SQL("::text" if c == "data_classification" else ""))
+                for c in _COLUMNS
+            ),
         )
         with psycopg.connect(self._dsn) as conn:
             rows = conn.execute(statement, params).fetchall()

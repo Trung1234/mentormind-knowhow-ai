@@ -127,5 +127,5 @@ Fallback `fixed_window` + keyframe mà spec 04 viết tạm (`processing/vlm/seg
 - v1.7 (07/10, Phúc): FR-09 mỗi giai đoạn báo `done=0` khi bắt đầu — trước đây giao diện đứng ở "Cắt đoạn 30/30" suốt lúc tách audio, nạp/tải model Whisper và nghe câu đầu. AC-15, T03-10.
 - v1.8 (07/10, Phúc): FR-06 clip giữ tiếng (AAC) khi video có audio — trước đây bỏ audio nên trang duyệt không nghe được chuyên gia; `clips/.format` để clip câm cũ tự xuất lại. AC-16, T03-11.
 - v1.9 (08/10, Phúc): FR-07c thêm ASR provider `remote` — Whisper trên máy chủ suy luận riêng của đội (`KNOWHOW_INFERENCE_URL`, dùng chung với Docling/bge-m3 của spec 02 v1.5), local/cloud theo URL như VLM; FR-07 "không dùng ASR cloud" thành "không dùng ASR của bên thứ ba". AC-17, T03-12.
-- v1.10 (08/10, Phúc, review): FR-07c key VLM chỉ thay key trống khi cùng host; kết nối 10 s, file audio hết giờ chờ trả lời không gửi lại (spec 02 v1.6). Job video của API kiểm `DataGuard` với ASR ngay từ đầu khi video có audio (spec 08 AC-18), không phải sau khi đã cắt.
+- v1.10 (08/10, Phúc, review): FR-07c key VLM chỉ thay key trống khi cùng host; kết nối 10 s, file audio hết giờ chờ trả lời không gửi lại (spec 02 v1.6).
 - v1.11 (08/10, Phúc): FR-07c ghi rõ phạm vi ASR `remote` (máy chủ của đội, khai báo local); không làm FR-09b cho URL cloud — chốt finding review remote-6/process-1.
