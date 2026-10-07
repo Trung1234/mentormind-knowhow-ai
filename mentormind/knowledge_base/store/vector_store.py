@@ -24,9 +24,11 @@ import unicodedata
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 from mentormind.core.config import Settings, get_settings
+from mentormind.core.providers.llm.context import strictest
+from mentormind.core.schemas.common import DataClassification
 from mentormind.core.schemas.vector import VectorChunk, VectorHit
 
 RRF_K = 60
@@ -95,6 +97,17 @@ class Embedder(Protocol):
     def embed(self, texts: Sequence[str]) -> list[list[float]]: ...
 
 
+@runtime_checkable
+class ClassifiedEmbedder(Protocol):
+    """An embedder that sends the text off this process (``RemoteEmbedder``, spec 02 FR-07d).
+
+    It is told the label of what it embeds so ``DataGuard`` runs before anything is sent; its
+    plain ``embed`` treats unlabelled text as ``factory_confidential``.
+    """
+
+    def embed_classified(self, texts: Sequence[str], classification: DataClassification | str) -> list[list[float]]: ...
+
+
 class VectorStore(Protocol):
     """The surface every backend offers (spec 01 FR-05c)."""
 
@@ -156,12 +169,16 @@ class HashingEmbedder:
 def embed_missing(chunks: Iterable[VectorChunk], embedder: Embedder) -> list[VectorChunk]:
     """Fill ``embedding`` where absent; a supplied one must have the embedder's dimension.
 
+    An embedder that sends text away (:class:`ClassifiedEmbedder`) is told the strictest label of
+    the chunks it embeds, so a cloud one refuses ``factory_confidential`` chunks before any request.
+
     Raises:
         VectorStoreError: a supplied embedding has the wrong size.
+        ConfidentialDataError: ``factory_confidential`` chunks and an embedder at a cloud URL.
     """
     batch = list(chunks)
     missing = [c for c in batch if c.embedding is None]
-    vectors = iter(embedder.embed([c.text for c in missing]))
+    vectors = iter(_embed_chunks(embedder, missing))
     out = []
     for chunk in batch:
         if chunk.embedding is None:
@@ -172,6 +189,15 @@ def embed_missing(chunks: Iterable[VectorChunk], embedder: Embedder) -> list[Vec
             )
         out.append(chunk)
     return out
+
+
+def _embed_chunks(embedder: Embedder, chunks: Sequence[VectorChunk]) -> list[list[float]]:
+    if not chunks:
+        return []
+    texts = [c.text for c in chunks]
+    if isinstance(embedder, ClassifiedEmbedder):
+        return embedder.embed_classified(texts, strictest(c.data_classification for c in chunks))
+    return embedder.embed(texts)
 
 
 class MemoryVectorStore:
@@ -231,12 +257,28 @@ def get_vector_store(settings: Settings | None = None, *, embedder: Embedder | N
         from mentormind.knowledge_base.store.pgvector_store import PgVectorStore
     except ImportError as exc:
         raise VectorStoreError("Thiếu psycopg: cài extra `ingest` (uv sync --extra ingest).") from exc
-    return PgVectorStore(settings.pg_dsn, settings.vector_table, embedder or _default_embedder(settings))
+    return PgVectorStore(settings.pg_dsn, settings.vector_table, embedder or get_embedder(settings))
 
 
-def _default_embedder(settings: Settings) -> Embedder:
+def get_embedder(settings: Settings | None = None) -> Embedder:
+    """The embedder selected by ``KNOWHOW_EMBEDDER``: bge-m3 here, bge-m3 on the inference server, hashing.
+
+    Raises:
+        VectorStoreError: ``remote`` without ``KNOWHOW_INFERENCE_URL``.
+    """
+    settings = settings or get_settings()
     if settings.embedder == "hashing":
         return HashingEmbedder(settings.embed_dim)
+    if settings.embedder == "remote":
+        from mentormind.core.providers.errors import ProviderConfigError
+        from mentormind.core.providers.inference import InferenceClient
+        from mentormind.knowledge_base.store.embedder import RemoteEmbedder
+
+        try:
+            client = InferenceClient.from_settings(settings)
+        except ProviderConfigError as exc:
+            raise VectorStoreError(str(exc)) from exc
+        return RemoteEmbedder(client, model_name=settings.embed_model, dim=settings.embed_dim)
     from mentormind.knowledge_base.store.embedder import BgeM3Embedder
 
     return BgeM3Embedder(settings.embed_model, dim=settings.embed_dim)
