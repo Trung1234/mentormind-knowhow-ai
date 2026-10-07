@@ -122,7 +122,8 @@ def test_ac_19_settings_pick_remote_docling_and_keep_the_mmore_fallback() -> Non
     )
     assert isinstance(remote, RemoteDoclingExtractor) and isinstance(fallback, MmoreFastExtractor)
     assert remote.is_cloud is False and remote.supports(Path("a.XLSX")) and not remote.supports(Path("a.txt"))
-    local, _ = ingest_cli.build_extractors(Settings(_env_file=None))
+    # Explicit: a KNOWHOW_DOC_EXTRACTOR exported from .env (dev container) must not decide this case.
+    local, _ = ingest_cli.build_extractors(Settings(_env_file=None, doc_extractor="docling"))
     assert isinstance(local, DoclingExtractor)
     with pytest.raises(ProviderConfigError, match="KNOWHOW_INFERENCE_URL"):
         ingest_cli.build_extractors(Settings(_env_file=None, doc_extractor="remote", inference_url=None))
