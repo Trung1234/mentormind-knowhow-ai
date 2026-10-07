@@ -53,6 +53,9 @@ export interface WorkProfile {
   review?: ReviewInfo | null;
   created_at: string;
   version: number;
+  // GET /profiles only: the knowledge graph serves this step (approved, or edited after approval),
+  // so deleting it also removes it from the graph and the search store (spec 08 §2).
+  published?: boolean;
 }
 
 export interface ReviewRequest {

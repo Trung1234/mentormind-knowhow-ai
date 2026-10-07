@@ -4,10 +4,16 @@ A step that reached the knowledge graph is unloaded first (spec 05 FR-04: its ``
 pgvector chunk) and only then removed from the profile store, so the store never forgets a step
 the graph still serves. A step that never reached the graph is only removed from the store:
 Neo4j and pgvector are not even opened, so deleting drafts works while they are down.
+
+The store's write lock is taken before unloading and held until the delete commits (as
+``record_review`` holds it while publishing), so an approve in flight cannot make the store delete
+time out after the graph already dropped the step; a store that stays locked is reported as
+:class:`ProfileStoreBusyError` with nothing changed.
 """
 
 from __future__ import annotations
 
+import sqlite3
 from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager
 from typing import Protocol
@@ -24,21 +30,46 @@ class Unloader(Protocol):
 
 UnloaderOpener = Callable[[], AbstractContextManager[Unloader]]
 
+BUSY = "Kho profile đang bận (một thao tác duyệt khác đang ghi), chưa xoá gì; thử lại sau vài giây."
+
+
+class ProfileStoreBusyError(RuntimeError):
+    """The profile store stayed locked by another write: nothing was deleted from it (retrying finishes)."""
+
+
+def published(profile: WorkProfile, last_review_action: str | None) -> bool:
+    """In the graph (spec 08 §2): approved, or edited back to ``in_review`` after an approval.
+
+    An edit keeps the approved version in the graph (AC-01). It is known from the last review event,
+    or, for a step that came in approved without one (``seed_demo``, a profile loaded by
+    ``kg load-profiles``), from the review block it still carries and no reject since.
+    """
+    if profile.status == "approved" or last_review_action == "approve":
+        return True
+    return profile.status == "in_review" and profile.review is not None and last_review_action is None
+
 
 def is_published(store: ProfileStore, profile: WorkProfile) -> bool:
-    """In the graph: approved, or approved then edited (``in_review`` keeps the old version, AC-01)."""
-    return profile.status == "approved" or store.last_review_action(profile.profile_id) == "approve"
+    return published(profile, store.last_review_action(profile.profile_id))
 
 
 def delete_profiles(
     store: ProfileStore, profiles: Sequence[WorkProfile], open_loader: UnloaderOpener
 ) -> ProfileDeleteResult:
-    """Delete ``profiles``; a published one whose unloading fails is kept and listed in ``failed``."""
-    published = [p.profile_id for p in profiles if is_published(store, p)]
-    unloaded, failed = _unload(published, open_loader) if published else ([], [])
-    kept = {f.profile_id for f in failed}
-    removable = [p.profile_id for p in profiles if p.profile_id not in kept]
-    store.delete_profiles(removable)
+    """Delete ``profiles``; a published one whose unloading fails is kept and listed in ``failed``.
+
+    Raises:
+        ProfileStoreBusyError: the store stayed locked; the delete was rolled back.
+    """
+    to_unload = [p.profile_id for p in profiles if is_published(store, p)]
+    try:
+        with store.deleting() as delete:
+            unloaded, failed = _unload(to_unload, open_loader) if to_unload else ([], [])
+            kept = {f.profile_id for f in failed}
+            removable = [p.profile_id for p in profiles if p.profile_id not in kept]
+            delete(removable)
+    except sqlite3.OperationalError as exc:
+        raise ProfileStoreBusyError(f"{BUSY} ({exc})") from exc
     return ProfileDeleteResult(deleted=removable, unpublished=unloaded, failed=failed)
 
 

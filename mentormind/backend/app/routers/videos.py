@@ -13,9 +13,10 @@ from typing import TYPE_CHECKING, Any
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field
 
-from mentormind.backend.app.deletion import delete_profiles
+from mentormind.backend.app.deletion import ProfileStoreBusyError, delete_profiles
 from mentormind.backend.app.deps import LoaderOpener, get_loader_opener, get_profile_store
 from mentormind.backend.app.uploads import upload_name
+from mentormind.backend.app.video_jobs import busy_message, running_videos
 from mentormind.capture.video.segmenters import METHODS, Method
 from mentormind.core.config import Settings, get_settings
 from mentormind.core.schemas import (
@@ -40,7 +41,8 @@ router = APIRouter(prefix="/videos", tags=["videos"])
 VIDEO_SUFFIXES = (".avi", ".m4v", ".mkv", ".mov", ".mp4", ".webm")
 VIDEO_ID = re.compile(r"VID-[0-9a-f]{12}")
 #: Any video id a profile may carry that is also a plain folder name (no ``.``, ``/``): safe to delete.
-FOLDER_NAME = re.compile(r"[A-Za-z0-9_-]+")
+#: A leading ``_`` is reserved for the server's own folders (``_incoming`` = uploads in progress).
+FOLDER_NAME = re.compile(r"[A-Za-z0-9-][A-Za-z0-9_-]*")
 WINDOW_S = 10.0
 DEFAULT_PROCESS_ID = "PACK01"
 _CHUNK = 1 << 20
@@ -114,7 +116,12 @@ def process_video(
     asset = _uploaded(settings, video_id)
     job_id = f"job-vid-{uuid.uuid4().hex[:8]}"
     store.create_job(job_id, "video_process")
-    background_tasks.add_task(run_video_process_task, job_id, asset, method, req.fps, settings, store)
+    running_videos.hold(asset.video_id)  # no deleting its steps or files until the job ends (spec 08 §2)
+    try:
+        background_tasks.add_task(run_video_process_task, job_id, asset, method, req.fps, settings, store)
+    except BaseException:
+        running_videos.release(asset.video_id)
+        raise
     return {"job_id": job_id}
 
 
@@ -147,7 +154,12 @@ def delete_video(
     profiles = [p for p in store.list_profiles() if p.evidence.video_id == video_id]
     if not FOLDER_NAME.fullmatch(video_id) or not (profiles or any(f.exists() for f in folders)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Không có video {video_id}.")
-    deleted = delete_profiles(store, profiles, open_loader)
+    if running_videos.holds(video_id):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=busy_message([video_id]))
+    try:
+        deleted = delete_profiles(store, profiles, open_loader)
+    except ProfileStoreBusyError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     result = VideoDeleteResult(
         video_id=video_id, deleted=deleted.deleted, unpublished=deleted.unpublished, failed=deleted.failed
     )
@@ -162,18 +174,24 @@ def delete_video(
 def run_video_process_task(
     job_id: str, asset: VideoAsset, method: Method, fps: float | None, settings: Settings, store: ProfileStore
 ) -> None:
-    """The background job of ``POST /videos/{id}/process``; any error ends it ``failed`` (AC-05)."""
-    store.update_job(job_id, JobStatus.RUNNING)
+    """The background job of ``POST /videos/{id}/process``; any error ends it ``failed`` (AC-05).
 
-    def report(progress: VideoProcessResult) -> None:
-        store.update_job(job_id, JobStatus.RUNNING, result=progress.model_dump(mode="json"))
-
+    The video stays held (no deleting it, spec 08 §2) until the job has recorded how it ended.
+    """
     try:
-        result = describe_video(asset, method=method, fps=fps, settings=settings, report=report)
-    except Exception as exc:
-        store.update_job(job_id, JobStatus.FAILED, error=str(exc) or type(exc).__name__)
-        return
-    store.update_job(job_id, JobStatus.DONE, result=result.model_dump(mode="json"))
+        store.update_job(job_id, JobStatus.RUNNING)
+
+        def report(progress: VideoProcessResult) -> None:
+            store.update_job(job_id, JobStatus.RUNNING, result=progress.model_dump(mode="json"))
+
+        try:
+            result = describe_video(asset, method=method, fps=fps, settings=settings, report=report)
+        except Exception as exc:
+            store.update_job(job_id, JobStatus.FAILED, error=str(exc) or type(exc).__name__)
+            return
+        store.update_job(job_id, JobStatus.DONE, result=result.model_dump(mode="json"))
+    finally:
+        running_videos.release(asset.video_id)
 
 
 def capture_pipeline(settings: Settings) -> "VideoCapturePipeline":

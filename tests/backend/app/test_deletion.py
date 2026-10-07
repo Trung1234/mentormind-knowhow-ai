@@ -6,19 +6,22 @@ No Neo4j, no PostgreSQL: the real ``KnowledgeGraphLoader`` runs on a fake graph 
 
 from __future__ import annotations
 
+import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from mentormind.backend.app.deps import get_knowledge_loader, get_loader_opener, get_profile_store
 from mentormind.backend.app.main import app
 from mentormind.backend.app.routers import videos as videos_router
+from mentormind.backend.app.video_jobs import running_videos
 from mentormind.core.config import Settings
-from mentormind.core.schemas import Evidence, WorkProfile
+from mentormind.core.schemas import Evidence, Review, VideoAsset, VideoProcessResult, WorkProfile
 from mentormind.knowledge_base.kg.loader import KnowledgeGraphLoader
 from mentormind.knowledge_base.store.profile_store import ProfileStore
 from mentormind.knowledge_base.store.vector_store import MemoryVectorStore
@@ -265,3 +268,113 @@ def test_ac_22_files_stay_while_an_approved_step_cannot_be_unloaded(
     assert sorted(body["deleted"]) == ["WP-PACK01-001", "WP-PACK01-003"] and body["files_removed"] == 0
     assert [f["profile_id"] for f in body["failed"]] == ["WP-PACK01-002"]
     assert all(f.exists() for f in files) and store.get_profile("WP-PACK01-002") is not None
+
+
+def test_ac_20_a_step_that_came_in_approved_then_edited_still_leaves_the_graph(
+    client: TestClient, store: ProfileStore, kg: FakeKnowledge
+) -> None:
+    # As seed_demo / an imported profile: approved with a review block but no review event,
+    # published by `knowhow kg load-profiles`.
+    review = Review(reviewer="Kỹ sư QA", reviewed_at="2026-09-28T08:00:00Z")
+    store.save_profile(step(1).model_copy(update={"status": "approved", "review": review}))
+    kg.loader().load_profiles(store.list_profiles())
+    assert kg.graph.steps == {"WP-PACK01-001"} and store.last_review_action("WP-PACK01-001") is None
+    assert (
+        client.patch("/profiles/WP-PACK01-001", json={"step": "Lấy linh kiện từ khay"}).json()["status"] == "in_review"
+    )
+    res = client.delete("/profiles/WP-PACK01-001")
+    assert res.status_code == 200, res.text
+    assert res.json()["unpublished"] == ["WP-PACK01-001"]
+    assert kg.graph.steps == set() and not kg.chunk_of("WP-PACK01-001")
+
+
+def test_ac_20_the_list_says_which_steps_the_graph_serves(client: TestClient, kg: FakeKnowledge) -> None:
+    _approve(client, kg, "WP-PACK01-001")
+    _approve(client, kg, "WP-PACK01-002")
+    assert client.patch("/profiles/WP-PACK01-001", json={"step": "Lấy linh kiện từ khay"}).status_code == 200
+    reject = {"action": "reject", "reviewer": "expert_01", "comment": "sai thao tác"}
+    assert client.post("/profiles/WP-PACK01-003/review", json=reject).status_code == 200
+    listed = {p["profile_id"]: (p["status"], p["published"]) for p in client.get("/profiles").json()}
+    assert listed == {
+        "WP-PACK01-001": ("in_review", True),  # edited after approval: the graph keeps the old version
+        "WP-PACK01-002": ("approved", True),
+        "WP-PACK01-003": ("rejected", False),
+        "WP-PACK01-004": ("draft", False),
+    }
+
+
+def test_ac_20_a_locked_store_deletes_nothing_and_keeps_the_graph(
+    client: TestClient, store: ProfileStore, kg: FakeKnowledge
+) -> None:
+    _approve(client, kg, "WP-PACK01-001")
+    store.timeout_s = 0.1
+    other = sqlite3.connect(store.db_path)
+    other.execute("BEGIN IMMEDIATE")  # another write (an approve publishing) holds the lock
+    try:
+        res = client.delete("/profiles/WP-PACK01-001")
+        assert res.status_code == 503 and "đang bận" in res.json()["detail"]
+        assert kg.graph.steps == {"WP-PACK01-001"} and kg.chunk_of("WP-PACK01-001")  # never unloaded
+    finally:
+        other.rollback()
+        other.close()
+    kept = store.get_profile("WP-PACK01-001")
+    assert kept is not None and kept.status == "approved"
+    assert client.delete("/profiles/WP-PACK01-001").json()["unpublished"] == ["WP-PACK01-001"]
+
+
+def test_ac_22_a_video_whose_job_is_running_cannot_be_deleted(
+    client: TestClient, settings: Settings, store: ProfileStore, kg: FakeKnowledge
+) -> None:
+    files = _video_files(settings, VIDEO_A)
+    running_videos.hold(VIDEO_A)
+    try:
+        res = client.delete(f"/videos/{VIDEO_A}")
+        assert res.status_code == 409 and "đang được xử lý" in res.json()["detail"]
+        assert client.delete("/profiles/WP-PACK01-001").status_code == 409
+        many = client.post("/profiles/delete", json={"profile_ids": ["WP-PACK01-004", "WP-PACK01-002"]})
+        assert many.status_code == 409 and VIDEO_A in many.json()["detail"]
+        assert _ids(client) == {"WP-PACK01-001", "WP-PACK01-002", "WP-PACK01-003", "WP-PACK01-004"}
+        assert all(f.exists() for f in files)
+        assert client.delete("/profiles/WP-PACK01-004").status_code == 200  # another video's step
+    finally:
+        running_videos.release(VIDEO_A)
+    assert client.delete(f"/videos/{VIDEO_A}").status_code == 200
+
+
+@pytest.mark.parametrize("fails", [False, True])
+def test_ac_22_the_process_job_holds_its_video_until_it_ends(
+    fails: bool, client: TestClient, settings: Settings, store: ProfileStore, kg: FakeKnowledge,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:  # fmt: skip
+    folder = settings.work_dir / "video" / VIDEO_A
+    folder.mkdir(parents=True)
+    asset = VideoAsset(
+        video_id=VIDEO_A, path=str(folder / "source.mp4"), duration_s=10.0, fps=25.0, has_audio=False,
+        process_id="PACK01", data_classification="synthetic",
+    )  # fmt: skip
+    (folder / "video.json").write_text(asset.model_dump_json(), encoding="utf-8")
+    refused: list[int] = []
+
+    def describe(asset: VideoAsset, **kwargs: Any) -> VideoProcessResult:
+        try:  # the user deletes the video while the job still saves steps
+            videos_router.delete_video(VIDEO_A, store=store, open_loader=kg.open)
+        except HTTPException as exc:
+            refused.append(exc.status_code)
+        if fails:
+            raise RuntimeError("VLM lỗi")
+        return VideoProcessResult(video_id=VIDEO_A, process_id="PACK01")
+
+    monkeypatch.setattr(videos_router, "describe_video", describe)
+    job = client.post(f"/videos/{VIDEO_A}/process", json={"method": "fixed_window"}).json()["job_id"]
+    assert refused == [409]
+    assert client.get(f"/jobs/{job}").json()["status"] == ("failed" if fails else "done")
+    assert "WP-PACK01-001" in _ids(client) and not running_videos.holds(VIDEO_A)
+    assert client.delete(f"/videos/{VIDEO_A}").status_code == 200  # once the job ended
+
+
+def test_ac_22_server_folders_are_not_videos(client: TestClient, settings: Settings) -> None:
+    incoming = settings.work_dir / "video" / "_incoming"
+    incoming.mkdir(parents=True)
+    (incoming / "0123abcd.mp4").write_bytes(b"x")  # an upload in progress
+    assert client.delete("/videos/_incoming").status_code == 404
+    assert (incoming / "0123abcd.mp4").exists()

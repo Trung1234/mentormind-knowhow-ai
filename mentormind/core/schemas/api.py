@@ -13,6 +13,7 @@ from mentormind.core.schemas.work_profile import (
     ExceptionCase,
     Expert,
     ReasonSource,
+    WorkProfile,
 )
 
 
@@ -124,6 +125,13 @@ class ProfileDeleteRequest(BaseModel):
     """Body of ``POST /profiles/delete`` (spec 08 §2, AC-21)."""
 
     profile_ids: list[str] = Field(min_length=1)
+
+
+class ProfileListItem(WorkProfile):
+    """A ``GET /profiles`` item: the profile plus whether the knowledge graph serves it (spec 08 §2)."""
+
+    #: In Neo4j + pgvector: deleting the step also unloads it (the UI warns). Not part of the contract.
+    published: bool = False
 
 
 class DeleteFailure(BaseModel):

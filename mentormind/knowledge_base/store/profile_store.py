@@ -12,6 +12,8 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -53,8 +55,10 @@ def _to_val(x: Any) -> Any:
 
 
 class ProfileStore:
-    def __init__(self, db_path: str | Path = "data/work/profiles.sqlite"):
+    def __init__(self, db_path: str | Path = "data/work/profiles.sqlite", *, timeout_s: float = 5.0):
         self.db_path = str(db_path)
+        #: How long a write waits for another one holding the SQLite lock (sqlite3's default).
+        self.timeout_s = timeout_s
         self._ensure_dir()
         self.init_db()
 
@@ -64,7 +68,7 @@ class ProfileStore:
             os.makedirs(db_dir, exist_ok=True)
 
     def _get_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=self.timeout_s)
         conn.row_factory = sqlite3.Row
         return conn
 
@@ -288,15 +292,52 @@ class ProfileStore:
             ).fetchone()
         return None if row is None else str(row["action"])
 
+    def last_review_actions(self) -> dict[str, str]:
+        """``profile_id`` → action of its latest review event, for every profile ever reviewed."""
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                "SELECT profile_id, action FROM review_events "
+                "WHERE id IN (SELECT MAX(id) FROM review_events GROUP BY profile_id)"
+            ).fetchall()
+        return {str(r["profile_id"]): str(r["action"]) for r in rows}
+
     def delete_profiles(self, profile_ids: list[str]) -> int:
         """Remove profiles and their review history (spec 08 §1); returns how many profiles existed."""
         if not profile_ids:
             return 0
-        marks = ", ".join("?" * len(profile_ids))
-        with self._get_connection() as conn:
-            conn.execute(f"DELETE FROM review_events WHERE profile_id IN ({marks})", profile_ids)
-            deleted = conn.execute(f"DELETE FROM profiles WHERE profile_id IN ({marks})", profile_ids).rowcount
-        return int(deleted)
+        with self.deleting() as delete:
+            return delete(profile_ids)
+
+    @contextmanager
+    def deleting(self) -> Iterator[Callable[[list[str]], int]]:
+        """Take the write lock first, let the caller work, delete, then commit (spec 08 §2).
+
+        The caller unpublishes inside the block, as ``record_review`` publishes inside its
+        transaction: once the graph has dropped a step, the delete cannot time out on a lock held
+        by another write. An error anywhere in the block rolls the delete back.
+
+        Raises:
+            sqlite3.OperationalError: the lock was not free within ``timeout_s`` — nothing deleted.
+        """
+        conn = self._get_connection()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+
+            def delete(profile_ids: list[str]) -> int:
+                if not profile_ids:
+                    return 0
+                marks = ", ".join("?" * len(profile_ids))
+                conn.execute(f"DELETE FROM review_events WHERE profile_id IN ({marks})", profile_ids)
+                return int(conn.execute(f"DELETE FROM profiles WHERE profile_id IN ({marks})", profile_ids).rowcount)
+
+            yield delete
+            conn.commit()
+        except BaseException:
+            if conn.in_transaction:
+                conn.rollback()
+            raise
+        finally:
+            conn.close()
 
     @staticmethod
     def _write_review_event(cursor: sqlite3.Cursor, profile_id: str, review_req: ReviewRequest, now_str: str) -> None:

@@ -45,10 +45,14 @@ function statusBadge(s: ProfileStatus) {
 const formatTime = (t?: number | null) => (t == null ? "—" : `${t.toFixed(1)}s`);
 
 // What the open confirmation dialog would delete (spec 08 §3: every delete asks first).
+// For a video, `steps` counts all its steps (filters ignored); null when they could not be listed.
 type DeleteTarget =
   | { kind: "step"; profile: WorkProfile }
   | { kind: "steps"; ids: string[] }
-  | { kind: "video"; videoId: string };
+  | { kind: "video"; videoId: string; steps: { total: number; published: number } | null };
+
+// In the knowledge graph: the API says so (an approved step edited back to in_review still is).
+const isPublished = (p: WorkProfile) => p.published ?? p.status === "approved";
 
 // Vietnamese summary of DELETE /profiles/{id}, POST /profiles/delete or DELETE /videos/{id}.
 function deletionMessage(r: ProfileDeleteResult): { type: "success" | "error"; text: string } {
@@ -281,8 +285,20 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
     }
   };
 
-  const approvedAmong = (ids: string[]) =>
-    profiles.filter((p) => ids.includes(p.profile_id) && p.status === "approved").length;
+  const publishedAmong = (ids: string[]) =>
+    profiles.filter((p) => ids.includes(p.profile_id) && isPublished(p)).length;
+
+  // Counts every step of the video, not only those the filters show, before asking to confirm.
+  const askDeleteVideo = async (videoId: string) => {
+    let steps: { total: number; published: number } | null = null;
+    try {
+      const all = (await api.getProfiles()).filter((p) => p.evidence.video_id === videoId);
+      steps = { total: all.length, published: all.filter(isPublished).length };
+    } catch {
+      steps = null; // the dialog then speaks without numbers
+    }
+    setConfirm({ kind: "video", videoId, steps });
+  };
 
   const confirmTitle = (t: DeleteTarget) =>
     t.kind === "step" ? "Xoá bước này?" : t.kind === "steps" ? `Xoá ${t.ids.length} bước đã chọn?` : "Xoá video này?";
@@ -292,15 +308,24 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
       return (
         <>
           <p>
-            Video <strong>{t.videoId}</strong>: mọi bước của video (kể cả bước đang bị bộ lọc ẩn) bị xoá khỏi hàng duyệt,
-            cùng tệp video, keyframe, clip và transcript trên máy chủ.
+            Video <strong>{t.videoId}</strong>: {t.steps ? <strong>{t.steps.total} bước</strong> : "mọi bước"} của video
+            (kể cả bước đang bị bộ lọc ẩn) bị xoá khỏi hàng duyệt, cùng tệp video, keyframe, clip và transcript trên máy chủ.
           </p>
-          <p>Bước đã duyệt của video (nếu có) cũng bị gỡ khỏi đồ thị tri thức và kho tìm kiếm.</p>
+          {t.steps ? (
+            t.steps.published > 0 && (
+              <p>
+                {t.steps.published} bước trong số đó đang có trong đồ thị tri thức: cũng bị gỡ khỏi đồ thị tri thức và kho
+                tìm kiếm, trợ lý sẽ không trích dẫn nữa.
+              </p>
+            )
+          ) : (
+            <p>Bước đã duyệt của video (nếu có) cũng bị gỡ khỏi đồ thị tri thức và kho tìm kiếm.</p>
+          )}
         </>
       );
     }
     const ids = t.kind === "step" ? [t.profile.profile_id] : t.ids;
-    const approved = approvedAmong(ids);
+    const approved = publishedAmong(ids);
     return (
       <>
         {t.kind === "step" ? (
@@ -314,8 +339,8 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
         )}
         {approved > 0 && (
           <p>
-            {t.kind === "step" ? "Bước này" : `${approved} bước trong số đó`} đã được duyệt: cũng bị gỡ khỏi đồ thị tri thức
-            và kho tìm kiếm, trợ lý sẽ không trích dẫn nữa.
+            {t.kind === "step" ? "Bước này" : `${approved} bước trong số đó`} đang có trong đồ thị tri thức (đã duyệt, kể cả
+            khi đã sửa sau lúc duyệt): cũng bị gỡ khỏi đồ thị tri thức và kho tìm kiếm, trợ lý sẽ không trích dẫn nữa.
           </p>
         )}
       </>
@@ -408,7 +433,7 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
               id="btn-delete-video"
               className="btn btn-danger btn-sm"
               disabled={!selectedVideo || pending !== null}
-              onClick={() => setConfirm({ kind: "video", videoId: selectedVideo })}
+              onClick={() => askDeleteVideo(selectedVideo)}
               title={selectedVideo ? `Xoá video ${selectedVideo} và mọi bước của nó` : "Chọn một video để xoá"}
             >
               {pending === "delete-video" ? <div className="spinner" /> : <Trash2 size={13} />}
