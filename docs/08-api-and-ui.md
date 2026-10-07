@@ -134,3 +134,4 @@ Cấu hình: `layout="wide"`, cỡ chữ ≥ 16px, nút bấm lớn; UI chỉ g�
 - v1.9 (07/10, Phúc): trang 4 tài liệu nhớ job id như video — chuyển tab/tải lại trang không còn mất tiến độ (trước đây chỉ theo dõi trong lần bấm nút); hiện tên tệp + thời gian đã chạy (lần đầu tải bge-m3/Docling mất vài phút).
 - v1.10 (07/10, Phúc): trang 4 video: chip giai đoạn đã xong có dấu ✓; giai đoạn vừa bắt đầu (chưa biết tổng) hiện "<giai đoạn>…" thay vì "0/0" (spec 03 AC-15).
 - v1.11 (07/10, Phúc): trình phát ở trang 1 có tiếng (clip giữ audio theo spec 03 FR-06 v1.8, bỏ `muted`); vẫn chỉ phát `t_start–t_end` của bước.
+- v1.12 (07/10, Phúc): trang 1 — Approve/Reject/Save hiện spinner + "Đang duyệt…/Đang từ chối…/Đang lưu…" và khóa cả ba nút tới khi API trả về (approve đồng bộ Neo4j + pgvector mất ~5 s, trước đây không có phản hồi gì).

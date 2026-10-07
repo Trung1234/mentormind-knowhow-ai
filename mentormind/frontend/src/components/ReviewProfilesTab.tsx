@@ -56,6 +56,8 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
   // Segments per video (GET /videos/{id}/segments) for the clip player; null = none saved for that video.
   const [segments,        setSegments]        = useState<Record<string, Segment[] | null>>({});
   const [loading,         setLoading]         = useState(false);
+  // The action whose request is in flight: approve syncs Neo4j + pgvector (~5 s), so show it.
+  const [pending,         setPending]         = useState<"approve" | "reject" | "save" | null>(null);
   const [actionMsg,       setActionMsg]       = useState<{ type: "success" | "error" | "warning"; text: string } | null>(null);
 
   // Editable form state
@@ -149,12 +151,15 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
         reason_source: reasonSource ? (reasonSource as ReasonSource) : null,
         pass_criteria: passCriteria || undefined,
       };
+      setPending("save");
       const updated = await api.patchProfile(selectedProfile.profile_id, patchData);
       selectProfile(updated); // resets the form and the message: the confirmation comes after
       setActionMsg({ type: "success", text: `SAVED: Profile ${updated.profile_id} updated to v${updated.version} — status IN_REVIEW.` });
       loadProfiles();
     } catch (err: any) {
       setActionMsg({ type: "error", text: `WRITE ERROR: ${err.message}` });
+    } finally {
+      setPending(null);
     }
   };
 
@@ -170,12 +175,15 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
         reviewer: reviewer.trim() || "QA Engineer",
         comment:  reviewComment || "Meets operation standard",
       };
+      setPending("approve");
       const updated = await api.reviewProfile(selectedProfile.profile_id, req);
       selectProfile(updated); // resets the form and the message: the confirmation comes after
       setActionMsg({ type: "success", text: `APPROVED: ${updated.profile_id} verified & synced to Neo4j Knowledge Graph.` });
       loadProfiles();
     } catch (err: any) {
       setActionMsg({ type: "error", text: `APPROVE FAILED: ${err.message}` });
+    } finally {
+      setPending(null);
     }
   };
 
@@ -192,12 +200,15 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
         comment:    reviewComment.trim(),
         error_tags: selectedErrorTags,
       };
+      setPending("reject");
       const updated = await api.reviewProfile(selectedProfile.profile_id, req);
       selectProfile(updated); // resets the form and the message: the confirmation comes after
       setActionMsg({ type: "warning", text: `REJECTED: ${updated.profile_id} — status set to REJECTED.` });
       loadProfiles();
     } catch (err: any) {
       setActionMsg({ type: "error", text: `ERROR: ${err.message}` });
+    } finally {
+      setPending(null);
     }
   };
 
@@ -677,17 +688,17 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr", gap: "0.85rem" }}>
-                  <button id="btn-approve" className="btn btn-success btn-lg" onClick={handleApprove} disabled={hasReasonWithoutSource}>
-                    <CheckCircle size={16} />
-                    Approve &amp; Verify
+                  <button id="btn-approve" className="btn btn-success btn-lg" onClick={handleApprove} disabled={hasReasonWithoutSource || pending !== null}>
+                    {pending === "approve" ? <div className="spinner" /> : <CheckCircle size={16} />}
+                    {pending === "approve" ? "Đang duyệt…" : <>Approve &amp; Verify</>}
                   </button>
-                  <button id="btn-reject" className="btn btn-danger btn-lg" onClick={handleReject}>
-                    <XCircle size={16} />
-                    Reject Step
+                  <button id="btn-reject" className="btn btn-danger btn-lg" onClick={handleReject} disabled={pending !== null}>
+                    {pending === "reject" ? <div className="spinner" /> : <XCircle size={16} />}
+                    {pending === "reject" ? "Đang từ chối…" : "Reject Step"}
                   </button>
-                  <button id="btn-save" className="btn btn-primary btn-lg" onClick={handleSavePatch}>
-                    <Save size={16} />
-                    Save Draft v{selectedProfile.version + 1}
+                  <button id="btn-save" className="btn btn-primary btn-lg" onClick={handleSavePatch} disabled={pending !== null}>
+                    {pending === "save" ? <div className="spinner" /> : <Save size={16} />}
+                    {pending === "save" ? "Đang lưu…" : `Save Draft v${selectedProfile.version + 1}`}
                   </button>
                 </div>
               </div>
