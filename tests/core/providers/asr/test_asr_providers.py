@@ -44,7 +44,8 @@ def test_ac_09_unknown_provider_lists_the_registered_ones(tmp_path: Path) -> Non
     with pytest.raises(ProviderConfigError) as exc:
         get_asr_provider(Settings(_env_file=None, asr_provider="openai_whisper_api"))
     assert "faster_whisper" in str(exc.value) and "fake" in str(exc.value)
-    assert set(ASR_REGISTRY.names()) == {"fake", "faster_whisper"}  # spec 03 FR-07: local backends only
+    # spec 03 FR-07: no third-party ASR — here, or the team's own inference server (remote).
+    assert set(ASR_REGISTRY.names()) == {"fake", "faster_whisper", "remote"}
 
 
 def test_ac_09_one_provider_per_configuration_so_the_model_loads_once(tmp_path: Path) -> None:
