@@ -32,6 +32,9 @@ class GeminiVLM:         # Could — chỉ khi còn thời gian
   nên không provider nào quên được guard (AC-03).
 - `is_cloud`: vendor cloud luôn `True`; `local_openai`/`openai_compatible` suy ra từ `base_url`
   (loopback, IP private, CGNAT/Tailscale, hostname LAN → local; còn lại → cloud) — AC-13.
+  Ngoại lệ do người vận hành khai báo: hostname nằm trong `KNOWHOW_LOCAL_HOSTS` (danh sách JSON, khớp đúng cả tên,
+  không phân biệt hoa thường, vd. `["abc.ngrok-free.dev"]` — tunnel tới máy tự host của chính đội) → local.
+  Chỉ áp cho `local_openai`/`openai_compatible`; vendor cloud luôn cloud dù host có trong danh sách — AC-23.
 - JSON mode theo endpoint (`KNOWHOW_VLM_JSON_MODE=auto`): `local_openai`, `openrouter` → `json_schema`;
   `qwen_api`, `siliconflow` → `json_object`. Luôn parse lại bằng `parse_json_object` (chịu được markdown fence).
 - Key lấy theo tên biến của vendor (`OPENROUTER_API_KEY`...) từ môi trường rồi `.env`;
@@ -157,6 +160,7 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - **AC-19** Lượt B: hai lần chạy khác `actor` → `actor=null`. Lượt C: không gộp hai bước khác `actor`; bước gộp giữ `actor` của nguồn dù LLM trả gì.
 - **AC-20** Lượt A trả tên bước tiếng Anh (vd. "Pick product") → hỏi lại 1 lần với prompt sửa nêu yêu cầu tiếng Việt và trường sai; lần 2 tiếng Việt → giữ bản tiếng Việt; lần 2 hỏng → giữ bản tiếng Anh, segment không bị đánh dấu lỗi.
 - **AC-21** Fallback `fixed_window` (ffmpeg giả lập, video tổng hợp): mỗi đoạn có đúng 3 keyframe JPG tồn tại trên đĩa, cạnh dài ≤ 768 px, chạy lại không ghi lại ảnh đã có; `segments.json` đọc lại được thành đúng các `Segment` đó; WorkProfile của bước mang keyframe của đoạn.
+- **AC-23** `KNOWHOW_LOCAL_HOSTS=["vlm-team.ngrok-free.dev"]`: `local_openai` trỏ `https://user:pass@VLM-team.ngrok-free.dev/v1` → `is_cloud=False`, nhận dữ liệu `factory_confidential`, khung hình không bị làm mờ; host public khác (kể cả `x.vlm-team.ngrok-free.dev`) vẫn cloud; `openrouter` vẫn cloud dù host của nó có trong danh sách; danh sách rỗng (mặc định) → hành vi như AC-13.
 - **AC-22** Transcript theo bước: hai bước cùng một đoạn nhận hai câu khác nhau (mỗi câu về bước trùng thời gian); câu nói ngay sau động tác (trong `lag`) về đúng bước vừa làm; câu vắt ranh giới hai bước về bước trùng nhiều hơn; bước không câu nào có `transcript_excerpt=None`; `propose-reasons` vẫn chỉ nhận `reason` khớp excerpt của chính bước đó.
 
 ## 9. Tasks
@@ -175,6 +179,7 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - [x] T04-13 Lượt A trả lời bằng tiếng Việt: luật trong prompt + hậu kiểm ngôn ngữ dùng chung lượt sửa (AC-20).
 - [x] T04-14 Fallback `--video`: 3 keyframe mỗi đoạn + ghi `segments.json` của video (dùng chung cho CLI và API spec 08, `processing/vlm/segments.py`) (AC-21).
 - [x] T04-15 Transcript theo từng bước (`lead`/`lag`), `--video` qua `VideoCapturePipeline` của spec 03 (AC-22).
+- [x] T04-16 `KNOWHOW_LOCAL_HOSTS`: host tự khai báo là local (vd. ngrok tới Mac tự host của đội) (AC-23).
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
@@ -198,3 +203,4 @@ knowhow vlm sweep --video data/samples/video/pack_demo_01.mp4 \
 - v1.18 (4/10, Phúc): §3 lượt A phải trả tiếng Việt (prompt + hậu kiểm `passes/language.py`, dùng chung lượt sửa), AC-20, T04-13; đo LASI: model Q4 trả 63–83% tên bước bằng tiếng Anh.
 - v1.19 (06/10, Phúc): FR-05 fallback `--video` sinh 3 keyframe/đoạn (spec 03 FR-05, cache) và ghi `data/work/video/<video_id>/segments.json` để `describe <video_id>`, API spec 08 (job xử lý video, `GET /videos/{id}/segments`) và trang duyệt dùng lại; `probe_video` tạm thay `video probe` của spec 03; AC-21, T04-14. Khi spec 03 xong chỉ bước cắt đổi, phần đọc `segments.json`/`transcript.json` giữ nguyên.
 - v1.20 (06/10, Phúc): §3 transcript theo **từng bước** thay vì theo đoạn: mỗi câu (đã được spec 03 gán vào đoạn) thuộc đúng một bước — cửa sổ `[t_start − lead, t_end + lag]` trùng nhiều nhất (`KNOWHOW_TRANSCRIPT_LEAD_S`=2, `KNOWHOW_TRANSCRIPT_LAG_S`=3), rồi phần trùng với chính bước, rồi bước trước; không trùng → bước gần nhất. Trước đây mọi bước của một đoạn trích chung mọi câu của đoạn, nên `propose-reasons` có thể gán lý do của bước này cho bước kia. `--video` cắt bằng `VideoCapturePipeline` của spec 03 (`--method`). AC-22, T04-15.
+- v1.21 (07/10, Phúc): FR-01 `is_cloud`: `KNOWHOW_LOCAL_HOSTS` cho phép khai báo đích danh hostname là local (đồng nghiệp gọi Ollama trên Mac của đội qua ngrok); chỉ `local_openai`/`openai_compatible`, khớp đúng cả tên, vendor cloud không đổi. AC-23, T04-16.

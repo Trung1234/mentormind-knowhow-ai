@@ -75,7 +75,7 @@ def resolve_endpoint(config: ProviderConfig, *, default_model: str | None, env_p
         name=name,
         base_url=base_url.rstrip("/"),
         model=model,
-        is_cloud=bool(endpoint and endpoint.is_cloud) or not is_private_url(base_url),
+        is_cloud=bool(endpoint and endpoint.is_cloud) or not is_private_url(base_url, config.local_hosts),
         api_key=api_key,
         json_mode=json_mode,
     )

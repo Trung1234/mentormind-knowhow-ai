@@ -1,7 +1,8 @@
 # Chạy full flow trên UI — VLM qua ngrok
 
 Từ upload video + PDF → duyệt bước → trợ lý → truy nguyên lỗi, chạy trên máy của bạn (macOS).
-VLM/LLM là Ollama `qwen3-vl:8b` trên **một Mac khác, mở ra ngoài bằng ngrok**.
+VLM/LLM là Ollama `qwen3-vl:8b` trên **Mac tự host của đội, mở ra bằng ngrok** — vẫn là server của mình,
+nên khai báo host ngrok là local (`KNOWHOW_LOCAL_HOSTS`).
 
 ```
 Máy bạn: UI :5173 → API :8000 → Neo4j + Postgres (Docker) · Whisper, bge-m3, Docling (CPU)
@@ -40,6 +41,7 @@ Sửa trong `.env`:
 
 ```bash
 KNOWHOW_VLM_BASE_URL=https://user:matkhau@<tên>.ngrok-free.dev/v1   # URL ngrok ở bước 0, thêm /v1
+KNOWHOW_LOCAL_HOSTS=["<tên>.ngrok-free.dev"]                        # đúng host ở dòng trên: tính là local
 KNOWHOW_API_AGENTS=live
 KNOWHOW_VIDEO_METHOD=scene          # video đã dựng, nhiều cảnh (LASI); quay liền 1 người: hand_activity
 ```
@@ -47,6 +49,7 @@ KNOWHOW_VIDEO_METHOD=scene          # video đã dựng, nhiều cảnh (LASI); 
 Kiểm tra:
 
 ```bash
+uv run python -c "from mentormind.core.providers.vlm import get_vlm_provider as g; print('cloud' if g().is_cloud else 'local')"   # phải in: local
 uv run knowhow vlm ping --frames 8  # dòng cuối PASS (qua ngrok trên Mac 16 GB: 1–3 phút)
 ```
 
@@ -70,8 +73,7 @@ npm --prefix mentormind/frontend run dev
 Mở **http://localhost:5173**. Không dùng `127.0.0.1` vì CORS chỉ cho `localhost`.
 Đừng dùng `make start` trên DB trống: script đó seed 4 bước giả `WP-PACK01-001..004`.
 
-Lần đầu tự tải: Docling/OCR, bge-m3 (~2 GB), Whisper small (~480 MB), model tay MediaPipe (8 MB),
-model làm mờ mặt YuNet (230 KB).
+Lần đầu tự tải: Docling/OCR, bge-m3 (~2 GB), Whisper small (~480 MB), model tay MediaPipe (8 MB).
 
 ## 5. Thao tác trên UI
 
@@ -87,9 +89,9 @@ Kiểm tra: `uv run knowhow kg stats` → số `Step` = số bước đã approv
 
 ### Lưu ý khi VLM đi qua ngrok
 
-- **Nhãn dữ liệu:** URL ngrok bị coi là cloud. Chỉ dùng nhãn *Công khai* hoặc *Dữ liệu tổng hợp*;
-  dữ liệu *Mật – dữ liệu nhà máy* bị chặn, không gửi đi (DataGuard).
-- **Mặt người tự làm mờ** trước khi khung hình gửi tới VLM; tên/số điện thoại trong text bị che.
+- **Local hay cloud:** host ngrok có trong `KNOWHOW_LOCAL_HOSTS` → local: nhãn nào cũng gửi được, khung hình
+  giữ nguyên, text không bị che. Quên dòng đó → bị coi là cloud: dữ liệu *Mật – dữ liệu nhà máy* bị chặn,
+  mặt người bị làm mờ (tải thêm model YuNet 230 KB). Chỉ khai báo host của server của đội, không khai báo host lạ.
 - **Chậm:** mỗi đoạn video tốn 2 lượt VLM, mỗi lượt vài phút trên Mac 16 GB. Video LASI (31 phút, cắt
   theo cảnh → 30 đoạn) mất khoảng 1 giờ trên GPU MI250, trên Mac lâu hơn nhiều. Thử nhanh bằng 3 phút đầu:
   `ffmpeg -t 180 -i "<video>.mkv" -c copy lasi-3m.mkv`.

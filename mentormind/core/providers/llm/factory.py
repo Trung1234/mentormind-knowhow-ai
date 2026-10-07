@@ -46,6 +46,7 @@ def llm_config_from_settings(settings: Settings) -> ProviderConfig:
         json_mode=settings.llm_json_mode,
         max_tokens=settings.llm_max_tokens,
         extra_body=settings.llm_extra_body,
+        local_hosts=tuple(settings.local_hosts),
     )
 
 

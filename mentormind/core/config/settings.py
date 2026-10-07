@@ -129,6 +129,9 @@ class Settings(BaseSettings):
     guard_audit_dir: Path | None = REPO_ROOT / "data" / "work" / "audit"
     # Site-specific codes to mask, entity -> regex, e.g. {"EQUIPMENT": "SIGMA-EQ-\\d+"}.
     guard_extra_patterns: dict[str, str] = {}
+    # Public hostnames that are really the team's own server (e.g. an ngrok tunnel to it), so
+    # local_openai / openai_compatible calls to them count as local (spec 04 AC-23).
+    local_hosts: list[str] = []
 
     # --- Agents (spec 06) -----------------------------------------------------------------
     # Work Assistant guard 1: refuse when the best spec 05 score is below this. That score is RRF

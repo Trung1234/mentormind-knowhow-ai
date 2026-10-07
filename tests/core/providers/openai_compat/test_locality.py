@@ -24,3 +24,11 @@ from mentormind.core.providers.openai_compat import is_private_url
 )
 def test_is_private_url(url: str, private: bool) -> None:
     assert is_private_url(url) is private
+
+
+def test_ac_23_declared_hosts_match_the_whole_name_case_insensitively() -> None:
+    hosts = ["vlm-team.ngrok-free.dev"]
+    assert is_private_url("https://u:p@VLM-Team.ngrok-free.dev/v1", local_hosts=hosts)
+    assert not is_private_url("https://x.vlm-team.ngrok-free.dev/v1", local_hosts=hosts)
+    assert not is_private_url("https://vlm-team.ngrok-free.dev.evil.com/v1", local_hosts=hosts)
+    assert not is_private_url("https://vlm-team.ngrok-free.dev/v1")
