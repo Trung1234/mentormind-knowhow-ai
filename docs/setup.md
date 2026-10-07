@@ -31,7 +31,7 @@ open -a Docker            # Docker Desktop phải đang chạy
 
 ```bash
 git clone git@github.com:Trung1234/mentormind-knowhow-ai.git && cd mentormind-knowhow-ai
-git checkout phuc-nguyen/spec03-video        # sau khi PR #18 merge: main
+git checkout main
 uv sync --all-extras
 npm --prefix mentormind/frontend ci
 cp .env.example .env
@@ -75,28 +75,146 @@ Mở **http://localhost:5173**. Không dùng `127.0.0.1` vì CORS chỉ cho `loc
 
 Lần đầu tự tải: Docling/OCR, bge-m3 (~2 GB), Whisper small (~480 MB), model tay MediaPipe (8 MB).
 
-## 5. Thao tác trên UI
+## 5. Test trên giao diện
 
-| # | Tab | Làm | Kết quả mong đợi |
-|---|---|---|---|
-| 1 | Tải dữ liệu → Video | Chọn video, mã công đoạn `PACK01`, cách cắt (hoặc "Mặc định của máy chủ"), nhãn **Công khai** → Tải lên & phân tích | Tiến độ 5 bước: cắt đoạn → nhận dạng lời nói → VLM mô tả → gộp bước → đề xuất lý do; xong thì ra bảng bước nháp có keyframe |
-| 2 | Tải dữ liệu → Tài liệu | `data/demo/packing/packing_sop.pdf`, nhãn **Dữ liệu tổng hợp** → Tải lên & xử lý | 3 trang → 13 chunk (~40 s); chạy được song song với video |
-| 3 | Duyệt (hoặc nút "Duyệt các bước này") | Xem keyframe, clip, lời chuyên gia của bước → sửa nếu cần → Approve & Verify | Thông báo `APPROVED`; bước vào Neo4j + pgvector |
-| 4 | Trợ lý | `PACK01` + câu hỏi dùng từ của bước đã duyệt, VD "Đặt linh kiện vào hộp như thế nào?" | Câu trả lời + trích dẫn (bấm → keyframe). Câu ngoài phạm vi bị từ chối |
-| 5 | Truy nguyên lỗi | Lot `LOT-PACK01-001` → Investigate Root Cause | Chuỗi 5-Why + giả thuyết + biện pháp + ghi chú "giả thuyết, chưa phải kết luận" |
+Mở **http://localhost:5173** (F5 sau mỗi lần khởi động lại API). Thanh tab trên cùng:
+**HUMAN-IN-THE-LOOP REVIEW** · **KNOW-HOW ASSISTANT** · **ROOT CAUSE ANALYSIS (5-WHY)** · **TẢI DỮ LIỆU**.
 
-Kiểm tra: `uv run knowhow kg stats` → số `Step` = số bước đã approve.
+Trợ lý chỉ trả lời từ hai nguồn: **tài liệu đã upload** (vào kho ngay, không cần duyệt) và **bước video đã được
+Approve** (bước nháp chưa duyệt không được dùng). Nên làm theo thứ tự: Luồng A → bắt đầu Luồng B → trong lúc video
+chạy thì thử Luồng C.
+
+### Luồng A — Upload PDF → hỏi trợ lý (~3 phút)
+
+1. Tab **TẢI DỮ LIỆU** → kéo xuống ô **TẢI TÀI LIỆU VÀO KHO TRI THỨC**.
+2. Bấm **CHỌN TỆP…** → chọn `data/demo/packing/packing_sop.pdf` (SOP giả lập của PACK01, 3 trang).
+   Tên tệp hiện cạnh nút.
+3. Ô **NHÃN DỮ LIỆU (BẮT BUỘC)** → chọn **Dữ liệu tổng hợp**. Chưa chọn nhãn thì nút tải lên bị khóa.
+4. Bấm **TẢI LÊN & XỬ LÝ**. Hiện ô **KẾT QUẢ XỬ LÝ**: badge **ĐANG XỬ LÝ**, tên tệp, mã job, "Đã chạy …".
+   - Lần đầu chậm hơn (~3–5 phút) vì máy chủ tải model bge-m3 (~2 GB) và Docling; các lần sau ~40 s.
+   - Thử: bấm sang tab khác rồi quay lại **TẢI DỮ LIỆU** → vẫn thấy tiến độ (job id được nhớ trong trình duyệt).
+5. Chờ badge **HOÀN TẤT**: bảng `packing_sop.pdf · DOC-… · docling · 3 trang · 13 chunk · XONG` và dòng
+   **Tổng số chunk đã index: 13**.
+6. Tab **KNOW-HOW ASSISTANT** → ô **PROCESS LINE** chọn `PACK01 - Packaging Line`.
+7. Gõ từng câu vào **YOUR TECHNICAL QUERY**, bấm **ASK COPILOT** (hoặc Enter; Shift+Enter để xuống dòng):
+
+   | Câu hỏi | Mong đợi |
+   |---|---|
+   | Nếu phát hiện pin connector bị cong thì phải làm gì? | Dừng đóng gói linh kiện đó, tách riêng, ghi nhận, chuyển người phụ trách/QC; không tự uốn. Có `[n]` trỏ tới **TÀI LIỆU** `DOC-…` |
+   | Tiêu chí đạt khi đóng gói PACK01 là gì? | Đúng part, lot, số lượng, chiều; không lỗi ngoại quan rõ ràng; nhãn đọc được |
+   | Giá cổ phiếu DENSO hôm nay là bao nhiêu? | **Bị từ chối**: khung vàng "Insufficient Evidence — Response Refused" |
+
+8. Kéo xuống **EVIDENCE CITATIONS** → bấm một thẻ loại **TÀI LIỆU** → khung **Nguồn** hiện đoạn trích của PDF.
+   - Danh sách liệt kê mọi đoạn tìm được (tới ~20+, có trùng); câu trả lời chỉ dựa vào các `[n]` nó nhắc.
+   - Đã biết: câu "Quy trình đóng gói gồm những bước nào?" trả lời thiếu — bảng 8 bước không được tìm vì chỉ chunk
+     có chữ "PACK01" mới qua bộ lọc công đoạn (đang chờ sửa spec 02).
+
+### Luồng B — Upload video → duyệt bước → hỏi trợ lý
+
+Thời gian phụ thuộc VLM: Ollama Q4 trên Mac 16 GB mất vài phút mỗi lượt gọi, video LASI đủ (31 phút → ~30 đoạn,
+~60 lượt) mất **nhiều giờ**. Để thử, cắt 3 phút đầu (~5–8 đoạn):
+
+```bash
+ffmpeg -t 180 -i "data/video/LASI Success Case - Food Industry (Asian Alliance Internation Co.,Ltd.) [m4icg6FgTBU].mkv" -c copy lasi-3m.mkv
+```
+
+**Upload và theo dõi**
+
+1. Tab **TẢI DỮ LIỆU** → ô **TẢI VIDEO THAO TÁC**.
+2. Bấm **CHỌN VIDEO…** → `lasi-3m.mkv` (hoặc video LASI đầy đủ trong `data/video/`).
+3. **MÃ CÔNG ĐOẠN**: để `PACK01` (mọi bước sinh ra sẽ có mã `WP-PACK01-…`).
+4. **CÁCH CẮT ĐOẠN**:
+   - **Mặc định của máy chủ (KNOWHOW_VIDEO_METHOD)** — theo `.env` (`scene` ở bước 2);
+   - **Theo nhịp tay (MediaPipe)** — video quay liền một người thao tác; thấy tay ở < 10% số khung (như LASI, ~4%)
+     thì tự rơi về **Theo cảnh**;
+   - **Theo cảnh (PySceneDetect)** — video đã dựng, nhiều cảnh (LASI);
+   - **Cố định 10 giây**.
+5. **NHÃN DỮ LIỆU (BẮT BUỘC)** → **Công khai**.
+6. Bấm **TẢI LÊN & PHÂN TÍCH**. Ô **PHÂN TÍCH VIDEO** (badge **ĐANG PHÂN TÍCH**) hiện 5 giai đoạn: đang chạy = vàng, xong = xanh có **✓**,
+   chưa tới = xám; bên dưới là dòng tiến độ và "Đã chạy …":
+
+   | Giai đoạn | Dòng tiến độ | Thời gian (video 3 phút / LASI đủ) |
+   |---|---|---|
+   | **1. CẮT ĐOẠN** | "Cắt đoạn…" rồi "Cắt đoạn: x/N đoạn" | ~10 s / ~45 s |
+   | **2. NHẬN DẠNG LỜI NÓI** | "Nhận dạng lời nói: x/y giây audio" | ~20 s / ~3 phút (lần đầu thêm tải Whisper ~480 MB) |
+   | **3. VLM MÔ TẢ** | "VLM mô tả: x/2N lượt đoạn (A, B)" (mỗi đoạn 2 lượt: lượt A + lượt B) | phần lâu nhất, theo VLM |
+   | **4. GỘP BƯỚC** | "Gộp bước…" | 1 lượt LLM |
+   | **5. ĐỀ XUẤT LÝ DO** | "Đề xuất lý do: x/y bước có lời chuyên gia" | 1 lượt LLM mỗi bước có lời nói |
+
+   - Có thể sang tab khác (vd. làm Luồng C) rồi quay lại; tải lại trang vẫn theo dõi tiếp.
+   - **Không** tắt API giữa chừng: job đang chạy sẽ thành **LỖI**, phải tải lên lại.
+7. Xong: badge **HOÀN TẤT**, dòng tóm tắt "cắt theo cảnh … → N đoạn → M bước nháp … Lời nói: x câu, y bước có lời
+   chuyên gia, z bước được đề xuất lý do", và bảng các bước: keyframe, tên bước, thời gian, trạng thái
+   **NHÁP** hoặc **ĐANG DUYỆT** (bước có lý do đề xuất).
+
+**Duyệt bước**
+
+8. Bấm **DUYỆT CÁC BƯỚC NÀY** → mở tab **HUMAN-IN-THE-LOOP REVIEW**, ô **VIDEO** lọc sẵn video vừa xử lý.
+   (Vào thẳng tab này thì chọn **PROCESS LINE** `PACK01`, **VIDEO** = mã `VID-…` của video.)
+9. Cột trái **WORK PROFILES** → bấm một bước. Bên phải, từ trên xuống:
+   - **VISUAL EVIDENCE — MACHINE VISION CCTV**: 3 keyframe của đoạn chứa bước + clip. Bấm ▶: clip phát đúng khoảng
+     thời gian của bước (nhãn **FEED** ghi `t_start – t_end`), có tiếng nếu video có tiếng. Bước mà VLM gán chỉ
+     0,1–1 s thì clip dừng sau ~1 s — đúng thiết kế.
+   - **OPERATIONAL KNOW-HOW EDITOR**: **STEP ACTION NAME** (bắt đầu bằng động từ), **HAND ACTION OBSERVED**,
+     **KEY POINT / CRITICAL OBSERVATION**.
+   - **LỜI CHUYÊN GIA VỀ BƯỚC NÀY (TRANSCRIPT)**: câu chuyên gia nói trong lúc làm bước (LASI: tiếng Thái), hoặc
+     khung xanh "Không có lời chuyên gia nào nói về bước này…".
+   - **EXPERT KNOW-HOW REASON** + **REASON SOURCE CLASSIFICATION**: bước **IN REVIEW** đã có lý do AI trích từ lời
+     chuyên gia (nguồn `expert_verbal`). AI không tự nghĩ ra lý do: đối chiếu với ô transcript ngay trên — lý do
+     phải là một phần lời chuyên gia; sai thì sửa hoặc xóa.
+   - **QA VERIFICATION & STATION SIGN-OFF**: **LEAD REVIEWER**, **REVIEW COMMENT**, các nhãn lỗi
+     (**+ MISSED STEP**, **+ HALLUCINATED STEP**, **+ WRONG ORDER**…).
+10. Với từng bước, chọn một trong ba:
+    - **APPROVE & VERIFY**: nút hiện "Đang duyệt…" (~5 s, đồng bộ Neo4j + pgvector) → dòng xanh
+      "APPROVED: WP-PACK01-0xx verified & synced to Neo4j Knowledge Graph", badge **APPROVED**.
+      Có lý do mà chưa chọn **REASON SOURCE CLASSIFICATION** thì nút bị khóa.
+    - **REJECT STEP**: bắt buộc ghi **REVIEW COMMENT**; nên gắn nhãn lỗi (vd. **+ HALLUCINATED STEP**) → badge **REJECTED**.
+    - **SAVE DRAFT V2**: lưu phần đã sửa, chưa duyệt → **IN REVIEW**, phiên bản tăng.
+11. Duyệt 4–6 bước có tên khác nhau (vd. "Nhặt sản phẩm từ băng tải", "Đặt sản phẩm vào hộp"); reject ít nhất một
+    bước sai rõ ràng để thử luồng từ chối.
+12. Kiểm tra: `uv run knowhow kg stats` → `Step` = số bước đã approve.
+
+**Hỏi trợ lý về bước đã duyệt**
+
+13. Tab **KNOW-HOW ASSISTANT** → `PACK01` → hỏi bằng từ trong tên bước đã approve:
+
+    | Câu hỏi (đổi theo bước bạn đã duyệt) | Mong đợi |
+    |---|---|
+    | Nhặt sản phẩm từ băng tải như thế nào? | Trả lời + `[n]` trỏ tới **BƯỚC THAO TÁC** / **ĐOẠN VIDEO** |
+    | Kiểm tra gì trước khi đặt linh kiện vào hộp? | Có thể trích cả **TÀI LIỆU** (SOP) lẫn **BƯỚC THAO TÁC** |
+    | Robot hàn mạch điện như thế nào? | **Bị từ chối** (không có bước nào nói về việc này) |
+
+14. Bấm thẻ **BƯỚC THAO TÁC** → khung **Nguồn: <tên bước>** hiện keyframe và "THỜI ĐIỂM TRONG VIDEO: a – b s".
+
+### Luồng C — Truy nguyên lỗi (không cần upload)
+
+1. Tab **ROOT CAUSE ANALYSIS (5-WHY)** → **SELECT DEFECTIVE PRODUCTION LOT (MES FEED)** →
+   `LOT-PACK01-001 · P-A · 2026-09-20 · Thiếu linh kiện trong hộp`.
+   (Hoặc để trống lot và gõ triệu chứng vào **MÔ TẢ TRIỆU CHỨNG**.)
+2. Bấm **INVESTIGATE ROOT CAUSE** (~1–2 phút).
+3. Mong đợi: **DEFECT TRACEABILITY REPORT** (lot, triệu chứng); **5-WHY CAUSAL CHAIN** (các tầng "Vì sao…?", số tầng
+   do LLM); **FAILURE HYPOTHESES** (vd. `DEF-001`, HIGH LIKELIHOOD, nguồn `defect_catalog.csv`);
+   **PREVENTIVE ACTIONS (KAIZEN)**; khung xanh "Đây là giả thuyết … chưa phải kết luận".
+   Sau Luồng B, hành động phòng ngừa có thể trỏ tới bước đã duyệt (`WP-PACK01-…`).
 
 ### Lưu ý khi VLM đi qua ngrok
 
 - **Local hay cloud:** host ngrok có trong `KNOWHOW_LOCAL_HOSTS` → local: nhãn nào cũng gửi được, khung hình
   giữ nguyên, text không bị che. Quên dòng đó → bị coi là cloud: dữ liệu *Mật – dữ liệu nhà máy* bị chặn,
   mặt người bị làm mờ (tải thêm model YuNet 230 KB). Chỉ khai báo host của server của đội, không khai báo host lạ.
-- **Chậm:** mỗi đoạn video tốn 2 lượt VLM, mỗi lượt vài phút trên Mac 16 GB. Video LASI (31 phút, cắt
-  theo cảnh → 30 đoạn) mất khoảng 1 giờ trên GPU MI250, trên Mac lâu hơn nhiều. Thử nhanh bằng 3 phút đầu:
-  `ffmpeg -t 180 -i "<video>.mkv" -c copy lasi-3m.mkv`.
-- Mac chạy Ollama hoặc máy bạn ngủ → lượt VLM lỗi → job `failed`. Giữ cả hai máy thức (`caffeinate`).
-- Tắt API giữa chừng → job đang chạy hiện `failed`; tải lên lại.
+- Mac chạy Ollama hoặc máy bạn ngủ → lượt VLM lỗi → job **LỖI**. Giữ cả hai máy thức (`caffeinate`).
+
+### Gặp lỗi
+
+| Hiện tượng | Nguyên nhân / cách xử lý |
+|---|---|
+| Trang trắng hoặc "Không kết nối được tới máy chủ API" | API chưa chạy, hoặc mở bằng `127.0.0.1` — dùng `http://localhost:5173` |
+| `vlm ping`: 404 `model 'qwen3-vl:8b' not found` | Mac bên kia chưa kéo xong model; chờ rồi ping lại |
+| Job video **LỖI** "Máy chủ API đã khởi động lại khi job đang chạy…" | API bị tắt/khởi động lại giữa chừng; tải video lên lại |
+| Đứng lâu ở **3. VLM MÔ TẢ** | Bình thường với Ollama Q4 trên Mac (vài phút/lượt); xem "x/2N lượt đoạn" có tăng |
+| Trợ lý từ chối mọi câu về video | Chưa approve bước nào, hoặc **PROCESS LINE** khác `PACK01` |
+| Trợ lý trả lời thiếu bước của SOP | Đã biết (bộ lọc công đoạn theo từng chunk), xem cuối Luồng A |
+| `kg stats` báo lỗi kết nối | `docker compose --profile lite up -d postgres neo4j` rồi chờ healthy |
 
 ## 6. Dọn
 
