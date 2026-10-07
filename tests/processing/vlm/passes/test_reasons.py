@@ -14,6 +14,7 @@ from typing import Any
 
 import pytest
 
+from mentormind.core.providers.errors import ProviderError
 from mentormind.core.providers.llm.backends.fake import FakeLLM
 from mentormind.core.schemas import ReasonAuditRecord
 from mentormind.core.schemas.work_profile import WorkProfile, validate_against_contract
@@ -90,6 +91,32 @@ def test_ac_09_a_paraphrase_not_in_the_transcript_is_dropped() -> None:
     assert profile.status == "draft"
 
 
+def test_ac_09_the_whole_excerpt_plus_an_invented_purpose_is_dropped(tmp_path: Path) -> None:
+    excerpt = "Bây giờ tôi đặt cốc vào thùng carton"  # no purpose said
+    span = "Bây giờ tôi đặt cốc vào thùng carton để cốc không bị nứt"  # partial_ratio would give 100
+    audit = tmp_path / "reasons_audit.jsonl"
+    [profile] = propose_reasons([draft(transcript=excerpt)], FakeLLM([answer(span)]), audit=audit)
+    assert (profile.reason, profile.reason_source, profile.status) == (None, None, "draft")
+    [line] = audit_lines(audit)
+    assert line.decision == "rejected_not_verbatim"
+    assert line.match_score is not None and line.match_score < QUOTE_THRESHOLD
+
+
+def test_ac_09_a_span_as_long_as_the_whole_excerpt_is_still_verbatim() -> None:
+    excerpt = "để tránh cong pin khi ấn"
+    [profile] = propose_reasons([draft(transcript=excerpt)], FakeLLM([answer(excerpt + ".")]))
+    assert profile.reason == excerpt and profile.status == "in_review"
+
+
+@pytest.mark.parametrize("status", ["in_review", "approved", "rejected"])
+def test_ac_08_a_step_a_reviewer_already_handled_is_not_examined(status: str, tmp_path: Path) -> None:
+    llm = FakeLLM([answer("vì nếu không sẽ trầy mặt khi đóng nắp hộp")])
+    audit = tmp_path / "reasons_audit.jsonl"
+    handled = draft().model_copy(update={"status": status})
+    [profile] = propose_reasons([handled], llm, audit=audit)
+    assert profile is handled and llm.calls == [] and not audit.exists()
+
+
 @pytest.mark.parametrize("excerpt", ["falling", "3", "หมด", "ok... ừ, à!"])
 def test_ac_25_a_junk_excerpt_is_not_sent_and_gets_no_reason(excerpt: str, tmp_path: Path) -> None:
     llm = FakeLLM([answer(excerpt)])
@@ -130,6 +157,33 @@ def test_ac_26_an_excerpt_without_sentence_marks_is_one_sentence() -> None:
     excerpt = "เราต้องวางชิ้นงานให้ตรง เพื่อเพิ่มประสิทธิภาพ ของการผลิต"  # ASR Thai: no punctuation
     [profile] = propose_reasons([draft(transcript=excerpt)], FakeLLM([answer("เพื่อเพิ่มประสิทธิภาพ")]))
     assert profile.reason == excerpt
+
+
+@pytest.mark.parametrize(
+    ("excerpt", "span", "sentence"),
+    [
+        (  # one extra word before the span: the window starts inside the previous sentence
+            "Nhặt cốc lên nhé. Để cốc không bị nứt thì xếp nghiêng trong thùng.",
+            "vì để cốc không bị nứt",
+            "Để cốc không bị nứt thì xếp nghiêng trong thùng.",
+        ),
+        (  # one extra word after it: the window ends inside the next sentence
+            "Nhặt cốc lên nhé. Đặt cốc vào thùng, xếp nghiêng để cốc không bị nứt! Xong rồi.",
+            "để cốc không bị nứt vỡ",
+            "Đặt cốc vào thùng, xếp nghiêng để cốc không bị nứt!",
+        ),
+        (
+            "Nhặt cốc lên nhé. Đặt cốc vào thùng, xếp nghiêng để cốc không bị nứt! Xong rồi.",
+            "Để cốc không bị nứt nhé",
+            "Đặt cốc vào thùng, xếp nghiêng để cốc không bị nứt!",
+        ),
+    ],
+)
+def test_ac_26_an_extra_word_in_the_span_does_not_pull_in_a_neighbour_sentence(
+    excerpt: str, span: str, sentence: str
+) -> None:
+    [profile] = propose_reasons([draft(transcript=excerpt)], FakeLLM([answer(span)]))
+    assert profile.reason == sentence and profile.status == "in_review"
 
 
 def test_ac_26_a_span_across_two_sentences_keeps_both_verbatim() -> None:
@@ -189,3 +243,32 @@ def test_ac_27_a_second_run_appends_to_the_audit(tmp_path: Path) -> None:
     propose_reasons([draft()], FakeLLM([answer(None, has_reason=False)]), audit=audit)
     propose_reasons([draft()], FakeLLM([answer("vì nếu không sẽ trầy mặt")]), audit=audit)
     assert [line.decision for line in audit_lines(audit)] == ["no_reason", "accepted"]
+
+
+class FailingLLM(FakeLLM):
+    """Answers the first call, then times out like a provider after its retries."""
+
+    def generate(self, *args: Any, **kwargs: Any) -> Any:
+        if self.calls:
+            raise ProviderError("timeout after retries")
+        return super().generate(*args, **kwargs)
+
+
+def test_ac_27_an_accepted_line_is_written_only_once_the_profile_is_saved(tmp_path: Path) -> None:
+    audit = tmp_path / "reasons_audit.jsonl"
+    saved: list[str] = []
+    llm = FailingLLM([answer("vì nếu không sẽ trầy mặt khi đóng nắp hộp")])
+    with pytest.raises(ProviderError):
+        propose_reasons(
+            [draft(number=1), draft(number=2)], llm, audit=audit, save=lambda p: saved.append(p.reason or "")
+        )
+    assert saved == [TRANSCRIPT]  # stored as soon as accepted, before the run stopped
+    assert [(line.profile_id, line.decision) for line in audit_lines(audit)] == [("WP-PACK01-001", "accepted")]
+
+    def broken(profile: WorkProfile) -> None:
+        raise OSError("disk full")
+
+    audit.unlink()
+    with pytest.raises(OSError):
+        propose_reasons([draft()], FakeLLM([answer("vì nếu không sẽ trầy mặt")]), audit=audit, save=broken)
+    assert not audit.exists()  # never "accepted" for a reason the store does not hold

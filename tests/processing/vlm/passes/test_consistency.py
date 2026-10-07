@@ -78,3 +78,14 @@ def test_an_actor_only_one_run_could_tell_is_kept() -> None:
     second = run(timed("Đặt cốc vào thùng", 0, 2, actor="machine"))
     [step] = self_consistent(first, second).steps
     assert step.actor == "machine"
+
+
+def test_ac_24_steps_sharing_a_tiled_span_keep_the_model_order_after_pass_b() -> None:
+    # SegmentTiling gives every step with the same start (or clamped to the segment end) one span.
+    names = ["Nhặt cốc lên từ bàn", "Đặt cốc vào thùng carton", "Dán băng keo nắp thùng"]
+    first = run(*(timed(name, 0, 10) for name in names))
+    assert [s.step for s in self_consistent(first, first).steps] == names
+    # The later step matching better must not jump ahead either.
+    second = run(timed("Nhặt chiếc cốc trên bàn lên", 0, 10), timed("Đặt cốc vào thùng carton", 0, 10))
+    kept = self_consistent(run(*(timed(name, 0, 10) for name in names[:2])), second)
+    assert [s.step for s in kept.steps] == names[:2]

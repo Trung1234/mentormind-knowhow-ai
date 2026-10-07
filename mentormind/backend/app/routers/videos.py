@@ -26,6 +26,7 @@ from mentormind.core.schemas import (
     VideoDeleteResult,
     VideoProcessProgress,
     VideoProcessResult,
+    WorkProfile,
 )
 from mentormind.knowledge_base.store.profile_store import ProfileStore
 
@@ -198,7 +199,7 @@ def describe_video(
     from mentormind.core.guard import DataGuard
     from mentormind.core.providers.llm import get_llm_provider
     from mentormind.core.providers.vlm import get_vlm_provider
-    from mentormind.processing.vlm.passes.reasons import propose_reasons, reasons_audit_path
+    from mentormind.processing.vlm.passes.reasons import examined, propose_reasons, reasons_audit_path
     from mentormind.processing.vlm.passes.step_times import get_step_timer
     from mentormind.processing.vlm.pipeline import DescribePipeline
     from mentormind.processing.vlm.profiles import FileProfileSink, get_profile_sink
@@ -259,21 +260,24 @@ def describe_video(
 
     quoting = [p for p in stored if p.evidence.transcript_excerpt]
     result.steps_with_excerpt = len(quoting)
-    waiting = [p for p in quoting if p.reason is None]
-    proposed = {}
+    waiting = [p for p in quoting if examined(p)]
+    current = {p.profile_id: p for p in stored}
+    filled: list[str] = []
+
+    def save(profile: WorkProfile) -> None:
+        # As `knowhow vlm propose-reasons`: each accepted step is stored before its audit line (spec 04
+        # §5); the file sink rewrites the video, the store only that step.
+        current[profile.profile_id] = profile
+        sink.save(asset.video_id, list(current.values()) if isinstance(sink, FileProfileSink) else [profile])
+        filled.append(profile.profile_id)
+
     audit = reasons_audit_path(work, asset.video_id)  # spec 04 §5: the user's self-check
     for done, profile in enumerate(waiting):
         stage("reasons", done, len(waiting))
-        [after] = propose_reasons([profile], llm, audit=audit)
-        if after.reason != profile.reason:
-            proposed[after.profile_id] = after
-    if proposed:
-        # As `knowhow vlm propose-reasons`: the file sink rewrites the video, the store only what changed.
-        everything = [proposed.get(p.profile_id, p) for p in stored]
-        sink.save(asset.video_id, everything if isinstance(sink, FileProfileSink) else list(proposed.values()))
+        propose_reasons([profile], llm, audit=audit, save=save)
     if waiting:
         stage("reasons", len(waiting), len(waiting))
-    result.reasons_filled = len(proposed)
+    result.reasons_filled = len(filled)
     return result
 
 
