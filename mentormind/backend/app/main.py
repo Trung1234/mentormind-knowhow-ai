@@ -10,6 +10,7 @@ from mentormind.backend.app.routers import (
     profiles,
     rca,
     sigma,
+    videos,
 )
 from mentormind.core.config import get_settings
 
@@ -35,6 +36,7 @@ app.include_router(profiles.router)
 app.include_router(media.router)
 app.include_router(jobs.router)
 app.include_router(ingest.router)
+app.include_router(videos.router)
 app.include_router(assistant.router)
 app.include_router(rca.router)
 app.include_router(sigma.router)

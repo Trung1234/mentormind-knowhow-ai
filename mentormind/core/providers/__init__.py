@@ -2,6 +2,7 @@
 
 Shared: ``base``/``models`` (interface, config, usage), ``registry`` (name -> class), ``errors``,
 ``transport`` (HTTP + retry), ``openai_compat`` (vendor endpoints, locality), ``parsing`` (JSON).
-Kinds: ``vlm`` (frames + prompt, spec 04) and ``llm`` (text, spec 06). Business code only calls a
-kind's factory (``get_vlm_provider``, ``get_llm_provider``); it never subclasses a provider.
+Kinds: ``vlm`` (frames + prompt, spec 04), ``llm`` (text, spec 06) and ``asr`` (speech-to-text, spec 03).
+Business code only calls a kind's factory (``get_vlm_provider``, ``get_llm_provider``,
+``get_asr_provider``); it never subclasses a provider.
 """

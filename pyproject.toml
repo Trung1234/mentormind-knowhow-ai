@@ -20,7 +20,13 @@ dependencies = [
 # `process` extra pins numpy<2 / pillow 10 and would downgrade the VLM stack, so install it in a
 # separate venv and point `MmoreFastExtractor(binary=...)` at it (docs/plans/02-spike-notes.md).
 ingest = ["docling>=2.132", "psycopg[binary]>=3.2", "transformers>=4.44", "torch>=2.2"]
-video = []
+# spec 03 (CPU only): faster-whisper = ASR backend `faster_whisper` (spec 03 FR-07, core.providers.asr),
+# scenedetect = `scene` cuts, mediapipe = `hand_activity` (Tasks API: hand_landmarker.task, downloaded
+# once). scenedetect without its [opencv] extra and mediapipe without opencv-contrib-python (see
+# [tool.uv] below): cv2 comes from opencv-python-headless (extra vlm). mediapipe < 1: the 1.0.0/1.0.1
+# macOS wheels abort the process when a HandLandmarker opens ("Check failed: service_ Service is
+# unavailable" from a Metal helper, even with the CPU delegate); 0.10.33+ run on the CPU with numpy 2.
+video = ["faster-whisper>=1.1", "scenedetect>=0.7", "mediapipe>=0.10.33,<1"]
 vlm = [
     "pillow>=10.3",
     "opencv-python-headless>=4.9",
@@ -105,9 +111,23 @@ disallow_untyped_defs = false
 module = ["sentence_transformers", "sentence_transformers.*"]
 ignore_missing_imports = true
 
+# Extra video (spec 03): libraries without type information.
+[[tool.mypy.overrides]]
+module = ["faster_whisper", "faster_whisper.*", "scenedetect", "scenedetect.*", "mediapipe", "mediapipe.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
 markers = [
     "integration: requires external services such as PostgreSQL/pgvector or Neo4j 5; skipped when unavailable",
 ]
+
+
+[tool.uv]
+# mediapipe (extra video) requires opencv-contrib-python: one more wheel shipping the same `cv2`
+# module as opencv-python-headless (extra vlm) and opencv-python (rapidocr, scenedetect), whose files
+# overwrite each other on install (a version skew between them breaks `import cv2`). mediapipe only
+# needs `import cv2` for its drawing utils, which those wheels already provide, so the contrib wheel
+# is never installed (an override with a marker that never matches drops the requirement).
+override-dependencies = ["opencv-contrib-python; sys_platform == 'never'"]

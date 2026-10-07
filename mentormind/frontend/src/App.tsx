@@ -3,6 +3,7 @@ import { api } from "./api";
 import { ReviewProfilesTab } from "./components/ReviewProfilesTab";
 import { AssistantTab } from "./components/AssistantTab";
 import { RcaTab } from "./components/RcaTab";
+import { UploadTab } from "./components/UploadTab";
 import { LandingPage } from "./components/LandingPage";
 import {
   CheckSquare,
@@ -13,6 +14,7 @@ import {
   Sun,
   Moon,
   Home,
+  Upload,
 } from "lucide-react";
 
 export default function App() {
@@ -21,12 +23,14 @@ export default function App() {
     if (params.get("view") === "workspace" || params.get("tab") || window.location.hash.includes("workspace")) return "workspace";
     return "landing";
   });
-  const [activeTab, setActiveTab] = useState<"review" | "assistant" | "rca">(() => {
+  const [activeTab, setActiveTab] = useState<"review" | "assistant" | "rca" | "upload">(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab");
-    if (tab === "assistant" || tab === "rca" || tab === "review") return tab;
+    if (tab === "assistant" || tab === "rca" || tab === "review" || tab === "upload") return tab;
     return "review";
   });
+  // Set by "Duyệt các bước này" on the upload page: the review page opens on that video's steps.
+  const [reviewVideoId, setReviewVideoId] = useState<string | null>(null);
   const [healthStatus, setHealthStatus] = useState<{ status: string; neo4j: string; postgres: string } | null>(null);
   const [apiError, setApiError] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(() => {
@@ -174,14 +178,31 @@ export default function App() {
             <Activity size={15} />
             <span>Root Cause Analysis (5-Why)</span>
           </button>
+
+          <button
+            id="tab-upload"
+            className={`tab-btn ${activeTab === "upload" ? "active" : ""}`}
+            onClick={() => setActiveTab("upload")}
+          >
+            <Upload size={15} />
+            <span>Tải dữ liệu</span>
+          </button>
         </div>
       </nav>
 
       {/* ── Main Content ── */}
       <main className="main-content">
-        {activeTab === "review"    && <ReviewProfilesTab />}
+        {activeTab === "review"    && <ReviewProfilesTab initialVideoId={reviewVideoId} />}
         {activeTab === "assistant" && <AssistantTab />}
         {activeTab === "rca"       && <RcaTab />}
+        {activeTab === "upload"    && (
+          <UploadTab
+            onReviewVideo={(videoId) => {
+              setReviewVideoId(videoId);
+              setActiveTab("review");
+            }}
+          />
+        )}
       </main>
     </div>
   );

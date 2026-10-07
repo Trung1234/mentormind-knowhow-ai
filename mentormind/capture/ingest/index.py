@@ -57,12 +57,21 @@ def index_chunks(chunks_dir: Path, store: VectorStore, *, batch_size: int = 32) 
         ValueError: ``batch_size`` is not positive.
         FileNotFoundError: ``chunks_dir`` does not exist.
     """
-    if batch_size < 1:
-        raise ValueError(f"batch_size phải >= 1, nhận {batch_size}.")
+    _check_batch_size(batch_size)
     if not chunks_dir.is_dir():
         raise FileNotFoundError(f"Không thấy thư mục chunk: {chunks_dir}")
+    return index_files(sorted(chunks_dir.glob("*.jsonl")), store, batch_size=batch_size)
+
+
+def index_files(paths: Iterable[Path], store: VectorStore, *, batch_size: int = 32) -> IndexResult:
+    """:func:`index_chunks` for chosen chunk files, in the given order (e.g. one upload's, spec 08 §2).
+
+    Raises:
+        ValueError: ``batch_size`` is not positive.
+    """
+    _check_batch_size(batch_size)
     result = IndexResult()
-    for path in sorted(chunks_dir.glob("*.jsonl")):
+    for path in paths:
         try:
             chunks = [to_vector_chunk(c) for _, c in read_chunks(path)]
         except ChunkFileError as exc:
@@ -75,6 +84,11 @@ def index_chunks(chunks_dir: Path, store: VectorStore, *, batch_size: int = 32) 
         result.files_ok += 1
         result.doc_ids.update(c.ref_id for c in chunks)
     return result
+
+
+def _check_batch_size(batch_size: int) -> None:
+    if batch_size < 1:
+        raise ValueError(f"batch_size phải >= 1, nhận {batch_size}.")
 
 
 def replace_docs(store: VectorStore, old_doc_ids: Iterable[str], *, keep: Collection[str]) -> dict[str, int]:

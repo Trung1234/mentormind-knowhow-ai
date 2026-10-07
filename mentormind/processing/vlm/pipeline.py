@@ -30,7 +30,7 @@ from mentormind.processing.vlm.passes.consistency import self_consistent
 from mentormind.processing.vlm.passes.describe import Sampler
 from mentormind.processing.vlm.passes.merge import MergeReport, merge_steps
 from mentormind.processing.vlm.passes.models import PassAResult
-from mentormind.processing.vlm.transcript import align
+from mentormind.processing.vlm.transcript import DEFAULT_LAG_S, DEFAULT_LEAD_S, align
 
 
 class DescribeResult(BaseModel):
@@ -60,6 +60,8 @@ class DescribePipeline:
         llm: LLMProvider | None = None,
         consistency: bool = True,
         sampler: Sampler = sample_frames,
+        transcript_lead_s: float = DEFAULT_LEAD_S,
+        transcript_lag_s: float = DEFAULT_LAG_S,
     ) -> None:
         self.vlm = vlm
         #: Pass C runs only with an LLM; ``None`` skips it.
@@ -70,6 +72,9 @@ class DescribePipeline:
         #: Pass B (a second pass-A run, twice the VLM tokens); False skips it.
         self.consistency = consistency
         self._sampler = sampler
+        #: Spec 04 §3: speech this long before/after a step still counts as about it.
+        self.transcript_lead_s = transcript_lead_s
+        self.transcript_lag_s = transcript_lag_s
 
     def run(
         self,
@@ -137,6 +142,8 @@ class DescribePipeline:
             provider=self.vlm,
             model=self.vlm.model,
             aligned_transcript=align(segments, transcript),
+            transcript_lead_s=self.transcript_lead_s,
+            transcript_lag_s=self.transcript_lag_s,
         )
 
     @staticmethod

@@ -31,11 +31,12 @@ def sweep_cmd(
     """Run pass A at several fps on one video and score it against the truth."""
     import json
 
+    from mentormind.capture.video import VideoCapturePipeline, video_id_for
+    from mentormind.capture.video.segmenters import FixedWindowSegmenter
     from mentormind.core.providers.errors import ProviderError
     from mentormind.core.providers.vlm import get_vlm_provider
     from mentormind.core.schemas.video import Segment
     from mentormind.processing.vlm.sweep import load_truth, markdown_table, run_sweep, write_csv
-    from mentormind.processing.vlm.sweep.windows import fixed_window_segments, video_id_for
 
     settings = get_settings()
     if provider:
@@ -48,13 +49,17 @@ def sweep_cmd(
         if segments is not None:
             loaded = [Segment.model_validate(s) for s in json.loads(segments.read_text())]
         else:
-            loaded = fixed_window_segments(
+            # Spec 03's fixed windows; no motion pass: the sweep forces its own fps on every segment.
+            capture = VideoCapturePipeline(settings, build=lambda _: FixedWindowSegmenter(window, motion=False))
+            loaded = capture.run(
                 video,
-                out_dir=Path("data/work/video") / video_id / "clips",
+                work_dir=settings.work_dir,
+                process_id=process_id,
                 classification=classification,
-                window_s=window,
+                method="fixed_window",
+                transcribe=False,
                 video_id=video_id,
-            )
+            ).segments
         rows = run_sweep(
             loaded,
             load_truth(truth),

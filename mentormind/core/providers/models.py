@@ -22,6 +22,8 @@ class ProviderConfig(BaseModel):
     max_retries: int = 3
     json_mode: JsonMode = "auto"
     max_tokens: int | None = None
+    #: Hostnames declared local (``KNOWHOW_LOCAL_HOSTS``); only URL-judged endpoints use them.
+    local_hosts: tuple[str, ...] = ()
     #: Extra request-body fields for the endpoint (sampling knobs); never overrides the call's own.
     extra_body: dict[str, Any] = Field(default_factory=dict)
     # Provider-specific knobs that do not deserve a first-class field (e.g. FakeVLM fixtures).

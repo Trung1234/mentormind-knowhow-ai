@@ -3,6 +3,8 @@
 from mentormind.core.schemas.api import (
     AskRequest,
     AssistantAnswer,
+    DocumentIngestFile,
+    DocumentIngestResult,
     Hypothesis,
     JobResponse,
     JobStatus,
@@ -12,6 +14,8 @@ from mentormind.core.schemas.api import (
     RcaRequest,
     ReviewAction,
     ReviewRequest,
+    VideoProcessProgress,
+    VideoProcessResult,
     WhyStep,
 )
 from mentormind.core.schemas.common import Citation, DataClassification
@@ -50,6 +54,8 @@ __all__ = [
     "ContractValidationError",
     "DataClassification",
     "DocumentChunk",
+    "DocumentIngestFile",
+    "DocumentIngestResult",
     "ErrorTag",
     "Evidence",
     "ExceptionCase",
@@ -76,6 +82,8 @@ __all__ = [
     "VectorChunk",
     "VectorHit",
     "VideoAsset",
+    "VideoProcessProgress",
+    "VideoProcessResult",
     "WhyStep",
     "WorkProfile",
     "validate_against_contract",

@@ -73,13 +73,13 @@ export interface ProfilePatchRequest {
 }
 
 export interface Citation {
-  source_type: "video" | "document";
+  source_type: "work_profile" | "document" | "video_segment" | "sigma" | "video";
   ref_id: string;
-  title?: string;
-  t_start?: number;
-  t_end?: number;
-  excerpt?: string;
-  keyframe_url?: string;
+  title?: string | null;
+  t_start?: number | null;
+  t_end?: number | null;
+  excerpt?: string | null;
+  keyframe_url?: string | null;
 }
 
 export interface AssistantAnswer {
@@ -119,4 +119,77 @@ export interface LotRecord {
   produced_at: string;
   defect_type?: string;
   status: string;
+}
+
+export type DataClassification = "public" | "synthetic" | "factory_confidential";
+export type JobStatus = "queued" | "running" | "done" | "failed";
+
+export interface JobResponse<T = unknown> {
+  job_id: string;
+  kind: string;
+  status: JobStatus;
+  result?: T | null;
+  error?: string | null;
+  created_at?: string | null;
+  finished_at?: string | null;
+}
+
+// Result of a POST /ingest/documents job (spec 08 §2).
+export interface DocumentIngestFile {
+  name: string;
+  doc_id?: string | null;
+  extractor?: string | null;
+  pages: number;
+  chunks: number;
+  skipped: boolean;
+  error?: string | null;
+}
+
+export interface DocumentIngestResult {
+  classification: DataClassification;
+  files: DocumentIngestFile[];
+  chunks_indexed: number;
+}
+
+// Spec 03 §3 — what POST /videos returns (also kept as video.json next to the upload).
+export interface VideoAsset {
+  video_id: string;
+  path: string;
+  duration_s: number;
+  fps: number;
+  has_audio: boolean;
+  process_id?: string | null;
+  data_classification: DataClassification;
+}
+
+// Spec 03 §3 — one cut of a video (GET /videos/{id}/segments).
+export interface Segment {
+  segment_id: string;
+  video_id: string;
+  index: number;
+  t_start: number;
+  t_end: number;
+  method: "scene" | "hand_activity" | "fixed_window";
+  motion_score?: number | null;
+  keyframes: string[];
+  clip_path: string;
+  data_classification: DataClassification;
+}
+
+export type CutMethod = "hand_activity" | "scene" | "fixed_window";
+export type VideoStage = "cut" | "transcribe" | "describe" | "merge" | "reasons";
+
+// Result of a POST /videos/{id}/process job (spec 08 §2).
+export interface VideoProcessResult {
+  video_id: string;
+  process_id: string;
+  method: CutMethod;
+  method_used?: CutMethod | null;
+  segments: number;
+  profiles: string[];
+  failed_segments: string[];
+  transcript_lines: number;
+  steps_with_excerpt: number;
+  reasons_filled: number;
+  progress?: { stage: VideoStage; done: number; total: number } | null;
 }

@@ -33,3 +33,8 @@ def _align(segments: Sequence[Segment], lines: Sequence[TranscriptSegment]) -> d
 def install_spec03(monkeypatch: pytest.MonkeyPatch) -> None:
     """Pretend spec 03 has landed: ``SPEC03_MODULE.align_transcript`` exists."""
     monkeypatch.setitem(__import__("sys").modules, SPEC03_MODULE, types.SimpleNamespace(align_transcript=_align))
+
+
+def remove_spec03(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pretend spec 03 is not installed: importing ``SPEC03_MODULE`` fails."""
+    monkeypatch.setitem(__import__("sys").modules, SPEC03_MODULE, None)

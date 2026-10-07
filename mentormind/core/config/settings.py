@@ -77,6 +77,10 @@ class Settings(BaseSettings):
     # JSON merged into every request body: vendor sampling knobs (e.g. {"presence_penalty": 1.5},
     # which stops Qwen3-VL from looping step lists).
     vlm_extra_body: dict[str, Any] = {}
+    # Spec 04 §3: a sentence of the expert belongs to the step whose [t_start - lead, t_end + lag]
+    # overlaps it most (experts explain just before acting and comment just after).
+    transcript_lead_s: float = 2.0
+    transcript_lag_s: float = 3.0
 
     # --- LLM (spec 06; also spec 04 pass C / propose-reasons) ---------------------------------
     # Empty = the LLM is the VLM: same provider, server, model and key as KNOWHOW_VLM_* (the
@@ -93,6 +97,28 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 8192
     llm_extra_body: dict[str, Any] = {}
 
+    # --- Video capture (spec 03) -------------------------------------------------------------
+    # Cutting method when a call names none (spec 03 FR-03): hand_activity (one operator, continuous
+    # footage) | scene (edited video with shot changes) | fixed_window (10 s windows).
+    video_method: Literal["hand_activity", "scene", "fixed_window"] = "hand_activity"
+    # MediaPipe hand model of `hand_activity` cuts (FR-03), fetched once, SHA-256 pinned.
+    video_hand_model: Path = REPO_ROOT / "data" / "work" / "models" / "hand_landmarker.task"
+
+    # --- Speech-to-text (spec 03 FR-07c) -----------------------------------------------------
+    # Registry name of the ASR provider (`knowhow video providers` lists them). Local only.
+    asr_provider: str = "faster_whisper"
+    # Empty = the provider's default model (faster_whisper: "small", downloaded once).
+    asr_model: str | None = None
+    asr_device: str = "cpu"
+    # CTranslate2 quantisation: int8 keeps Whisper small around 0.5 GB of RAM on a CPU.
+    asr_compute_type: str = "int8"
+    # Language of the expert's speech; empty = detected per file (any language Whisper knows:
+    # a Thai expert's words stay Thai, and so do the reasons quoted from them). Set to force one.
+    asr_language: str | None = None
+    asr_beam_size: int = 5
+    # Voice activity detection (Silero, bundled): skips silence and music before decoding.
+    asr_vad: bool = True
+
     # --- Outbound guard for cloud calls (spec 01 FR-09b, spec 04 FR-02c) ---------------------
     # Mask PII in text sent to cloud providers. False = refuse instead (LeakGuard always runs).
     guard_mask_text: bool = True
@@ -103,6 +129,9 @@ class Settings(BaseSettings):
     guard_audit_dir: Path | None = REPO_ROOT / "data" / "work" / "audit"
     # Site-specific codes to mask, entity -> regex, e.g. {"EQUIPMENT": "SIGMA-EQ-\\d+"}.
     guard_extra_patterns: dict[str, str] = {}
+    # Public hostnames that are really the team's own server (e.g. an ngrok tunnel to it), so
+    # local_openai / openai_compatible calls to them count as local (spec 04 AC-23).
+    local_hosts: list[str] = []
 
     # --- Agents (spec 06) -----------------------------------------------------------------
     # Work Assistant guard 1: refuse when the best spec 05 score is below this. That score is RRF

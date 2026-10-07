@@ -1,6 +1,17 @@
 import React, { useState } from "react";
-import { api } from "../api";
+import { api, mediaUrl } from "../api";
 import { AssistantAnswer, Citation } from "../types";
+
+// A cited operation step (WorkProfile) or video shows a keyframe and a time span; a document shows its excerpt.
+const isVisual = (c: Citation) => c.source_type === "work_profile" || c.source_type === "video" || c.source_type === "video_segment";
+const SOURCE_LABELS: Record<Citation["source_type"], string> = {
+  work_profile:  "Bước thao tác",
+  document:      "Tài liệu",
+  video_segment: "Đoạn video",
+  video:         "Video",
+  sigma:         "Sigma",
+};
+const formatSpan = (c: Citation) => `${(c.t_start ?? 0).toFixed(1)}s – ${(c.t_end ?? c.t_start ?? 0).toFixed(1)}s`;
 import {
   MessageSquare,
   Send,
@@ -200,24 +211,24 @@ export function AssistantTab() {
                       >
                         <div style={{
                           width: 28, height: 28, borderRadius: "var(--r-sm)",
-                          background: c.source_type === "video" ? "var(--cyan-dim)" : "var(--warning-dim)",
+                          background: isVisual(c) ? "var(--cyan-dim)" : "var(--warning-dim)",
                           display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                         }}>
-                          {c.source_type === "video"
+                          {isVisual(c)
                             ? <Video size={13} color="var(--cyan)" />
                             : <FileText size={13} color="var(--warning)" />
                           }
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--cyan)", marginBottom: "0.2rem" }}>
-                            [{idx + 1}] {c.source_type.toUpperCase()}
+                            [{idx + 1}] {SOURCE_LABELS[c.source_type]?.toUpperCase() ?? c.source_type}
                           </div>
                           <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--text-high)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                             {c.title || c.ref_id}
                           </div>
-                          {c.t_start !== undefined && (
+                          {c.t_start != null && (
                             <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--text-dim)", marginTop: "0.18rem" }}>
-                              {c.t_start}s – {c.t_end}s
+                              {formatSpan(c)}
                             </div>
                           )}
                         </div>
@@ -239,17 +250,26 @@ export function AssistantTab() {
                   animation: "alert-in 0.25s ease",
                 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.9rem" }}>
-                    {selectedCitation.source_type === "video"
+                    {isVisual(selectedCitation)
                       ? <Video size={16} color="var(--cyan)" />
                       : <FileText size={16} color="var(--warning)" />
                     }
                     <span style={{ fontFamily: "var(--font-body)", fontWeight: 700, fontSize: "0.9rem", color: "var(--text-high)" }}>
-                      Source: {selectedCitation.title || selectedCitation.ref_id}
+                      Nguồn: {selectedCitation.title || selectedCitation.ref_id}
                     </span>
                     <span className="badge badge-cyan" style={{ marginLeft: "auto" }}>
-                      {selectedCitation.source_type}
+                      {SOURCE_LABELS[selectedCitation.source_type] ?? selectedCitation.source_type} · {selectedCitation.ref_id}
                     </span>
                   </div>
+
+                  {selectedCitation.keyframe_url && (
+                    <img
+                      id="citation-keyframe"
+                      src={mediaUrl(selectedCitation.keyframe_url) ?? undefined}
+                      alt={selectedCitation.title || selectedCitation.ref_id}
+                      style={{ width: "100%", maxWidth: 480, borderRadius: "var(--r-sm)", marginBottom: "0.75rem", display: "block" }}
+                    />
+                  )}
 
                   {selectedCitation.excerpt && (
                     <blockquote style={{
@@ -265,12 +285,10 @@ export function AssistantTab() {
                     </blockquote>
                   )}
 
-                  {selectedCitation.t_start !== undefined && (
+                  {selectedCitation.t_start != null && (
                     <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "var(--text-dim)", letterSpacing: "0.05em" }}>
-                      TIMELINE:{" "}
-                      <strong style={{ color: "var(--text-high)" }}>{selectedCitation.t_start}s</strong>
-                      {" → "}
-                      <strong style={{ color: "var(--text-high)" }}>{selectedCitation.t_end}s</strong>
+                      THỜI ĐIỂM TRONG VIDEO:{" "}
+                      <strong style={{ color: "var(--text-high)" }}>{formatSpan(selectedCitation)}</strong>
                     </div>
                   )}
                 </div>

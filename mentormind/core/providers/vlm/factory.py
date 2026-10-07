@@ -40,6 +40,7 @@ def vlm_config_from_settings(settings: Settings) -> ProviderConfig:
         json_mode=settings.vlm_json_mode,
         max_tokens=settings.vlm_max_tokens,
         extra_body=settings.vlm_extra_body,
+        local_hosts=tuple(settings.local_hosts),
     )
 
 

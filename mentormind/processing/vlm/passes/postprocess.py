@@ -2,8 +2,8 @@
 
 ``reason``/``reason_source`` are forced to None whatever the model said (constitution art. 3,
 AC-02), ``status="draft"``, evidence and model_info filled, every profile validated against the
-contract before it is returned. ``evidence.transcript_excerpt`` = what the expert said during the
-step's segments (spec 03's transcript and alignment), the input of propose-reasons (§5).
+contract before it is returned. ``evidence.transcript_excerpt`` = the expert's sentences about THAT
+step (spec 03's transcript and alignment, one step per sentence), the input of propose-reasons (§5).
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from mentormind.core.schemas.work_profile import (
     validate_against_contract,
 )
 from mentormind.processing.vlm.passes.models import PassAResult
-from mentormind.processing.vlm.transcript import excerpt_for, lines_for
+from mentormind.processing.vlm.transcript import DEFAULT_LAG_S, DEFAULT_LEAD_S, excerpt_text, lines_by_step
 
 
 def to_work_profiles(
@@ -33,23 +33,25 @@ def to_work_profiles(
     model: str,
     aligned_transcript: Mapping[str, Sequence[TranscriptSegment]] | None = None,
     created_at: datetime | None = None,
+    transcript_lead_s: float = DEFAULT_LEAD_S,
+    transcript_lag_s: float = DEFAULT_LAG_S,
 ) -> list[WorkProfile]:
     """Post-processing (spec 04 §3): draft profiles in time order, each validated by contract.
 
     ``aligned_transcript``: the WHOLE video's transcript lines, grouped by segment_id by spec 03's
-    ``align_transcript`` (see ``transcript.align``); None = no excerpts. Each profile only quotes the
-    lines of the segments its step comes from.
+    ``align_transcript`` (see ``transcript.align``); None = no excerpts. Each line is quoted by one
+    step only (``transcript.lines_by_step``, window ``[t_start - lead, t_end + lag]``).
     """
     by_id = {s.segment_id: s for s in segments}
     code = re.sub(r"[^A-Z0-9]", "", process_id.upper()) or "UNKNOWN"
     created = created_at or datetime.now(UTC)
     profiles = []
     ordered = sorted(result.steps, key=lambda s: (s.t_start, s.t_end))
-    for order, step in enumerate(ordered, start=1):
+    quoted = lines_by_step(ordered, aligned_transcript, lead_s=transcript_lead_s, lag_s=transcript_lag_s)
+    for order, (step, said) in enumerate(zip(ordered, quoted, strict=True), start=1):
         segment = by_id[step.segment_id]
         sources = [by_id[sid] for sid in step.sources()]
         source_ids = [s.segment_id for s in sources]
-        said = lines_for(source_ids, aligned_transcript)
         profile = WorkProfile(
             schema_version=SCHEMA_VERSION,
             profile_id=f"WP-{code}-{order:03d}",
@@ -69,7 +71,7 @@ def to_work_profiles(
                 "t_end": step.t_end,
                 "segment_ids": source_ids,
                 "keyframes": [kf for s in sources for kf in s.keyframes],
-                "transcript_excerpt": excerpt_for(source_ids, aligned_transcript),
+                "transcript_excerpt": excerpt_text(said),
                 "document_refs": [],
             },
             confidence=step.confidence,
