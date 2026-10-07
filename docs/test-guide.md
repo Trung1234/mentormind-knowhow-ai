@@ -175,11 +175,11 @@ Dung lượng tải lần đầu: Qwen3-VL Q4 6,1 GB, bge-m3 ~2,2 GB, Whisper sm
 MediaPipe 8 MB. Máy 16 GB: Qwen nằm trên GPU khoảng 7,7 GB (context 16k). Nếu chạy cùng lúc API (bge-m3), Neo4j
 và Postgres thì máy sát giới hạn RAM: đóng ứng dụng khác và kiểm `ollama ps` sau mỗi lượt.
 
-**Đường A — script của submodule `vlm-engine`.** Dùng khi cần số đo cho báo cáo: đặt sẵn context và số token tối
+**Đường A — script của submodule `mentormind-inference` (trước: vlm-engine).** Dùng khi cần số đo cho báo cáo: đặt sẵn context và số token tối
 thiểu mỗi ảnh (`--image-min-tokens`, mặc định 512; Ollama tự ép 1024 token cho mỗi ảnh Qwen-VL).
 
 ```bash
-git submodule update --init 3rdparty/vlm_server   # cần quyền SSH tới repo vlm-engine
+git submodule update --init 3rdparty/vlm_server   # repo public: https://github.com/osirisQdt2810/mentormind-inference
 make vlm-server         # bash 3rdparty/vlm_server/scripts/serve-ollama.sh, đọc VLM_SERVER_* trong .env
 make vlm-server-smoke   # = uv run knowhow vlm ping --frames 8
 make vlm-server-stop

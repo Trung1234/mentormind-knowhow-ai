@@ -1,20 +1,25 @@
-# Chạy full flow trên UI — VLM qua ngrok
+# Chạy full flow trên UI
 
-Từ upload video + PDF → duyệt bước → trợ lý → truy nguyên lỗi, chạy trên máy của bạn (macOS).
-VLM/LLM là Ollama `qwen3-vl:8b` trên **Mac tự host của đội, mở ra bằng ngrok** — vẫn là server của mình,
-nên khai báo host ngrok là local (`KNOWHOW_LOCAL_HOSTS`).
+Từ upload video + PDF → duyệt bước → trợ lý → truy nguyên lỗi, chạy trên máy của bạn (macOS). Phần nặng (VLM,
+nhận dạng lời nói, OCR/Docling, embedding bge-m3) chạy trên **máy chủ suy luận của đội**; máy bạn chỉ chạy
+backend + frontend + Neo4j/Postgres (Docker) + cắt video.
 
 ```
-Máy bạn: UI :5173 → API :8000 → Neo4j + Postgres (Docker) · Whisper, bge-m3, Docling (CPU)
-                              └→ https://user:pass@<tên>.ngrok-free.dev/v1 → Mac chạy Ollama
+Máy bạn: UI :5173 → API :8000 → Neo4j + Postgres (Docker) · cắt video (ffmpeg, PySceneDetect, MediaPipe)
+                              └→ https://<máy chủ>/v1 → vLLM (VLM) + gateway CPU (ASR, embeddings, Docling)
 ```
 
-## 0. Mac chạy Ollama (bỏ qua nếu ngrok đang chạy)
+## 0. Máy chủ suy luận
 
-Cần quyền SSH tới repo `vlm-engine` (submodule) và tài khoản ngrok (`ngrok config add-authtoken …`).
+**Cách A (mặc định) — máy chủ của đội trên Vast.ai.** Người giữ tài khoản Vast bật máy và chạy `bash run.sh`
+(repo [mentormind-inference](https://github.com/osirisQdt2810/mentormind-inference), `scripts/vast/run.sh`): vLLM
+`Qwen3-VL-8B-Instruct` BF16 + gateway CPU sau Caddy (token) + ngrok, URL cố định. Script in ra các dòng `.env` (cũng ở
+`/root/mentormind-inference.env` trên máy chủ) — xin người giữ tài khoản gửi cho bạn. Máy chủ phải đang chạy khi bạn test.
+
+**Cách B — Ollama trên một Mac của đội, mở bằng ngrok** (chỉ VLM; ASR/Docling/embedding chạy trên máy bạn):
 
 ```bash
-git submodule update --init 3rdparty/vlm_server
+git submodule update --init 3rdparty/vlm_server   # repo public mentormind-inference
 NGROK_BASIC_AUTH=user:matkhau bash 3rdparty/vlm_server/scripts/serve-ollama.sh --ngrok   # in ra URL ngrok
 ```
 
@@ -37,23 +42,41 @@ npm --prefix mentormind/frontend ci
 cp .env.example .env
 ```
 
-Sửa trong `.env`:
+Sửa trong `.env` — **cách A** (dán các dòng `run.sh` in ra, thêm 3 dòng cuối):
 
 ```bash
-KNOWHOW_VLM_BASE_URL=https://user:matkhau@<tên>.ngrok-free.dev/v1   # URL ngrok ở bước 0, thêm /v1
-KNOWHOW_LOCAL_HOSTS=["<tên>.ngrok-free.dev"]                        # đúng host ở dòng trên: tính là local
+KNOWHOW_VLM_BASE_URL=https://<domain>.ngrok-free.dev/v1
+KNOWHOW_VLM_MODEL=Qwen/Qwen3-VL-8B-Instruct
+KNOWHOW_VLM_API_KEY=<token>
+KNOWHOW_VLM_MAX_FRAMES=40
+KNOWHOW_VLM_MAX_TOKENS=8192
+KNOWHOW_INFERENCE_URL=https://<domain>.ngrok-free.dev/v1   # cùng máy chủ: ASR, embeddings, Docling
+KNOWHOW_INFERENCE_API_KEY=<token>
+KNOWHOW_ASR_PROVIDER=remote
+KNOWHOW_EMBEDDER=remote
+KNOWHOW_DOC_EXTRACTOR=remote
+KNOWHOW_LOCAL_HOSTS=["<domain>.ngrok-free.dev"]             # máy chủ của đội: tính là local
 KNOWHOW_API_AGENTS=live
 KNOWHOW_VIDEO_METHOD=scene          # video đã dựng, nhiều cảnh (LASI); quay liền 1 người: hand_activity
 ```
+
+**Cách B**: `KNOWHOW_VLM_BASE_URL=https://user:matkhau@<tên>.ngrok-free.dev/v1`, `KNOWHOW_LOCAL_HOSTS=["<tên>.ngrok-free.dev"]`,
+`KNOWHOW_API_AGENTS=live`, `KNOWHOW_VIDEO_METHOD=scene`; giữ `KNOWHOW_ASR_PROVIDER`, `KNOWHOW_EMBEDDER`,
+`KNOWHOW_DOC_EXTRACTOR` mặc định (chạy trên máy bạn; lần đầu tải bge-m3 ~2 GB, Whisper ~480 MB, Docling).
+
+Muốn chạy từng phần trên máy mình (vd. khi máy chủ tắt): đặt lại `KNOWHOW_ASR_PROVIDER=faster_whisper`,
+`KNOWHOW_EMBEDDER=bge-m3`, `KNOWHOW_DOC_EXTRACTOR=docling`. Vector của bge-m3 trên máy chủ trùng vector chạy local
+(đo 08/10: sai khác ≤ 3·10⁻⁷), nên đổi qua lại không phải index lại.
 
 Kiểm tra:
 
 ```bash
 uv run python -c "from mentormind.core.providers.vlm import get_vlm_provider as g; print('cloud' if g().is_cloud else 'local')"   # phải in: local
-uv run knowhow vlm ping --frames 8  # dòng cuối PASS (qua ngrok trên Mac 16 GB: 1–3 phút)
+uv run knowhow vlm ping --frames 8  # dòng cuối PASS (cách A ~3 s; cách B qua Mac 16 GB: 1–3 phút)
+uv run knowhow video providers      # cách A: dòng remote trỏ tới máy chủ, "local"
 ```
 
-404 `model 'qwen3-vl:8b' not found` = Mac bên kia chưa kéo xong model; chờ rồi ping lại.
+404 `model … not found` = máy chủ chưa nạp xong model (cách B: Mac chưa kéo xong); chờ rồi ping lại.
 
 ## 3. DB + graph + dữ liệu Sigma
 
@@ -111,8 +134,9 @@ chạy thì thử Luồng C.
 
 ### Luồng B — Upload video → duyệt bước → hỏi trợ lý
 
-Thời gian phụ thuộc VLM: Ollama Q4 trên Mac 16 GB mất vài phút mỗi lượt gọi, video LASI đủ (31 phút → ~30 đoạn,
-~60 lượt) mất **nhiều giờ**. Để thử, cắt 3 phút đầu (~5–8 đoạn):
+Thời gian phụ thuộc VLM: **cách A** (vLLM BF16 trên Vast) ~8 s mỗi lượt → video LASI đủ (31 phút → ~30 đoạn,
+~60 lượt) khoảng **8–10 phút**, cộng ~3 phút nhận dạng lời nói; **cách B** (Ollama Q4 trên Mac 16 GB) vài phút mỗi
+lượt → **nhiều giờ**. Để thử nhanh, cắt 3 phút đầu (~5–8 đoạn):
 
 ```bash
 ffmpeg -t 180 -i "data/video/LASI Success Case - Food Industry (Asian Alliance Internation Co.,Ltd.) [m4icg6FgTBU].mkv" -c copy lasi-3m.mkv
@@ -153,15 +177,19 @@ ffmpeg -t 180 -i "data/video/LASI Success Case - Food Industry (Asian Alliance I
    (Vào thẳng tab này thì chọn **PROCESS LINE** `PACK01`, **VIDEO** = mã `VID-…` của video.)
 9. Cột trái **WORK PROFILES** → bấm một bước. Bên phải, từ trên xuống:
    - **VISUAL EVIDENCE — MACHINE VISION CCTV**: 3 keyframe của đoạn chứa bước + clip. Bấm ▶: clip phát đúng khoảng
-     thời gian của bước (nhãn **FEED** ghi `t_start – t_end`), có tiếng nếu video có tiếng. Bước mà VLM gán chỉ
-     0,1–1 s thì clip dừng sau ~1 s — đúng thiết kế.
+     thời gian của bước (nhãn **FEED** ghi `t_start – t_end`), có tiếng nếu video có tiếng. Mặc định
+     (`KNOWHOW_VLM_STEP_TIMES=segment`) các bước của một đoạn phủ kín đoạn theo thứ tự, nên clip dài vài giây; đặt
+     `model` để giữ đúng khoảng VLM trả (thường chỉ 0,1–2 s).
    - **OPERATIONAL KNOW-HOW EDITOR**: **STEP ACTION NAME** (bắt đầu bằng động từ), **HAND ACTION OBSERVED**,
      **KEY POINT / CRITICAL OBSERVATION**.
    - **LỜI CHUYÊN GIA VỀ BƯỚC NÀY (TRANSCRIPT)**: câu chuyên gia nói trong lúc làm bước (LASI: tiếng Thái), hoặc
      khung xanh "Không có lời chuyên gia nào nói về bước này…".
    - **EXPERT KNOW-HOW REASON** + **REASON SOURCE CLASSIFICATION**: bước **IN REVIEW** đã có lý do AI trích từ lời
-     chuyên gia (nguồn `expert_verbal`). AI không tự nghĩ ra lý do: đối chiếu với ô transcript ngay trên — lý do
-     phải là một phần lời chuyên gia; sai thì sửa hoặc xóa.
+     chuyên gia (nguồn `expert_verbal`). AI không tự nghĩ ra lý do: nó chỉ ra đoạn "vì sao / để làm gì" trong lời
+     chuyên gia, hệ thống kiểm tra đoạn đó có nguyên văn trong transcript rồi lưu **cả câu** của chuyên gia. Bước
+     **DRAFT** = chưa có lý do (không có lời nói, lời rác như "falling", hoặc chuyên gia không nói lý do). Tự kiểm:
+     `data/work/vlm/<video_id>/reasons_audit.jsonl` — mỗi bước một dòng: lời chuyên gia, đoạn AI chỉ ra
+     (`purpose_span`), điểm khớp, quyết định (`accepted` / `rejected_junk` / `rejected_not_verbatim` / `no_reason`).
    - **QA VERIFICATION & STATION SIGN-OFF**: **LEAD REVIEWER**, **REVIEW COMMENT**, các nhãn lỗi
      (**+ MISSED STEP**, **+ HALLUCINATED STEP**, **+ WRONG ORDER**…).
 10. Với từng bước, chọn một trong ba:
@@ -173,6 +201,16 @@ ffmpeg -t 180 -i "data/video/LASI Success Case - Food Industry (Asian Alliance I
 11. Duyệt 4–6 bước có tên khác nhau (vd. "Nhặt sản phẩm từ băng tải", "Đặt sản phẩm vào hộp"); reject ít nhất một
     bước sai rõ ràng để thử luồng từ chối.
 12. Kiểm tra: `uv run knowhow kg stats` → `Step` = số bước đã approve.
+
+**Xoá (mọi thao tác xoá đều hỏi xác nhận, nói rõ sẽ mất gì)**
+
+- Một bước: nút **Xoá bước** cạnh Approve/Reject/Save. Bước đã APPROVED (hoặc đã duyệt rồi sửa lại) được gỡ khỏi
+  Neo4j + pgvector trước; DB không phản hồi → bước giữ nguyên, báo lỗi.
+- Nhiều bước: tick ô ở danh sách **WORK PROFILES** (hoặc **Chọn tất cả**) → **Xoá các bước đã chọn (n)**.
+- Cả video: chọn **VIDEO** → **Xoá video này**: xoá mọi bước của video + file video, keyframe, clip, transcript.
+  Video đang xử lý → báo không xoá được (409), chờ job xong.
+- Tài liệu: tab **TẢI DỮ LIỆU** → bảng **Tài liệu đã index** → **Xoá** ở dòng tài liệu: gỡ chunk khỏi pgvector,
+  xoá file chunk và bản upload.
 
 **Hỏi trợ lý về bước đã duyệt**
 
@@ -209,9 +247,11 @@ ffmpeg -t 180 -i "data/video/LASI Success Case - Food Industry (Asian Alliance I
 | Hiện tượng | Nguyên nhân / cách xử lý |
 |---|---|
 | Trang trắng hoặc "Không kết nối được tới máy chủ API" | API chưa chạy, hoặc mở bằng `127.0.0.1` — dùng `http://localhost:5173` |
-| `vlm ping`: 404 `model 'qwen3-vl:8b' not found` | Mac bên kia chưa kéo xong model; chờ rồi ping lại |
+| `vlm ping`: 404 `model … not found` | Máy chủ chưa nạp xong model (cách B: Mac chưa kéo xong); chờ rồi ping lại |
+| `vlm ping` / job: HTTP 530 hoặc không kết nối | Máy chủ Vast đang Stop: nhờ người giữ tài khoản Start + `bash run.sh` |
+| Xoá video báo đang xử lý (409) | Job của video chưa xong; chờ badge **HOÀN TẤT** rồi xoá |
 | Job video **LỖI** "Máy chủ API đã khởi động lại khi job đang chạy…" | API bị tắt/khởi động lại giữa chừng; tải video lên lại |
-| Đứng lâu ở **3. VLM MÔ TẢ** | Bình thường với Ollama Q4 trên Mac (vài phút/lượt); xem "x/2N lượt đoạn" có tăng |
+| Đứng lâu ở **3. VLM MÔ TẢ** | Cách B (Ollama Q4 trên Mac) vài phút/lượt là bình thường; xem "x/2N lượt đoạn" có tăng |
 | Trợ lý từ chối mọi câu về video | Chưa approve bước nào, hoặc **PROCESS LINE** khác `PACK01` |
 | Trợ lý trả lời thiếu bước của SOP | Đã biết (bộ lọc công đoạn theo từng chunk), xem cuối Luồng A |
 | `kg stats` báo lỗi kết nối | `docker compose --profile lite up -d postgres neo4j` rồi chờ healthy |
