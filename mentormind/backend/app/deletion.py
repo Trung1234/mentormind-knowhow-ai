@@ -61,9 +61,11 @@ def delete_profiles(
     Raises:
         ProfileStoreBusyError: the store stayed locked; the delete was rolled back.
     """
-    to_unload = [p.profile_id for p in profiles if is_published(store, p)]
     try:
         with store.deleting() as delete:
+            # Under the write lock no review can land in between: decide from what the store holds now.
+            current = [store.get_profile(p.profile_id) or p for p in profiles]
+            to_unload = [p.profile_id for p in current if is_published(store, p)]
             unloaded, failed = _unload(to_unload, open_loader) if to_unload else ([], [])
             kept = {f.profile_id for f in failed}
             removable = [p.profile_id for p in profiles if p.profile_id not in kept]
