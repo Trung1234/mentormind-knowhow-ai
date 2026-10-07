@@ -4,7 +4,8 @@
 ``data/work/video/<id>/segments.json``, or ``--segments FILE``) or a raw ``--video FILE`` cut by
 spec 03's ``VideoCapturePipeline`` (``--method``, fixed 10 s windows by default, as ``sweep`` does). Drafts
 go to the sink of ``KNOWHOW_PROFILE_SINK`` (spec 08's store when present, else
-``data/work/vlm/<video_id>/profiles.json``); ``propose-reasons`` reads and updates them there.
+``data/work/vlm/<video_id>/profiles.json``); ``propose-reasons`` reads and updates them there and
+appends one line per profile examined to ``data/work/vlm/<video_id>/reasons_audit.jsonl`` (spec 04 §5).
 """
 
 from __future__ import annotations
@@ -133,7 +134,7 @@ def propose_reasons_cmd(
     """Fill reasons from the expert's own words (transcript) into the video's profiles."""
     from mentormind.core.guard import ConfidentialDataError
     from mentormind.core.providers.errors import ProviderError
-    from mentormind.processing.vlm.passes.reasons import propose_reasons
+    from mentormind.processing.vlm.passes.reasons import propose_reasons, reasons_audit_path
     from mentormind.processing.vlm.profiles import (
         FileProfileSink,
         ProfileSinkError,
@@ -163,8 +164,9 @@ def propose_reasons_cmd(
             "spec 03) → không có gì để làm."
         )
         return
+    audit = reasons_audit_path(WORK, video_id)
     try:
-        updated = propose_reasons(profiles, _llm(settings))
+        updated = propose_reasons(profiles, _llm(settings), audit=audit)
     except (ConfidentialDataError, ProviderError) as exc:
         typer.secho(f"Lỗi: {exc}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1) from exc
@@ -176,6 +178,7 @@ def propose_reasons_cmd(
         else:
             sink.save(video_id, changed)
     typer.echo(f"{candidates} profile có transcript → điền lý do cho {len(changed)} (in_review) → {sink.where}")
+    typer.echo(f"tự kiểm từng quyết định: {audit}")
 
 
 def _llm(settings: Settings) -> LLMProvider:

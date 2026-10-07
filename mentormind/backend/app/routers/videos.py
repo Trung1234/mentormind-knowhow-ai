@@ -166,7 +166,7 @@ def describe_video(
     from mentormind.core.guard import DataGuard
     from mentormind.core.providers.llm import get_llm_provider
     from mentormind.core.providers.vlm import get_vlm_provider
-    from mentormind.processing.vlm.passes.reasons import propose_reasons
+    from mentormind.processing.vlm.passes.reasons import propose_reasons, reasons_audit_path
     from mentormind.processing.vlm.pipeline import DescribePipeline
     from mentormind.processing.vlm.profiles import FileProfileSink, get_profile_sink
 
@@ -227,9 +227,10 @@ def describe_video(
     result.steps_with_excerpt = len(quoting)
     waiting = [p for p in quoting if p.reason is None]
     proposed = {}
+    audit = reasons_audit_path(work, asset.video_id)  # spec 04 §5: the user's self-check
     for done, profile in enumerate(waiting):
         stage("reasons", done, len(waiting))
-        [after] = propose_reasons([profile], llm)
+        [after] = propose_reasons([profile], llm, audit=audit)
         if after.reason != profile.reason:
             proposed[after.profile_id] = after
     if proposed:

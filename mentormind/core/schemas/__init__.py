@@ -20,6 +20,7 @@ from mentormind.core.schemas.api import (
 )
 from mentormind.core.schemas.common import Citation, DataClassification
 from mentormind.core.schemas.document import ChunkKind, DocumentChunk
+from mentormind.core.schemas.reason_audit import ReasonAuditRecord, ReasonDecision
 from mentormind.core.schemas.vector import VectorChunk, VectorHit
 from mentormind.core.schemas.video import Segment, TranscriptSegment, VideoAsset
 from mentormind.core.schemas.work_profile import (
@@ -72,6 +73,8 @@ __all__ = [
     "ProfileStatus",
     "RcaReport",
     "RcaRequest",
+    "ReasonAuditRecord",
+    "ReasonDecision",
     "ReasonSource",
     "Review",
     "ReviewAction",

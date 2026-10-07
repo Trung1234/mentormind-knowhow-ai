@@ -241,16 +241,20 @@ def test_ac_18_hand_activity_without_mediapipe_cuts_by_scene(
 
 
 def test_ac_18_speech_is_transcribed_quoted_per_step_and_turned_into_reasons(
-    client: TestClient, capture: Capture, store: ProfileStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    client: TestClient,
+    capture: Capture,
+    store: ProfileStore,
+    settings: Settings,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_ffmpeg(monkeypatch, audio=True)
     capture.speech = [
         ASRSegment(text="Nhặt cốc lên nhé.", t_start=0.5, t_end=1.5),
         ASRSegment(text="Xếp nghiêng để cốc không bị nứt.", t_start=9.0, t_end=10.5),
     ]
-    monkeypatch.setattr(
-        llm_providers, "get_llm_provider", lambda s=None: FakeLLM([MERGE, {"reason": "để cốc không bị nứt"}])
-    )
+    reason = {"has_reason": True, "purpose_span": "để cốc không bị nứt"}
+    monkeypatch.setattr(llm_providers, "get_llm_provider", lambda s=None: FakeLLM([MERGE, reason]))
     stages: list[str] = []
     update_job = store.update_job
 
@@ -272,11 +276,18 @@ def test_ac_18_speech_is_transcribed_quoted_per_step_and_turned_into_reasons(
     assert picking["evidence"]["transcript_excerpt"] == "Nhặt cốc lên nhé."  # each step only its own words
     assert placing["evidence"]["transcript_excerpt"] == "Xếp nghiêng để cốc không bị nứt."
     assert (placing["reason"], placing["reason_source"], placing["status"]) == (
-        "để cốc không bị nứt",
+        "Xếp nghiêng để cốc không bị nứt.",  # the expert's sentence holding the span (spec 04 AC-26)
         "expert_verbal",
         "in_review",
     )
     assert (picking["reason"], picking["status"]) == (None, "draft")  # not in its own words: refused
+    # Spec 04 AC-27: the self-check audit sits next to the video's describe artefacts.
+    audit = settings.work_dir / "vlm" / video_id / "reasons_audit.jsonl"
+    decisions = [json.loads(line) for line in audit.read_text(encoding="utf-8").splitlines()]
+    assert [(d["profile_id"], d["decision"]) for d in decisions] == [
+        (picking["profile_id"], "rejected_not_verbatim"),
+        (placing["profile_id"], "accepted"),
+    ]
 
 
 def test_ac_18_without_a_method_the_server_default_is_used(

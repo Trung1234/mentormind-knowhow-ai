@@ -10,11 +10,13 @@ import pytest
 from typer.testing import CliRunner
 
 from mentormind.core.config import get_settings
+from mentormind.core.providers.llm.backends.fake import FakeLLM
 from mentormind.core.schemas.common import DataClassification
 from mentormind.processing.vlm.cli import app
-from mentormind.processing.vlm.pipeline import write_profiles
+from mentormind.processing.vlm.cli import describe as describe_cli
+from mentormind.processing.vlm.pipeline import read_profiles, write_profiles
 from tests.processing.vlm.passes.test_describe import segments
-from tests.processing.vlm.passes.test_reasons import draft
+from tests.processing.vlm.passes.test_reasons import TRANSCRIPT, draft
 
 runner = CliRunner()
 
@@ -71,3 +73,19 @@ def test_propose_reasons_without_transcript_changes_nothing(tmp_path: Path) -> N
     write_profiles([draft(transcript=None)], store)
     result = runner.invoke(app, ["propose-reasons", "VID-TEST"])
     assert result.exit_code == 0 and "spec 03" in result.output
+
+
+def test_ac_27_propose_reasons_writes_its_audit_next_to_the_video_profiles(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = tmp_path / "data" / "work" / "vlm" / "VID-TEST"
+    write_profiles([draft()], folder / "profiles.json")
+    llm = FakeLLM([{"has_reason": True, "purpose_span": "vì nếu không sẽ trầy mặt"}])
+    monkeypatch.setattr(describe_cli, "_llm", lambda settings: llm)
+    result = runner.invoke(app, ["propose-reasons", "VID-TEST"])
+    assert result.exit_code == 0, result.output
+    assert "reasons_audit.jsonl" in result.output
+    [profile] = read_profiles(folder / "profiles.json")
+    assert (profile.reason, profile.status) == (TRANSCRIPT, "in_review")
+    [line] = (folder / "reasons_audit.jsonl").read_text(encoding="utf-8").splitlines()
+    assert json.loads(line)["decision"] == "accepted"
