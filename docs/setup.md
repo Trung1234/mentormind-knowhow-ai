@@ -134,18 +134,18 @@ chạy thì thử Luồng C.
 
 ### Luồng B — Upload video → duyệt bước → hỏi trợ lý
 
-Thời gian phụ thuộc VLM: **cách A** (vLLM BF16 trên Vast) ~8 s mỗi lượt → video LASI đủ (31 phút → ~30 đoạn,
-~60 lượt) khoảng **8–10 phút**, cộng ~3 phút nhận dạng lời nói; **cách B** (Ollama Q4 trên Mac 16 GB) vài phút mỗi
-lượt → **nhiều giờ**. Để thử nhanh, cắt 3 phút đầu (~5–8 đoạn):
+Video LASI dài **3 phút 14 giây** (cắt theo cảnh → ~30 đoạn, ~60 lượt VLM cho lượt A + B). Thời gian phụ thuộc VLM:
+**cách A** (vLLM BF16 trên Vast) ~8 s mỗi lượt → khoảng **8–10 phút**, cộng ~1 phút nhận dạng lời nói trên máy chủ;
+**cách B** (Ollama Q4 trên Mac 16 GB) vài phút mỗi lượt → **1–2 giờ**. Thử nhanh hơn với 1 phút đầu (~10 đoạn):
 
 ```bash
-ffmpeg -t 180 -i "data/video/LASI Success Case - Food Industry (Asian Alliance Internation Co.,Ltd.) [m4icg6FgTBU].mkv" -c copy lasi-3m.mkv
+ffmpeg -t 60 -i "data/video/LASI Success Case - Food Industry (Asian Alliance Internation Co.,Ltd.) [m4icg6FgTBU].mkv" -c copy lasi-1m.mkv
 ```
 
 **Upload và theo dõi**
 
 1. Tab **TẢI DỮ LIỆU** → ô **TẢI VIDEO THAO TÁC**.
-2. Bấm **CHỌN VIDEO…** → `lasi-3m.mkv` (hoặc video LASI đầy đủ trong `data/video/`).
+2. Bấm **CHỌN VIDEO…** → video LASI trong `data/video/` (hoặc `lasi-1m.mkv`).
 3. **MÃ CÔNG ĐOẠN**: để `PACK01` (mọi bước sinh ra sẽ có mã `WP-PACK01-…`).
 4. **CÁCH CẮT ĐOẠN**:
    - **Mặc định của máy chủ (KNOWHOW_VIDEO_METHOD)** — theo `.env` (`scene` ở bước 2);
