@@ -36,6 +36,7 @@ def sweep_cmd(
     from mentormind.core.providers.errors import ProviderError
     from mentormind.core.providers.vlm import get_vlm_provider
     from mentormind.core.schemas.video import Segment
+    from mentormind.processing.vlm.passes.step_times import get_step_timer
     from mentormind.processing.vlm.sweep import load_truth, markdown_table, run_sweep, write_csv
 
     settings = get_settings()
@@ -45,7 +46,8 @@ def sweep_cmd(
     try:
         vlm = get_vlm_provider(settings)
         video_id = video_id_for(video)
-        work_dir = Path("data/work/vlm") / video_id / f"sweep-{vlm.name}"
+        # One folder per step-times mode: a sweep per KNOWHOW_VLM_STEP_TIMES value keeps its own details.
+        work_dir = Path("data/work/vlm") / video_id / f"sweep-{vlm.name}-{settings.vlm_step_times}"
         if segments is not None:
             loaded = [Segment.model_validate(s) for s in json.loads(segments.read_text())]
         else:
@@ -68,6 +70,7 @@ def sweep_cmd(
             process_id=process_id,
             work_dir=work_dir,
             max_frames=settings.vlm_max_frames,
+            step_timer=get_step_timer(settings.vlm_step_times),
         )
     except (ProviderError, PermissionError, ValueError, RuntimeError) as exc:
         typer.secho(f"Lỗi: {exc}", fg=typer.colors.RED, err=True)
@@ -75,6 +78,9 @@ def sweep_cmd(
     write_csv(rows, out)
     table = markdown_table(rows)
     out.with_suffix(".md").write_text(table + "\n", encoding="utf-8")
-    typer.echo(f"provider={vlm.name} model={vlm.model} | {len(loaded)} đoạn | chi tiết: {work_dir}")
+    typer.echo(
+        f"provider={vlm.name} model={vlm.model} step_times={settings.vlm_step_times} | {len(loaded)} đoạn"
+        f" | chi tiết: {work_dir}"
+    )
     typer.echo(table)
     typer.echo(f"CSV: {out}")

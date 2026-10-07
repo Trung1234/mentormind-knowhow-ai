@@ -199,6 +199,7 @@ def describe_video(
     from mentormind.core.providers.llm import get_llm_provider
     from mentormind.core.providers.vlm import get_vlm_provider
     from mentormind.processing.vlm.passes.reasons import propose_reasons, reasons_audit_path
+    from mentormind.processing.vlm.passes.step_times import get_step_timer
     from mentormind.processing.vlm.pipeline import DescribePipeline
     from mentormind.processing.vlm.profiles import FileProfileSink, get_profile_sink
 
@@ -248,6 +249,7 @@ def describe_video(
         max_frames=settings.vlm_max_frames,
         transcript_lead_s=settings.transcript_lead_s,
         transcript_lag_s=settings.transcript_lag_s,
+        step_timer=get_step_timer(settings.vlm_step_times),
     )
     work_dir = work / "vlm" / asset.video_id / f"describe-{vlm.name}"
     drafts = pipeline.run(captured.segments, work_dir, captured.transcript)

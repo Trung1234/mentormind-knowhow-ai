@@ -25,6 +25,7 @@ CSV_COLUMNS = [
     "failed_segments",
     "provider",
     "model",
+    "step_times",
 ]
 
 
@@ -39,13 +40,13 @@ def write_csv(rows: Sequence[SweepRow], path: Path) -> None:
 
 def markdown_table(rows: Sequence[SweepRow]) -> str:
     header = (
-        "| fps | fps thực | recall | recall (chính) | recall (chỉ thời gian) | precision | order |"
+        "| fps | fps thực | thời gian bước | recall | recall (chính) | recall (chỉ thời gian) | precision | order |"
         " key_point | actor | bước dự đoán | token | độ trễ (s) |"
     )
-    lines = [header, "|" + "---|" * 12]
+    lines = [header, "|" + "---|" * 13]
     for r in rows:
         lines.append(
-            f"| {r.fps:g} | {r.fps_effective:g} | {r.recall:.2f} | {_fmt(r.recall_essential)} | "
+            f"| {r.fps:g} | {r.fps_effective:g} | {r.step_times} | {r.recall:.2f} | {_fmt(r.recall_essential)} | "
             f"{_fmt(r.recall_time_only)} | {r.precision:.2f} | {_fmt(r.order_accuracy)} | "
             f"{_fmt(r.key_point_recall)} | {_fmt(r.actor_accuracy)} | {r.predicted} | "
             f"{r.tokens_used} | {r.latency_s:.1f} |"

@@ -290,6 +290,26 @@ def test_ac_18_speech_is_transcribed_quoted_per_step_and_turned_into_reasons(
     ]
 
 
+@pytest.mark.parametrize(("step_times", "span"), [("segment", (8.0, 15.0)), ("model", (8.0, 11.5))])
+def test_ac_28_the_video_job_times_steps_by_the_setting(
+    client: TestClient,
+    settings: Settings,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    step_times: str,
+    span: tuple[float, float],
+) -> None:
+    """Spec 04 AC-25: KNOWHOW_VLM_STEP_TIMES reaches pass A of the API job."""
+    configured = settings.model_copy(update={"vlm_step_times": step_times})
+    monkeypatch.setattr(videos_router, "get_settings", lambda: configured)
+    video_id = _upload(client, synthetic_video(tmp_path / "pack.mp4", 20)).json()["video_id"]
+    job_id = client.post(f"/videos/{video_id}/process", json={"method": "fixed_window"}).json()["job_id"]
+    assert client.get(f"/jobs/{job_id}").json()["status"] == "done"
+    drafts = client.get("/profiles", params={"process_id": "PACK01"}).json()
+    merged = next(p for p in drafts if p["step"] == "Đặt cốc vào thùng carton")
+    assert (merged["evidence"]["t_start"], merged["evidence"]["t_end"]) == span
+
+
 def test_ac_18_without_a_method_the_server_default_is_used(
     client: TestClient, capture: Capture, settings: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
