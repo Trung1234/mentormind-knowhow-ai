@@ -193,3 +193,39 @@ export interface VideoProcessResult {
   reasons_filled: number;
   progress?: { stage: VideoStage; done: number; total: number } | null;
 }
+
+// Deletions (spec 08 §2 "Xoá dữ liệu").
+export interface DeleteFailure {
+  profile_id: string;
+  error: string;
+}
+
+export interface ProfileDeleteResult {
+  deleted: string[];
+  // Of `deleted`: approved steps also removed from Neo4j + pgvector.
+  unpublished: string[];
+  // Approved steps kept because the graph / vector store could not drop them.
+  failed: DeleteFailure[];
+}
+
+export interface VideoDeleteResult extends ProfileDeleteResult {
+  video_id: string;
+  files_removed: number;
+}
+
+// GET /documents: one indexed document (a data/work/chunks/<doc_id>.jsonl).
+export interface DocumentInfo {
+  doc_id: string;
+  name: string;
+  title?: string | null;
+  data_classification?: DataClassification | null;
+  extractor?: string | null;
+  chunks: number;
+}
+
+export interface DocumentDeleteResult {
+  doc_id: string;
+  chunks_deleted: number;
+  chunk_file_removed: boolean;
+  uploads_removed: number;
+}

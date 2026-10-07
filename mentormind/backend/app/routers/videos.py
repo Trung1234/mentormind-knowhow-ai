@@ -4,6 +4,7 @@ Cutting, keyframes, clips and the transcript are spec 03's ``VideoCapturePipelin
 """
 
 import re
+import shutil
 import uuid
 from collections.abc import Callable
 from pathlib import Path
@@ -12,7 +13,8 @@ from typing import TYPE_CHECKING, Any
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field
 
-from mentormind.backend.app.deps import get_profile_store
+from mentormind.backend.app.deletion import delete_profiles
+from mentormind.backend.app.deps import LoaderOpener, get_loader_opener, get_profile_store
 from mentormind.backend.app.uploads import upload_name
 from mentormind.capture.video.segmenters import METHODS, Method
 from mentormind.core.config import Settings, get_settings
@@ -21,6 +23,7 @@ from mentormind.core.schemas import (
     JobStatus,
     Segment,
     VideoAsset,
+    VideoDeleteResult,
     VideoProcessProgress,
     VideoProcessResult,
 )
@@ -35,6 +38,8 @@ router = APIRouter(prefix="/videos", tags=["videos"])
 
 VIDEO_SUFFIXES = (".avi", ".m4v", ".mkv", ".mov", ".mp4", ".webm")
 VIDEO_ID = re.compile(r"VID-[0-9a-f]{12}")
+#: Any video id a profile may carry that is also a plain folder name (no ``.``, ``/``): safe to delete.
+FOLDER_NAME = re.compile(r"[A-Za-z0-9_-]+")
 WINDOW_S = 10.0
 DEFAULT_PROCESS_ID = "PACK01"
 _CHUNK = 1 << 20
@@ -124,6 +129,33 @@ def get_segments(video_id: str) -> list[Segment]:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Video {video_id} chưa được cắt đoạn (chưa xử lý)."
         ) from exc
+
+
+@router.delete("/{video_id}", response_model=VideoDeleteResult)
+def delete_video(
+    video_id: str,
+    store: ProfileStore = Depends(get_profile_store),
+    open_loader: LoaderOpener = Depends(get_loader_opener),
+) -> VideoDeleteResult:
+    """Every step of the video, then its files (spec 08 §2, AC-22).
+
+    The files stay when an approved step could not be unloaded: that step still shows them.
+    """
+    work = get_settings().work_dir
+    folders = [work / "video" / video_id, work / "vlm" / video_id]
+    profiles = [p for p in store.list_profiles() if p.evidence.video_id == video_id]
+    if not FOLDER_NAME.fullmatch(video_id) or not (profiles or any(f.exists() for f in folders)):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Không có video {video_id}.")
+    deleted = delete_profiles(store, profiles, open_loader)
+    result = VideoDeleteResult(
+        video_id=video_id, deleted=deleted.deleted, unpublished=deleted.unpublished, failed=deleted.failed
+    )
+    if not deleted.failed:
+        for folder in folders:
+            if folder.is_dir():
+                result.files_removed += sum(1 for f in folder.rglob("*") if not f.is_dir())
+                shutil.rmtree(folder)
+    return result
 
 
 def run_video_process_task(

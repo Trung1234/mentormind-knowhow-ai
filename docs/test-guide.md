@@ -111,6 +111,8 @@ npm --prefix mentormind/frontend ci && npm --prefix mentormind/frontend run dev 
 - Mở UI bằng **http://localhost:5173**, không dùng `127.0.0.1`: CORS chỉ cho origin trong `KNOWHOW_CORS_ORIGINS`.
 - Sau mỗi lần sửa `.env`, **khởi động lại uvicorn**: settings, profile store và agent được cache trong process.
 - Duyệt (`POST /profiles/{id}/review`) luôn cần Neo4j và vector store, kể cả khi `KNOWHOW_API_AGENTS=mock`.
+- Xoá bước / video (spec 08 §2 "Xoá dữ liệu"): bước nháp xoá được khi Neo4j và vector store tắt; bước đã duyệt phải
+  được gỡ khỏi cả hai trước, nên khi chúng tắt bước đó được giữ lại và API báo lý do. Xoá tài liệu cần vector store.
 - `make start` (`./start.sh`) giết mọi tiến trình đang giữ cổng 8000/5173, và khi chưa có `data/work/profiles.sqlite`
   thì seed 4 profile giả `WP-PACK01-001..004`. Dùng được cho demo nhanh; **không dùng** khi kiểm thử với Qwen
   (§4.4), vì profile giả lẫn vào kết quả.

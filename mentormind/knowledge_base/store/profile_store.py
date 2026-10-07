@@ -279,6 +279,25 @@ class ProfileStore:
 
         return updated_profile
 
+    def last_review_action(self, profile_id: str) -> str | None:
+        """``approve`` / ``reject`` of the latest review event, ``None`` when never reviewed."""
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT action FROM review_events WHERE profile_id = ? ORDER BY id DESC LIMIT 1",
+                (profile_id,),
+            ).fetchone()
+        return None if row is None else str(row["action"])
+
+    def delete_profiles(self, profile_ids: list[str]) -> int:
+        """Remove profiles and their review history (spec 08 §1); returns how many profiles existed."""
+        if not profile_ids:
+            return 0
+        marks = ", ".join("?" * len(profile_ids))
+        with self._get_connection() as conn:
+            conn.execute(f"DELETE FROM review_events WHERE profile_id IN ({marks})", profile_ids)
+            deleted = conn.execute(f"DELETE FROM profiles WHERE profile_id IN ({marks})", profile_ids).rowcount
+        return int(deleted)
+
     @staticmethod
     def _write_review_event(cursor: sqlite3.Cursor, profile_id: str, review_req: ReviewRequest, now_str: str) -> None:
         cursor.execute(

@@ -1155,6 +1155,43 @@ body {
 .data-table .mono { font-family: var(--font-mono); font-size: 0.78rem; }
 .data-table tfoot td { font-weight: 700; border-bottom: none; }
 
+/* === CONFIRM DIALOG (destructive actions) === */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(8, 13, 23, 0.55);
+}
+.modal {
+  width: 100%;
+  max-width: 480px;
+  background: var(--bg-surface);
+  border: 1px solid var(--status-danger-border);
+  border-radius: 14px;
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+}
+.modal-body { padding: 1.1rem 1.35rem; font-size: 0.95rem; line-height: 1.55; color: var(--text-secondary); }
+.modal-body p + p { margin-top: 0.6rem; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; padding: 0 1.35rem 1.2rem; }
+
+/* Bulk selection bar above the profile list */
+.profile-bulk-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0.6rem 0.85rem 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.profile-check { width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; accent-color: var(--denso-red); }
+
 /* === SCROLLBARS === */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
