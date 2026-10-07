@@ -19,6 +19,7 @@ import {
 // Spec 08 §3, page 4 "Tải tài liệu": upload -> POST /ingest/documents, then poll GET /jobs/{id}.
 const ACCEPTED_TYPES = ".pdf,.docx,.xlsx,.pptx";
 const POLL_INTERVAL_MS = 2000;
+const STORAGE_KEY = "mentormind_document_job";
 
 const CLASSIFICATION_LABELS: Record<DataClassification, string> = {
   public:               "Công khai",
@@ -33,7 +34,37 @@ const JOB_STATUS: Record<JobStatus, { label: string; badge: string }> = {
   failed:  { label: "Lỗi",        badge: "badge badge-rejected" },
 };
 
+interface TrackedJob {
+  jobId: string;
+  fileNames: string[];
+  startedAt: number;
+}
+
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+function loadTracked(): TrackedJob | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as TrackedJob) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveTracked(job: TrackedJob | null) {
+  try {
+    if (job) localStorage.setItem(STORAGE_KEY, JSON.stringify(job));
+    else localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // storage blocked: tracking only lasts while the page stays open
+  }
+}
+
+function formatElapsed(ms: number): string {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(total / 60);
+  return minutes > 0 ? `${minutes} phút ${total % 60} giây` : `${total} giây`;
+}
 
 // Vietnamese message for the user; never a stack trace.
 function describeError(err: unknown): string {
@@ -62,11 +93,13 @@ export function UploadDocumentsTab() {
   const [files,          setFiles]          = useState<File[]>([]);
   const [classification, setClassification] = useState<DataClassification | "">("");
   const [busy,           setBusy]           = useState(false);
+  const [tracked,        setTracked]        = useState<TrackedJob | null>(() => loadTracked());
   const [job,            setJob]            = useState<JobResponse<DocumentIngestResult> | null>(null);
   const [errorMsg,       setErrorMsg]       = useState<string | null>(null);
+  const [now,            setNow]            = useState(Date.now());
   const fileInput = useRef<HTMLInputElement>(null);
 
-  // Polling stops when the user leaves the tab.
+  // Polling stops when the user leaves the tab and resumes from localStorage when they come back.
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -75,6 +108,36 @@ export function UploadDocumentsTab() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!tracked) return;
+    let cancelled = false;
+    const follow = async () => {
+      try {
+        for (;;) {
+          const current = await api.getJob<DocumentIngestResult>(tracked.jobId);
+          if (cancelled || !mounted.current) return;
+          setJob(current);
+          if (current.status === "done" || current.status === "failed") return;
+          await sleep(POLL_INTERVAL_MS);
+        }
+      } catch (err) {
+        if (!cancelled && mounted.current) setErrorMsg(describeError(err));
+      }
+    };
+    follow();
+    return () => {
+      cancelled = true;
+    };
+  }, [tracked]);
+
+  // Elapsed-time display while the job runs.
+  const running = job !== null && (job.status === "queued" || job.status === "running");
+  useEffect(() => {
+    if (!running) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [running]);
+
   const handleUpload = async () => {
     if (files.length === 0 || !classification) return;
     setBusy(true);
@@ -82,22 +145,19 @@ export function UploadDocumentsTab() {
     setJob(null);
     try {
       const { job_id } = await api.uploadDocuments(files, classification);
-      for (;;) {
-        const current = await api.getJob<DocumentIngestResult>(job_id);
-        if (!mounted.current) return;
-        setJob(current);
-        if (current.status === "done" || current.status === "failed") return;
-        await sleep(POLL_INTERVAL_MS);
-      }
+      const next: TrackedJob = { jobId: job_id, fileNames: files.map((f) => f.name), startedAt: Date.now() };
+      saveTracked(next);
+      setTracked(next);
     } catch (err) {
-      if (mounted.current) setErrorMsg(describeError(err));
+      setErrorMsg(describeError(err));
     } finally {
-      if (mounted.current) setBusy(false);
+      setBusy(false);
     }
   };
 
   const result = job?.result ?? null;
-  const canUpload = !busy && files.length > 0 && classification !== "";
+  const locked = busy || running || (tracked !== null && job === null && errorMsg === null);
+  const canUpload = !locked && files.length > 0 && classification !== "";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
@@ -129,7 +189,7 @@ export function UploadDocumentsTab() {
                 multiple
                 accept={ACCEPTED_TYPES}
                 hidden
-                disabled={busy}
+                disabled={locked}
                 onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
               />
               <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
@@ -137,7 +197,7 @@ export function UploadDocumentsTab() {
                   id="btn-choose-documents"
                   type="button"
                   className="btn btn-ghost"
-                  disabled={busy}
+                  disabled={locked}
                   onClick={() => fileInput.current?.click()}
                 >
                   <FileText size={14} />
@@ -164,7 +224,7 @@ export function UploadDocumentsTab() {
                 id="select-classification"
                 className="form-select"
                 value={classification}
-                disabled={busy}
+                disabled={locked}
                 onChange={(e) => setClassification(e.target.value as DataClassification)}
               >
                 <option value="" disabled>— Chọn nhãn dữ liệu —</option>
@@ -187,8 +247,8 @@ export function UploadDocumentsTab() {
               onClick={handleUpload}
               disabled={!canUpload}
             >
-              {busy ? <div className="spinner" /> : <Upload size={16} />}
-              {busy ? (job ? "Đang xử lý…" : "Đang tải lên…") : "Tải lên & xử lý"}
+              {locked ? <div className="spinner" /> : <Upload size={16} />}
+              {busy ? "Đang tải lên…" : locked ? "Đang xử lý…" : "Tải lên & xử lý"}
             </button>
           </div>
         </div>
@@ -216,12 +276,22 @@ export function UploadDocumentsTab() {
           </div>
 
           <div className="card-body" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            <span className="mono-tag" style={{ alignSelf: "flex-start" }}>{job.job_id}</span>
+            <div className="chip-list">
+              {tracked?.fileNames.map((name) => (
+                <span key={name} className="mono-tag">{name}</span>
+              ))}
+              <span className="mono-tag">{job.job_id}</span>
+            </div>
 
-            {(job.status === "queued" || job.status === "running") && (
+            {running && (
               <div className="loading-center" style={{ padding: "1.5rem 1rem" }}>
                 <div className="spinner spinner-lg" />
                 <span>Đang tách chunk và đưa vào kho tìm kiếm… (tự cập nhật mỗi 2 giây)</span>
+                {tracked && <span>Đã chạy {formatElapsed(now - tracked.startedAt)}</span>}
+                <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                  Lần đầu máy chủ còn tải model (bge-m3 ~2 GB, Docling) nên có thể mất vài phút. Có thể chuyển trang khác;
+                  quay lại đây vẫn theo dõi tiếp.
+                </span>
               </div>
             )}
 
