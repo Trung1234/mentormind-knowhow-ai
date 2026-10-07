@@ -2,7 +2,7 @@
 
 Ragas would otherwise call the LLM with its own client and skip DataGuard, PII masking and the audit
 log (constitution art. 2). ``GuardedRagasLLM`` sends every judge prompt through ``LLMProvider``
-with the data label of the run; ``ProjectEmbeddings`` uses the local bge-m3 of spec 05.
+with the data label of the run; ``ProjectEmbeddings`` uses the Work Assistant's embedder (``KNOWHOW_EMBEDDER``).
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ class GuardedRagasLLM(BaseRagasLLM):
 
 
 class ProjectEmbeddings(BaseRagasEmbeddings):
-    """Ragas' embeddings (``answer_relevancy``) = the project's local embedder."""
+    """Ragas' embeddings (``answer_relevancy``) = the Work Assistant's embedder (local or remote bge-m3)."""
 
     def __init__(self, embedder: TextEmbedder) -> None:
         super().__init__()
