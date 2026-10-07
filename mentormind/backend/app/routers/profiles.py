@@ -2,8 +2,11 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from mentormind.backend.app.deps import get_knowledge_loader, get_profile_store
+from mentormind.backend.app.deletion import delete_profiles
+from mentormind.backend.app.deps import LoaderOpener, get_knowledge_loader, get_loader_opener, get_profile_store
 from mentormind.core.schemas import (
+    ProfileDeleteRequest,
+    ProfileDeleteResult,
     ProfilePatchRequest,
     ReviewAction,
     ReviewRequest,
@@ -22,6 +25,46 @@ def list_profiles(
     store: ProfileStore = Depends(get_profile_store),
 ) -> list[WorkProfile]:
     return store.list_profiles(process_id=process_id, status=status)
+
+
+@router.post("/delete", response_model=ProfileDeleteResult)
+def delete_many(
+    req: ProfileDeleteRequest,
+    store: ProfileStore = Depends(get_profile_store),
+    open_loader: LoaderOpener = Depends(get_loader_opener),
+) -> ProfileDeleteResult:
+    """Delete several steps (spec 08 §2, AC-21); an approved one that cannot be unloaded is kept."""
+    ids = list(dict.fromkeys(req.profile_ids))
+    profiles = {pid: store.get_profile(pid) for pid in ids}
+    missing = [pid for pid, p in profiles.items() if p is None]
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Không có bước: {', '.join(missing)}. Chưa xoá bước nào.",
+        )
+    return delete_profiles(store, [p for p in profiles.values() if p is not None], open_loader)
+
+
+@router.delete("/{profile_id}", response_model=ProfileDeleteResult)
+def delete_one(
+    profile_id: str,
+    store: ProfileStore = Depends(get_profile_store),
+    open_loader: LoaderOpener = Depends(get_loader_opener),
+) -> ProfileDeleteResult:
+    """Delete one step (spec 08 §2, AC-19, AC-20)."""
+    profile = store.get_profile(profile_id)
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"WorkProfile {profile_id} không tồn tại",
+        )
+    result = delete_profiles(store, [profile], open_loader)
+    if result.failed:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Không xoá được bước {profile_id}: {result.failed[0].error}. Bước vẫn được giữ nguyên.",
+        )
+    return result
 
 
 @router.get("/{profile_id}")
