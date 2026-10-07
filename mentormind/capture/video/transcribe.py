@@ -105,7 +105,11 @@ def transcribe_recall(
     work_dir: Path,
     language: str | None = None,
 ) -> list[TranscriptSegment]:
-    """The expert's video-cued recall of a silent video (FR-07b), appended to its ``transcript.json``.
+    """The expert's video-cued recall of a silent video (FR-07b), stored in its ``transcript.json``.
+
+    A recording owns the video time it covers (``offset`` to ``offset`` + its length): recalled lines
+    that start there are replaced, the others and every inline line are kept (AC-14). ASR splits
+    the same audio differently on each run, so words cannot tell a re-run from a new recording.
 
     Raises:
         FileNotFoundError: no such video (never probed) or no such audio file; nothing is written (AC-08).
@@ -115,7 +119,13 @@ def transcribe_recall(
         raise FileNotFoundError(f"Không thấy file ghi âm {audio}")
     result = asr.transcribe(audio, classification=asset.data_classification, language=language)
     lines = _lines(asset, result, source="cued_recall", offset=offset)
-    store.write_transcript(work_dir, video_id, [*store.read_transcript(work_dir, video_id), *lines])
+    end = offset + result.duration_s
+    kept = [
+        line
+        for line in store.read_transcript(work_dir, video_id)
+        if line.source != "cued_recall" or not offset <= line.t_start < end
+    ]
+    store.write_transcript(work_dir, video_id, [*kept, *lines])
     return lines
 
 

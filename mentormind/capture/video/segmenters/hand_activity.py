@@ -3,9 +3,9 @@
 MediaPipe Tasks ``HandLandmarker`` on the CPU, frames 256 px at 5 fps. The energy of an instant is
 the mean speed of the wrists (landmark 0) between the last two frames with hands, in frame widths
 per second. Hands out of view for 0.4 s or more = rest; a shorter gap is a missed detection, not a
-rest. A boundary sits in the middle of every rest of ≥ 0.4 s with activity on both sides. The system
-follows human operations: footage without hands (a robot cell) is one long rest, which
-post-processing (FR-04) splits into ≤ 15 s parts. ``motion_score`` = mean wrist speed / 0.5.
+rest. A boundary sits in the middle of every rest of ≥ 0.4 s with activity on both sides. Hands
+seen in under 10% of the frames (a robot cell, an interview: LASI 3.3%) means the method does not
+apply: the chain moves on to ``scene`` (AC-13). ``motion_score`` = mean wrist speed / 0.5.
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ HAND_FPS = 5.0
 HAND_LONG_SIDE = 256
 REST_SPEED = 0.05  # frame widths per second
 MIN_REST_S = 0.4
+MIN_PRESENCE = 0.10  # share of frames with a hand below which the cuts would be noise
 FULL_SPEED = 0.5  # motion_score 1
 HAND_MODEL_URL = (
     "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
@@ -159,6 +160,9 @@ class HandActivitySegmenter:
             track = [(t, detector.wrists(frame, t)) for t, frame in self._frames(video, self.fps, self.long_side)]
         finally:
             detector.close()
+        presence = sum(1 for _, hands in track if hands) / len(track) if track else 0.0
+        if presence < MIN_PRESENCE:
+            raise SegmenterUnavailable(f"hầu như không thấy tay ({presence:.0%} số khung, cần ≥ {MIN_PRESENCE:.0%})")
         speeds = wrist_speeds(track)
         edges = [0.0, *[b for b in rest_boundaries(speeds) if 0 < b < asset.duration_s], asset.duration_s]
         cuts = [Cut(start, end) for start, end in zip(edges, edges[1:], strict=False) if end > start]

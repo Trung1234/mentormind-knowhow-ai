@@ -143,3 +143,26 @@ def test_ac_10_a_long_sentence_is_never_cut_inside_a_word() -> None:
     spoken = ASRSegment(text="Đặt cốc", t_start=30, t_end=31, words=words((" Đặt", 30, 30.5), (" cốc", 30.5, 31)))
     result = ASRResult(segments=(thai, spoken), language="th", duration_s=40, latency_s=1, provider="fake", model="m")
     assert sentences(result) == [(0.0, 24.0, "กขคงจฉชซญดตถ"), (30, 31, "Đặt cốc")]
+
+
+def test_ac_14_a_recording_replaces_its_own_stretch_and_keeps_the_rest(tmp_path: Path) -> None:
+    video = asset(tmp_path, has_audio=True)
+    store.write_asset(tmp_path, video)
+    inline = transcribe_video(video, FakeASR([SPEECH]), work_dir=tmp_path, extract=fake_extract)  # 1–9 s
+    recording = tmp_path / "recall.m4a"
+    recording.write_bytes(b"audio")
+
+    def recall(offset: float) -> None:
+        transcribe_recall(recording, video_id=video.video_id, offset=offset, asr=FakeASR([SPEECH]), work_dir=tmp_path)
+
+    def recalled() -> list[float]:
+        lines = store.read_transcript(tmp_path, video.video_id)
+        return sorted(line.t_start for line in lines if line.source == "cued_recall")
+
+    recall(0.0)  # covers 0–9 s, the same stretch as the inline speech
+    recall(0.0)  # the same recording again: no duplicates
+    assert recalled() == [1.0, 2.4, 4.2]
+    recall(12.5)  # another stretch (12.5–21.5 s): the earlier lines stay
+    assert recalled() == [1.0, 2.4, 4.2, 13.5, 14.9, 16.7]
+    kept = [line for line in store.read_transcript(tmp_path, video.video_id) if line.source == "inline"]
+    assert kept == inline  # inline speech is never replaced by a recording

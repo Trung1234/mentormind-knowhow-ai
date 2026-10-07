@@ -129,3 +129,52 @@ def test_every_method_name_has_a_segmenter() -> None:
         "hand_activity",
     }
     assert Cut(1, 4).duration == 3
+
+
+class Broken:
+    """A cutter that fails while running, not for a missing library."""
+
+    def __init__(self, name: Method) -> None:
+        self.name = name
+
+    def cut(self, video: Path, asset: VideoAsset) -> list[Cut]:
+        raise RuntimeError("PySceneDetect: không đọc được khung 812")
+
+
+def test_ac_12_a_cutter_failing_at_run_time_hands_over_to_the_next(caplog: pytest.LogCaptureFixture) -> None:
+    def build(method: Method) -> Segmenter:
+        return Broken(method) if method == "scene" else FixedWindowSegmenter(motion=False)
+
+    with caplog.at_level(logging.WARNING):
+        cuts, used = cut_with_fallback("scene", Path("x.mp4"), asset(25), build=build)
+    assert used == "fixed_window" and len(cuts) == 3
+    assert "không đọc được khung 812" in caplog.text  # the reason is logged
+
+
+def test_ac_12_the_end_of_the_chain_still_reports_its_error() -> None:
+    with pytest.raises(RuntimeError, match="khung 812"):
+        cut_with_fallback("fixed_window", Path("x.mp4"), asset(25), build=Broken)
+
+
+class Shots:
+    name: Method = "scene"
+
+    def cut(self, video: Path, asset: VideoAsset) -> list[Cut]:
+        return [Cut(0.0, 8.0), Cut(8.0, 20.0)]
+
+
+def hands_until(seconds: float) -> Callable[[float], list[Point]]:
+    """Hands seen (and moving) only before ``seconds``; the rest of the video has none."""
+    return lambda t: [(0.3 if round(t * 5) % 2 else 0.5, 0.5)] if t < seconds else []
+
+
+@pytest.mark.parametrize(("seen_until", "used"), [(0.8, "scene"), (2.2, "hand_activity")])
+def test_ac_13_hands_seen_in_under_10_percent_of_frames_fall_back_to_scene(seen_until: float, used: Method) -> None:
+    # 20 s at 5 fps = 101 frames: hands in 5 of them (5%) or in 12 (12%).
+    def build(method: Method) -> Segmenter:
+        if method == "hand_activity":
+            return HandActivitySegmenter(detector=lambda: ScriptedHands(hands_until(seen_until)), frames=no_frames(20))
+        return Shots()
+
+    _, method = cut_with_fallback("hand_activity", Path("x.mp4"), asset(20), build=build)
+    assert method == used

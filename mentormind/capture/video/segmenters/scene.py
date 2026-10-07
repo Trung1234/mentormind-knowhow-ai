@@ -6,7 +6,9 @@ the ``scenedetect`` package the method is unavailable and ``fixed_window`` takes
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import sys
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Literal
 
@@ -24,8 +26,9 @@ SceneDetector = Callable[[Path, float], list[tuple[float, float]]]
 def detect_scenes(video: Path, threshold: float) -> list[tuple[float, float]]:
     """PySceneDetect ``ContentDetector`` on its OpenCV backend, frames downscaled automatically."""
     try:
-        from scenedetect import SceneManager, open_video
-        from scenedetect.detectors import ContentDetector
+        with _without_pyav():
+            from scenedetect import SceneManager, open_video
+            from scenedetect.detectors import ContentDetector
     except ImportError as exc:
         raise SegmenterUnavailable("thiếu thư viện scenedetect (uv sync --extra video)") from exc
     stream = open_video(str(video))
@@ -34,6 +37,26 @@ def detect_scenes(video: Path, threshold: float) -> list[tuple[float, float]]:
     manager.add_detector(ContentDetector(threshold=threshold))
     manager.detect_scenes(stream)
     return [(start.get_seconds(), end.get_seconds()) for start, end in manager.get_scene_list()]
+
+
+@contextmanager
+def _without_pyav() -> Iterator[None]:
+    """Keep PyAV out of the process while ``scenedetect`` is imported (from Hoàng's branch).
+
+    ``scenedetect`` loads PyAV as an optional backend when it is installed (it is, for
+    faster-whisper). Frames are read with OpenCV only, and on macOS the PyAV and OpenCV wheels both
+    bundle libavdevice: loading both makes the Objective-C runtime warn of duplicate classes that
+    may crash. A ``None`` entry in ``sys.modules`` makes ``import av`` raise ``ImportError``, which
+    ``scenedetect`` handles.
+    """
+    if "av" in sys.modules:  # already loaded in this process: nothing left to keep out
+        yield
+        return
+    sys.modules["av"] = None  # type: ignore[assignment]
+    try:
+        yield
+    finally:
+        sys.modules.pop("av", None)
 
 
 class SceneSegmenter:

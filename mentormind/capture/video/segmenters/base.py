@@ -40,7 +40,7 @@ class Segmenter(Protocol):
 
 
 class SegmenterUnavailable(RuntimeError):
-    """The library or model a method needs is missing: the next method of the chain is used (FR-03)."""
+    """The method cannot serve this video (library or model missing, no hands in view): the next one is used (FR-03)."""
 
 
 def cut_with_fallback(
@@ -48,14 +48,17 @@ def cut_with_fallback(
 ) -> tuple[list[Cut], Method]:
     """Cuts of ``video`` by ``method``, or by the first method after it that can run; and that method.
 
+    A method hands over when it is unavailable or fails while running (AC-12): one unreadable frame
+    in PySceneDetect must not stop the video when ``fixed_window`` can still cut it.
+
     Raises:
-        SegmenterUnavailable: not even ``fixed_window`` could run.
+        Exception: whatever stopped ``fixed_window``, the end of the chain.
     """
     current: Method = method
     while True:
         try:
             return build(current).cut(video, asset), current
-        except SegmenterUnavailable as exc:
+        except Exception as exc:
             following = FALLBACK[current]
             if following is None:
                 raise
