@@ -9,12 +9,14 @@ import typer
 
 from mentormind.capture.ingest.extractors.base import Extractor
 from mentormind.capture.ingest.extractors.docling import DoclingExtractor
+from mentormind.capture.ingest.extractors.docling_remote import RemoteDoclingExtractor
 from mentormind.capture.ingest.extractors.mmore import MmoreFastExtractor
 from mentormind.capture.ingest.index import DOC_ID, index_chunks, replace_docs
 from mentormind.capture.ingest.pipeline import IngestResult, ingest_path
 from mentormind.capture.ingest.tokens import BgeM3TokenCounter, TokenCounter, WhitespaceTokenCounter
 from mentormind.core.config import Settings, get_settings
 from mentormind.core.guard.data_guard import ConfidentialDataError
+from mentormind.core.providers.errors import ProviderConfigError
 from mentormind.core.schemas import DataClassification
 from mentormind.knowledge_base.store.vector_store import VectorStore, VectorStoreError, get_vector_store
 
@@ -22,8 +24,15 @@ app = typer.Typer(help="Ingest tài liệu PDF/DOCX/XLSX/PPTX thành chunk (spec
 
 
 def build_extractors(settings: Settings) -> list[Extractor]:
-    """Docling first; mmore fast is the degraded PDF fallback (spec 02 FR-02)."""
-    return [DoclingExtractor(), MmoreFastExtractor(binary=settings.mmore_bin)]
+    """Docling first — here, or on the inference server (FR-02c); mmore fast is the degraded PDF fallback (FR-02).
+
+    Raises:
+        ProviderConfigError: ``KNOWHOW_DOC_EXTRACTOR=remote`` without ``KNOWHOW_INFERENCE_URL``.
+    """
+    docling: Extractor = (
+        RemoteDoclingExtractor.from_settings(settings) if settings.doc_extractor == "remote" else DoclingExtractor()
+    )
+    return [docling, MmoreFastExtractor(binary=settings.mmore_bin)]
 
 
 def build_counter(settings: Settings) -> TokenCounter:
@@ -57,7 +66,7 @@ def run_cmd(
             settings=settings,
             force=force,
         )
-    except (FileNotFoundError, ConfidentialDataError) as exc:
+    except (FileNotFoundError, ConfidentialDataError, ProviderConfigError) as exc:
         typer.echo(f"Lỗi: {exc}", err=True)
         raise typer.Exit(2) from exc
     for result in results:
