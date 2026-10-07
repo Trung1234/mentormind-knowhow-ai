@@ -56,7 +56,7 @@ Cấu hình: `layout="wide"`, cỡ chữ ≥ 16px, nút bấm lớn; UI chỉ g�
 
 **Trang 1 — "Duyệt thao tác"**
 - Bộ lọc process + trạng thái (mặc định `draft` và `in_review`) + video (các `evidence.video_id` trong danh sách); các bước của một video xếp theo `t_start`.
-- Mỗi profile: 3 keyframe (ảnh thật từ `evidence.keyframes`, qua `/media`), trình phát clip đúng `t_start–t_end` (clip của đoạn chứa bước, lấy từ `GET /videos/{video_id}/segments`), các trường sửa được (step, hand_action, key_point, exceptions, pass_criteria).
+- Mỗi profile: 3 keyframe (ảnh thật từ `evidence.keyframes`, qua `/media`), trình phát clip đúng `t_start–t_end`, có tiếng khi video có audio (clip của đoạn chứa bước, lấy từ `GET /videos/{video_id}/segments`), các trường sửa được (step, hand_action, key_point, exceptions, pass_criteria).
 - Ô "Lời chuyên gia (transcript)" hiện `evidence.transcript_excerpt` của riêng bước đó (spec 04 §3: mỗi câu thuộc một bước); chưa có thì ghi rõ và nhắc chuyên gia tự nhập lý do.
 - Ô `reason` + chọn `reason_source` (bắt buộc chọn khi có nhập reason).
 - Multi-select `error_tags` (bỏ sót / bịa bước / sai thứ tự / sai vật / sai thao tác / khác).
@@ -133,3 +133,4 @@ Cấu hình: `layout="wide"`, cỡ chữ ≥ 16px, nút bấm lớn; UI chỉ g�
 - v1.8 (06/10, Phúc): `method` bỏ trống → `KNOWHOW_VIDEO_METHOD`; trang 4 có lựa chọn "Mặc định của máy chủ"; thông báo Lưu/Duyệt/Từ chối ở trang 1 không còn bị xóa ngay.
 - v1.9 (07/10, Phúc): trang 4 tài liệu nhớ job id như video — chuyển tab/tải lại trang không còn mất tiến độ (trước đây chỉ theo dõi trong lần bấm nút); hiện tên tệp + thời gian đã chạy (lần đầu tải bge-m3/Docling mất vài phút).
 - v1.10 (07/10, Phúc): trang 4 video: chip giai đoạn đã xong có dấu ✓; giai đoạn vừa bắt đầu (chưa biết tổng) hiện "<giai đoạn>…" thay vì "0/0" (spec 03 AC-15).
+- v1.11 (07/10, Phúc): trình phát ở trang 1 có tiếng (clip giữ audio theo spec 03 FR-06 v1.8, bỏ `muted`); vẫn chỉ phát `t_start–t_end` của bước.

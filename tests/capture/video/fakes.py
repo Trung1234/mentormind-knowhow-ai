@@ -31,7 +31,7 @@ def synthetic_video(path: Path, seconds: float, *, fps: int = 4, size: tuple[int
 def fake_ffmpeg(monkeypatch: pytest.MonkeyPatch, *, audio: bool = False) -> None:
     """Clips: synthetic videos of the cut's length; ffprobe: OpenCV's reading, with an audio stream if asked."""
     monkeypatch.setattr(media.shutil, "which", lambda name: f"/usr/bin/{name}")
-    monkeypatch.setattr(media, "cut_clip", lambda video, clip, start, end: synthetic_video(clip, end - start))
+    monkeypatch.setattr(media, "cut_clip", lambda video, clip, start, end, **_: synthetic_video(clip, end - start))
 
     def streams(video: Path) -> dict[str, Any]:
         capture = cv2.VideoCapture(str(video))

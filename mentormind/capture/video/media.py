@@ -3,7 +3,9 @@
 Both are cached under ``<work>/video/<video_id>/``; a cached file is reused only while its segment
 keeps the same bounds (``segments.json`` of the previous run), so cutting again with another method
 never shows a stale clip. Clips are always re-encoded H.264 by ffmpeg: ``-c copy`` would cut at the
-source's keyframes and keep codecs a browser may not play (the UI of spec 08 plays them).
+source's keyframes and keep codecs a browser may not play (the UI of spec 08 plays them). They keep
+the video's sound as AAC, so a reviewer hears the expert; ``clips/.format`` marks the clip format, and
+clips of an older format (silent ones) are redone.
 """
 
 from __future__ import annotations
@@ -23,6 +25,8 @@ KEYFRAME_LONG_SIDE = 768  # spec 03 FR-05
 KEYFRAME_END_MARGIN_S = 0.05
 KEYFRAME_RETRY_BACK_S = 0.5
 CLIP_WIDTH = 640  # the VLM only ever sees 448 px frames
+#: Bump when the clip encoding changes: clips of another format are redone (AC-16).
+CLIP_FORMAT = "h264-aac-1"
 
 
 def segment_id(video_id: str, index: int) -> str:
@@ -34,15 +38,16 @@ def require_ffmpeg() -> None:
         raise RuntimeError("Cần ffmpeg trong PATH để cắt clip (spec 03 FR-06): brew install ffmpeg.")
 
 
-def cut_clip(video: Path, clip: Path, start: float, end: float) -> None:
-    """``[start, end]`` of ``video`` as a browser-playable H.264 mp4 without audio (FR-06)."""
+def cut_clip(video: Path, clip: Path, start: float, end: float, *, audio: bool) -> None:
+    """``[start, end]`` of ``video`` as a browser-playable H.264 mp4, with its sound as AAC if ``audio`` (FR-06)."""
     clip.parent.mkdir(parents=True, exist_ok=True)
     part = clip.with_suffix(".part.mp4")
+    sound = ["-map", "0:v:0", "-map", "0:a:0", "-c:a", "aac", "-b:a", "128k"] if audio else ["-an"]
     subprocess.run(
         [
             "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
             "-ss", f"{start:.3f}", "-i", str(video), "-t", f"{end - start:.3f}",
-            "-an", "-vf", f"scale={CLIP_WIDTH}:-2", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+            *sound, "-vf", f"scale={CLIP_WIDTH}:-2", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
             "-pix_fmt", "yuv420p", "-movflags", "+faststart",
             str(part),
         ],
@@ -107,6 +112,8 @@ def export(
     require_ffmpeg()
     folder = store.video_dir(work_dir, asset.video_id)
     previous = _previous_bounds(work_dir, asset.video_id)
+    marker = folder / "clips" / ".format"
+    fresh_format = marker.is_file() and marker.read_text().strip() == CLIP_FORMAT
     frames = FrameReader(video)
     segments = []
     try:
@@ -116,8 +123,10 @@ def export(
             clip = folder / "clips" / f"{sid}.mp4"
             if previous.get(sid) != bounds:  # another cut of this video: its files are stale
                 _forget(folder, sid)
+            if not fresh_format:  # made by an older version (silent): redo
+                clip.unlink(missing_ok=True)
             if not clip.exists():
-                cut_clip(video, clip, *bounds)
+                cut_clip(video, clip, *bounds, audio=asset.has_audio)
             shots = keyframes(frames, folder / "keyframes", sid, *bounds)
             segments.append(
                 Segment(
@@ -137,6 +146,8 @@ def export(
                 progress(index, len(cuts))
     finally:
         frames.close()
+    if segments:
+        marker.write_text(CLIP_FORMAT + "\n")
     return segments
 
 

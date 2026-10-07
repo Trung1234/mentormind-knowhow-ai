@@ -90,7 +90,7 @@ def test_clips_are_browser_playable_h264_and_stale_ones_are_redone(
         return subprocess.CompletedProcess(args, 0)
 
     monkeypatch.setattr(media.subprocess, "run", run)
-    media.cut_clip(Path("in.mkv"), tmp_path / "clips" / "S001.mp4", 1.0, 4.5)
+    media.cut_clip(Path("in.mkv"), tmp_path / "clips" / "S001.mp4", 1.0, 4.5, audio=False)
     [args] = calls
     assert args[args.index("-c:v") + 1] == "libx264" and args[args.index("-pix_fmt") + 1] == "yuv420p"
     assert "+faststart" in args and "-an" in args and (tmp_path / "clips" / "S001.mp4").is_file()
@@ -132,3 +132,42 @@ def test_ac_15_each_stage_reports_its_start_before_the_slow_work(
     first = next(i for i, e in enumerate(events) if e[0] == "transcribe")
     assert events[first] == ("transcribe", 0, result.asset.duration_s)
     assert events.index(("asr built", 0, 0)) > first
+
+
+def test_ac_16_clips_keep_the_sound_of_a_video_with_audio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[list[str]] = []
+
+    def run(args: list[str], check: bool) -> Any:
+        calls.append(args)
+        Path(args[-1]).write_bytes(b"mp4")
+        return subprocess.CompletedProcess(args, 0)
+
+    monkeypatch.setattr(media.subprocess, "run", run)
+    media.cut_clip(Path("in.mkv"), tmp_path / "S001.mp4", 1.0, 7.0, audio=True)
+    [args] = calls
+    assert "-an" not in args and args[args.index("-c:a") + 1] == "aac"
+
+
+def test_ac_16_silent_clips_of_the_old_format_are_redone(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_ffmpeg(monkeypatch, audio=True)
+    made: list[tuple[str, bool]] = []
+
+    def cut(video: Path, clip: Path, start: float, end: float, *, audio: bool) -> None:
+        made.append((clip.name, audio))
+        synthetic_video(clip, end - start)
+
+    monkeypatch.setattr(media, "cut_clip", cut)
+    video = synthetic_video(tmp_path / "in.mp4", 25)
+    windows = pipeline(build=lambda m: FixedWindowSegmenter(motion=False))
+
+    def run() -> None:
+        windows.run(video, work_dir=tmp_path / "w", process_id=None, classification=SYNTHETIC, method="fixed_window")
+
+    run()
+    assert len(made) == 3 and all(audio for _, audio in made)  # the video has sound: so do its clips
+    run()
+    assert len(made) == 3  # same bounds, same format: reused
+    clips = next((tmp_path / "w" / "video").iterdir()) / "clips"
+    (clips / ".format").unlink()  # clips made before clips kept their sound
+    run()
+    assert len(made) == 6

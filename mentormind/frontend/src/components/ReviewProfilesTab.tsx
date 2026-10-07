@@ -440,7 +440,6 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
                         className="evidence-clip"
                         src={clipUrl}
                         controls
-                        muted
                         playsInline
                         preload="metadata"
                         onLoadedMetadata={(e) => { e.currentTarget.currentTime = stepStart; }}
