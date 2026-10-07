@@ -9,6 +9,7 @@ from itertools import islice
 from pathlib import Path
 
 from mentormind.capture.ingest.jsonl import ChunkFileError, read_chunks
+from mentormind.core.guard import ConfidentialDataError
 from mentormind.core.schemas import DocumentChunk
 from mentormind.core.schemas.vector import VectorChunk
 from mentormind.knowledge_base.store.vector_store import VectorStore
@@ -66,6 +67,9 @@ def index_chunks(chunks_dir: Path, store: VectorStore, *, batch_size: int = 32) 
 def index_files(paths: Iterable[Path], store: VectorStore, *, batch_size: int = 32) -> IndexResult:
     """:func:`index_chunks` for chosen chunk files, in the given order (e.g. one upload's, spec 08 §2).
 
+    A file whose chunks the store's embedder may not receive (``factory_confidential`` and an
+    inference server at a cloud URL, spec 02 FR-07d) fails alone, before any of it is sent.
+
     Raises:
         ValueError: ``batch_size`` is not positive.
     """
@@ -78,8 +82,12 @@ def index_files(paths: Iterable[Path], store: VectorStore, *, batch_size: int = 
             result.files_failed.append((path.name, str(exc)))
             continue
         batches = iter(chunks)
-        while batch := list(islice(batches, batch_size)):
-            store.upsert(batch)
+        try:
+            while batch := list(islice(batches, batch_size)):
+                store.upsert(batch)
+        except ConfidentialDataError as exc:
+            result.files_failed.append((path.name, str(exc)))
+            continue
         result.upserted += len(chunks)
         result.files_ok += 1
         result.doc_ids.update(c.ref_id for c in chunks)

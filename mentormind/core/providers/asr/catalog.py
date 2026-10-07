@@ -1,7 +1,8 @@
 """Default model of each ASR provider (``KNOWHOW_ASR_MODEL`` overrides it).
 
 ``small`` (CTranslate2 conversion of Whisper small, ~480 MB, downloaded once from the Hugging Face
-hub) is spec 03 FR-07's choice: good enough for Vietnamese on a CPU in int8.
+hub) is spec 03 FR-07's choice: good enough for Vietnamese on a CPU in int8. ``remote`` has none:
+without ``KNOWHOW_ASR_MODEL`` the inference server runs its own default.
 """
 
 from __future__ import annotations

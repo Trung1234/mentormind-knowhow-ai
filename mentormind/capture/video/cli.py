@@ -7,7 +7,7 @@ from typing import Annotated
 
 import typer
 
-from mentormind.core.config import get_settings
+from mentormind.core.config import Settings, get_settings
 from mentormind.core.schemas.common import DataClassification
 
 app = typer.Typer(help="Cắt video, keyframe, clip, transcript (spec 03).", no_args_is_help=True)
@@ -132,8 +132,26 @@ def providers_cmd() -> None:
     typer.echo(f"{'':2}{'provider':<18}{'nơi chạy':<10}{'model mặc định':<16}")
     for name in ASR_REGISTRY.names():
         mark = "* " if name == settings.asr_provider else "  "
-        typer.echo(f"{mark}{name:<18}{'local':<10}{default_asr_model(name) or '-':<16}")
+        typer.echo(f"{mark}{name:<18}{ASR_REGISTRY[name].where:<10}{default_asr_model(name) or '-':<16}")
+    model = settings.asr_model or default_asr_model(settings.asr_provider) or "mặc định của máy chủ"
+    provider_cls = ASR_REGISTRY.get(settings.asr_provider)
+    if provider_cls is not None and provider_cls.where == "server":
+        runs_on = _inference_server(settings)
+    else:
+        runs_on = f"{settings.asr_device}/{settings.asr_compute_type}"
     typer.echo(
-        f"đang dùng: {settings.asr_provider} · model {settings.asr_model or default_asr_model(settings.asr_provider)}"
-        f" · {settings.asr_device}/{settings.asr_compute_type} · ngôn ngữ {settings.asr_language or 'tự nhận'}"
+        f"đang dùng: {settings.asr_provider} · model {model} · {runs_on}"
+        f" · ngôn ngữ {settings.asr_language or 'tự nhận'}"
     )
+
+
+def _inference_server(settings: Settings) -> str:
+    """The inference server as the CLI shows it: URL without credentials, local or cloud."""
+    from mentormind.core.providers.errors import ProviderConfigError
+    from mentormind.core.providers.inference import INFERENCE_URL_ENV, InferenceClient
+
+    try:
+        client = InferenceClient.from_settings(settings)
+    except ProviderConfigError:
+        return f"máy chủ chưa cấu hình ({INFERENCE_URL_ENV} trống)"
+    return f"máy chủ {client.shown_url} ({'cloud' if client.is_cloud else 'local'})"

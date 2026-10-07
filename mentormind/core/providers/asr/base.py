@@ -3,8 +3,8 @@
 :meth:`ASRProvider.transcribe` is a template method, so no provider can skip the guard:
 
 1. ``DataGuard.check`` — confidential speech never reaches a cloud provider, checked BEFORE the
-   audio file is opened (constitution art. 2). Spec 03 FR-07 forbids cloud ASR: only local backends
-   are registered, and the check still runs in case one ever is;
+   audio file is opened (constitution art. 2). Spec 03 FR-07 forbids third-party ASR: backends run
+   here or on the team's inference server (``remote``), which is cloud when its URL is public;
 2. the subclass's :meth:`ASRProvider._transcribe` runs the engine.
 """
 
@@ -30,6 +30,8 @@ class ASRProvider(ProviderBase):
     """Turns the speech of an audio file into timed text. Subclass, then ``@register_asr("name")``."""
 
     kind: ClassVar[str] = "ASR"
+    #: Where the engine runs, for ``knowhow video providers``: "local" or "server".
+    where: ClassVar[str] = "local"
 
     #: Model id the engine runs (goes into the transcript's provenance).
     model: str

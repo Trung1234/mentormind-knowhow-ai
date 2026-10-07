@@ -285,7 +285,8 @@ Các công tắc, từ giả lập sang Qwen:
 | `KNOWHOW_LLM_PROVIDER` | `fake` | rỗng | Rỗng = LLM dùng chung provider, server, model với VLM: Qwen3-VL trả lời cả văn bản |
 | `KNOWHOW_LOCAL_HOSTS` | — | `[]`; với ngrok: `["<tên>.ngrok-free.dev"]` | Host public nhưng là server của đội thì tính là local (spec 04 AC-23). Chỉ đúng tên, không gồm subdomain |
 | `KNOWHOW_VIDEO_METHOD` | — | `scene` cho LASI; `hand_activity` cho video quay liền một người | Cách cắt khi UI/CLI không chọn |
-| `KNOWHOW_ASR_*` | — | `faster_whisper`, `small`, `cpu`, `int8`; `KNOWHOW_ASR_LANGUAGE` rỗng = tự nhận | Không phải Qwen; luôn chạy local |
+| `KNOWHOW_ASR_*` | — | `faster_whisper`, `small`, `cpu`, `int8`; `KNOWHOW_ASR_LANGUAGE` rỗng = tự nhận | Không phải Qwen; `faster_whisper` chạy tại máy, `remote` chạy trên máy chủ suy luận |
+| `KNOWHOW_INFERENCE_URL` | — | rỗng (mọi thứ tại máy) | Máy chủ suy luận của đội cho `KNOWHOW_ASR_PROVIDER` / `KNOWHOW_DOC_EXTRACTOR` / `KNOWHOW_EMBEDDER` = `remote` (Whisper, Docling, bge-m3). Local/cloud theo URL + `KNOWHOW_LOCAL_HOSTS` như VLM |
 | `KNOWHOW_API_AGENTS` | `mock` (mặc định) | `live` | `/assistant/ask`, `/rca/investigate` gọi agent thật. Cần Neo4j, vector store và LLM; thiếu thì 503, lot lạ thì 404 |
 | `KNOWHOW_EVAL_JUDGE` | `ragas` (mặc định của code) | `builtin` | `.env.example` đặt `builtin` cho demo Ollama. Judge của báo cáo nộp vẫn phải là model mạnh (EVAL-02) |
 

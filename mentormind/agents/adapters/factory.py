@@ -43,18 +43,19 @@ def build_work_assistant(settings: Settings) -> WorkAssistant:
 
 
 def _embedder(retriever: Any, settings: Settings) -> Embedder:
-    """The vector store's own bge-m3 when it has one (one ~2 GB model in memory), else a new one.
+    """The vector store's own embedder when it has one (one ~2 GB model in memory), else the configured one.
 
     ``PgVectorStore`` keeps it as ``_embedder`` (``store/pgvector_store.py``), older stores as ``embedder``.
+    Otherwise ``KNOWHOW_EMBEDDER`` decides (bge-m3 here, or on the inference server).
     """
     vectors = getattr(retriever, "vectors", None)
     for name in ("embedder", "_embedder"):
         shared = getattr(vectors, name, None)
         if shared is not None:
             return cast(Embedder, shared)
-    from mentormind.knowledge_base.store.embedder import BgeM3Embedder
+    from mentormind.knowledge_base.store.vector_store import get_embedder
 
-    return BgeM3Embedder(settings.embed_model, dim=settings.embed_dim)
+    return get_embedder(settings)
 
 
 def build_rca_agent(settings: Settings) -> RcaAgent:

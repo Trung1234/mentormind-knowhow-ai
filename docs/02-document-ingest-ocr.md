@@ -8,13 +8,13 @@ Biến bản vẽ kỹ thuật, SOP cũ, file Excel/Word thành các `DocumentCh
 ## 2. Công cụ
 | Việc | Công cụ | Ghi chú |
 |---|---|---|
-| PDF/DOCX/XLSX/PPTX (kể cả bản scan, vùng ảnh có chú thích) | Docling (OCR bật) | đường chính (v1.4, spike T02-0; chờ Trung duyệt) |
+| PDF/DOCX/XLSX/PPTX (kể cả bản scan, vùng ảnh có chú thích) | Docling (OCR bật) | đường chính (v1.4, spike T02-0; chờ Trung duyệt); chạy tại máy hoặc trên máy chủ suy luận của đội (`KNOWHOW_DOC_EXTRACTOR=remote`, FR-02c) |
 | PDF khi Docling lỗi | mmore `process` chế độ fast | fallback, chỉ text, `metadata.degraded = true` |
 | Surya đứng riêng | — | bỏ; đã nằm trong `mmore[process]` nếu sau này cần |
-| Embed | bge-m3 (`KNOWHOW_EMBED_MODEL`, local) | dense 1024 chiều |
+| Embed | bge-m3 (`KNOWHOW_EMBED_MODEL`) | dense 1024 chiều; tại máy hoặc trên máy chủ suy luận (`KNOWHOW_EMBEDDER=remote`, FR-07d) |
 | Index vào pgvector | `knowledge_base.store.vector_store` (spec 01 FR-05c) | hybrid dense + full-text |
 
-Tất cả chạy local. Không gọi OCR cloud.
+Extract/OCR và embed chạy trên máy này hoặc trên **máy chủ suy luận riêng của đội** (`KNOWHOW_INFERENCE_URL`, thường là máy tự host VLM; cùng máy chủ chạy Whisper của spec 03 FR-07c). Không bao giờ gọi API OCR/embedding của bên thứ ba. Máy chủ là local hay cloud xét theo URL như VLM (spec 04 AC-23): địa chỉ private/LAN/Tailscale hoặc host khai báo trong `KNOWHOW_LOCAL_HOSTS` là local; host public khác là cloud, và `DataGuard` chặn dữ liệu `factory_confidential` **trước khi** gửi bất cứ gì. Xác thực: `Authorization: Bearer <KNOWHOW_INFERENCE_API_KEY>` (trống → `KNOWHOW_VLM_API_KEY`; cả hai trống → không gửi header), hoặc basic auth trong URL; timeout `KNOWHOW_INFERENCE_TIMEOUT_S` (mặc định 1800 s), thử lại `KNOWHOW_INFERENCE_MAX_RETRIES` (mặc định 2).
 
 ## 3. Data model — `core.schemas.document.DocumentChunk`
 ```python
@@ -45,8 +45,9 @@ class DocumentChunk(BaseModel):
 
 ## 4. Functional Requirements
 - **FR-01** `knowhow ingest run --input <dir|file> --classification <public|synthetic|factory_confidential> --out data/work/chunks/` xử lý mọi file hỗ trợ (`.pdf .docx .xlsx .pptx`; định dạng khác bị bỏ qua và log `skipped`), ghi một JSONL `<doc_id>.jsonl` cho mỗi file nguồn, mỗi dòng một `DocumentChunk`, ghi qua file tạm rồi rename.
-- **FR-01b** `--classification` bắt buộc, không có mặc định; thiếu hoặc ngoài enum → lỗi, không ghi file. Chạy lại cùng file với nhãn khác là lỗi trừ khi có `--force`. Một file lỗi không dừng cả lô (exit code 1 cuối lô). Gọi `DataGuard.check` với provider local.
+- **FR-01b** `--classification` bắt buộc, không có mặc định; thiếu hoặc ngoài enum → lỗi, không ghi file. Chạy lại cùng file với nhãn khác là lỗi trừ khi có `--force`. Một file lỗi không dừng cả lô (exit code 1 cuối lô). Gọi `DataGuard.check` một lần mỗi lượt, trước khi đọc file nào: với máy này, hoặc với extractor đầu tiên gửi file đi (FR-02c) nếu có — URL cloud + `factory_confidential` → `ConfidentialDataError`, không ghi file, không upload.
 - **FR-02** Extractor chính là Docling cho `.pdf .docx .xlsx .pptx` (OCR bật cho vùng ảnh, mỗi bảng ra markdown table, mỗi khối mang số trang/sheet). Nếu Docling lỗi hoặc ra 0 khối: với PDF chuyển sang mmore fast (chỉ text; `metadata.degraded = true`); với file Office báo lỗi. Log lý do chuyển (FR-08). Chữ OCR được bên trong hình/bản vẽ trở thành chunk `kind=drawing_note` (theo trang). *(Đánh giá extractor theo từng trang — đề xuất 1 — không còn cần với đường Docling.)*
+- **FR-02c** `KNOWHOW_DOC_EXTRACTOR=remote` (mặc định `docling` = chạy tại máy): Docling chạy trên máy chủ suy luận — `POST {KNOWHOW_INFERENCE_URL}/documents/convert` (multipart `file`) trả `{"filename", "num_pages", "document": DoclingDocument.export_to_dict()}`; client dựng lại `DoclingDocument` bằng `docling_core` (thiếu → lỗi nêu cách cài) rồi map bằng cùng hàm của FR-02, nên chunk giống hệt chạy local (`extractor = docling`). Máy chủ lỗi (vd. 422 `{"error"}`) tính như Docling lỗi: PDF rơi xuống mmore fast (FR-02), log ghi `docling-remote`. Thiếu `KNOWHOW_INFERENCE_URL` → lỗi nêu tên biến.
 - **FR-02b** Mỗi trang có tỉ lệ chữ IPA-mở-rộng/Hy Lạp trên tổng chữ cái > `KNOWHOW_TEXT_QUALITY_MAX_ODD_RATIO` (mặc định 0,05, tối thiểu 20 chữ cái) bị coi là text layer nghi sai mã hóa. Chỉ **cảnh báo**: trang vẫn được chunk, dòng log FR-08 nêu số trang cần xem tay; không tự OCR lại (khác đề xuất 2 gốc, chờ Trung duyệt).
 - **FR-03** Bảng được giữ nguyên cấu trúc dạng markdown table, mỗi bảng là 1 chunk `kind=table`. Bảng > 800 token được tách theo hàng, lặp header ở mỗi phần, `metadata.table_part = "i/n"`, vẫn `kind=table`.
 - **FR-04** Chunk văn bản: 300–800 token, không cắt ngang bảng, overlap 50 token.
@@ -54,6 +55,7 @@ class DocumentChunk(BaseModel):
 - **FR-06** Idempotent: cùng file (cùng hash) chạy lại → cùng `doc_id`, cùng `chunk_id`, không nhân đôi.
 - **FR-07** `knowhow ingest index --chunks data/work/chunks/` embed chunk và upsert vào bảng `KNOWHOW_VECTOR_TABLE` qua `VectorStore` (không dùng mmore index — mmore index chỉ hỗ trợ Milvus). Metadata (`source_type="document"`, `doc_id`, `kind`, `process_ids`, `data_classification`) lưu thành cột filter được. Bảng dùng chung với chunk `work_profile` của spec 05, phân biệt bằng `source_type`; upsert theo `chunk_id` nên chạy lại không nhân đôi.
 - **FR-07b** Store tự embed văn bản khi `upsert` và câu truy vấn khi `search` (embedder mặc định bge-m3, `KNOWHOW_EMBEDDER=hashing` chỉ cho dev). `Filters` là dict: `{"kind": "table"}` (bằng), `{"data_classification": ["public","synthetic"]}` (thuộc tập), `{"process_ids": "PACK01"}` (mảng chứa giá trị); nhiều khóa = AND. `ingest index` validate cả file JSONL trước khi ghi; `KNOWHOW_EMBED_DIM` lệch cột `vector(N)` → lỗi khi khởi động. Bảng `knowhow_chunks` định nghĩa trong `infra/postgres/init.sql`.
+- **FR-07d** `KNOWHOW_EMBEDDER=remote`: cùng bge-m3 trên máy chủ suy luận — `POST {KNOWHOW_INFERENCE_URL}/embeddings` JSON `{"model": KNOWHOW_EMBED_MODEL, "input": [...]}`, tối đa 32 đoạn mỗi request → `data[i].embedding` xếp lại theo `index`, số chiều phải bằng `KNOWHOW_EMBED_DIM`, chuẩn hoá L2. Khi `upsert`, store báo cho embedder nhãn chặt nhất của các chunk cần embed: URL cloud + `factory_confidential` → `ConfidentialDataError` trước khi gửi (`ingest index`: chỉ file đó lỗi, file khác vẫn index). Văn bản không có nhãn — câu truy vấn của `search`, câu hỏi của agent (spec 06) và của đánh giá (spec 09) — coi là `factory_confidential` như router của spec 05, nên embedder `remote` ở URL cloud không tìm kiếm được: khai báo host trong `KNOWHOW_LOCAL_HOSTS`. Agent dùng embedder của vector store; store không có thì dùng embedder theo `KNOWHOW_EMBEDDER`.
 - **FR-07c** `ingest index --replace-doc <doc_id>` (lặp lại được) xóa chunk của `doc_id` cũ **sau khi** index xong, vì file nguồn đổi thì `doc_id` đổi và chunk cũ sẽ còn tìm thấy được. Không xóa nếu có file lỗi, và không bao giờ xóa `doc_id` vừa index trong cùng lần chạy. `VectorStore.delete_where(filters)` từ chối filter rỗng.
 - **FR-08** Log một dòng tóm tắt mỗi file: extractor dùng, số trang, số chunk, thời gian.
 
@@ -76,6 +78,9 @@ class DocumentChunk(BaseModel):
 - **AC-16** `KNOWHOW_EMBED_DIM` lệch cột `vector(N)` → lỗi rõ ràng khi khởi động.
 - **AC-17** `--replace-doc DOC-<cũ>` → sau index, chunk của `DOC-<cũ>` không còn trong store, chunk mới còn; file lỗi hoặc `doc_id` sai dạng → không xóa gì.
 - **AC-18** Trang chứa chuỗi sai mã hóa kiểu DOC-01 (`σϯιʔςΫχΧϧϨϏϡʔ…`) → log cảnh báo kèm số trang, file vẫn ra chunk; văn bản tiếng Việt/Nhật/Anh có ký hiệu kỹ thuật (Ω, Δ, µ) không bị cảnh báo.
+- **AC-19** `KNOWHOW_DOC_EXTRACTOR=remote`, máy chủ giả lập trả `export_to_dict()` của một `DoclingDocument` (heading, đoạn văn, list, bảng, chữ OCR trong hình, caption, footer) → `RawDocument` bằng đúng kết quả của `docling_to_raw` trên chính document đó (`extractor = docling`); request là multipart `file` tới `/documents/convert` kèm Bearer key; máy chủ trả 422 → PDF chuyển sang mmore, lý do ghi `docling-remote`; thiếu `docling_core` → lỗi nêu cách cài; thiếu `KNOWHOW_INFERENCE_URL` → lỗi nêu tên biến.
+- **AC-20** `KNOWHOW_EMBEDDER=remote`: 70 đoạn → 3 request (32, 32, 6); vector đúng thứ tự đầu vào dù máy chủ trả `data` đảo thứ tự, độ dài 1; số chiều khác `KNOWHOW_EMBED_DIM`, thiếu vector hoặc máy chủ lỗi → `VectorStoreError`; `get_vector_store` và Work Assistant (khi store không có embedder) dùng embedder này.
+- **AC-21** URL máy chủ là host public không có trong `KNOWHOW_LOCAL_HOSTS` + `factory_confidential` → `ConfidentialDataError` và **không request nào được gửi**: `ingest run` với extractor `remote` (không ghi file), `upsert` chunk confidential, `search` (câu truy vấn không nhãn); `ingest index` chỉ báo lỗi file confidential, file public vẫn được index; cùng host đó khai báo trong `KNOWHOW_LOCAL_HOSTS` → được gửi.
 
 ## 6. Tasks
 - [x] T02-0 Spike công cụ (mmore/Docling/Surya) — kết quả ở `docs/plans/02-spike-notes.md`.
@@ -86,6 +91,7 @@ class DocumentChunk(BaseModel):
 - [x] T02-4 Chunker (FR-04) + regex nhận diện (FR-05).
 - [x] T02-5 CLI `ingest run` + idempotency (AC-04).
 - [x] T02-6 CLI `ingest index` qua `VectorStore` (AC-06).
+- [x] T02-8 Docling và bge-m3 trên máy chủ suy luận của đội: `core.providers.inference`, `RemoteDoclingExtractor`, `RemoteEmbedder` (FR-02c, FR-07d; AC-19..AC-21).
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
@@ -110,3 +116,4 @@ class DocumentChunk(BaseModel):
 - 3/10/2026 (Việt Hoàng): đồng bộ `docs/plans/02-ingest-index-spec.md` v0.2 với code và `init.sql`; đối chiếu enum `data_classification` của `assets`/`document_chunks`/`knowhow_chunks` trong `init.sql`: khớp Điều 2.
 - 3/10/2026 (Việt Hoàng): `--replace-doc` xong (FR-07c, AC-17): `VectorStore.delete_where` (memory + pgvector, từ chối filter rỗng), `replace_docs`, tùy chọn CLI; xóa sau khi index, bỏ qua nếu có file lỗi. Test unit + integration (pgvector thật); `make check` xanh.
 - 3/10/2026 (Việt Hoàng): FR-02b xong ở dạng cảnh báo (AC-18): `capture/ingest/quality.py`, setting `text_quality_max_odd_ratio`, cảnh báo trong dòng log. Đo trên 4 tài liệu thật (DOC-01, DOC-02, 2 bản SQAM): trang xấu nhất 1,0% (bài báo có công thức) so với ngưỡng 5%, không báo nhầm. Chưa kiểm được ca dương thật: pdfium đọc đúng DOC-01 (chỉ pypdf ra rác), nên test dùng chuỗi rác trích từ review. `make check` xanh.
+- v1.5 (08/10, Phúc): extract/OCR và embed chạy được trên máy chủ suy luận riêng của đội (`KNOWHOW_INFERENCE_URL`; `KNOWHOW_DOC_EXTRACTOR=remote`, `KNOWHOW_EMBEDDER=remote`), thay câu "Tất cả chạy local" ở §2: local/cloud theo URL + `KNOWHOW_LOCAL_HOSTS` như VLM, không bao giờ dùng API OCR/embedding bên thứ ba; FR-01b một lần `DataGuard` mỗi lượt, kể cả extractor gửi file đi; FR-02c, FR-07d (câu truy vấn không nhãn coi là `factory_confidential`). AC-19..AC-21, T02-8.
