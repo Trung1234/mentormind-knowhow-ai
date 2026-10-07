@@ -71,10 +71,24 @@ function pickKeyframes(keyframes: string[] = []): string[] {
   return [keyframes[0], keyframes[Math.floor(keyframes.length / 2)], keyframes[keyframes.length - 1]];
 }
 
-export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: string | null }) {
+// Process lines named in the filter; any other code typed at video upload is listed as-is.
+const PROCESS_LABELS: Record<string, string> = {
+  PACK01: "PACK01 — Packaging Line",
+  ASSY02: "ASSY02 — Assembly Line",
+};
+
+export function ReviewProfilesTab({
+  initialVideoId = null,
+  initialProcessId = null,
+}: {
+  initialVideoId?: string | null;
+  initialProcessId?: string | null;
+}) {
   const [profiles,        setProfiles]        = useState<WorkProfile[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<WorkProfile | null>(null);
-  const [selectedProcess, setSelectedProcess] = useState<string>("PACK01");
+  const [selectedProcess, setSelectedProcess] = useState<string>(initialProcessId ?? "PACK01");
+  // Every process code that has steps (GET /profiles without a filter), for the process filter.
+  const [knownProcesses,  setKnownProcesses]  = useState<string[]>([]);
   const [selectedStatus,  setSelectedStatus]  = useState<string>("");
   const [selectedVideo,   setSelectedVideo]   = useState<string>(initialVideoId ?? "");
   // Segments per video (GET /videos/{id}/segments) for the clip player; null = none saved for that video.
@@ -117,6 +131,17 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
 
   useEffect(() => { loadProfiles(); }, [selectedProcess, selectedStatus]);
   useEffect(() => { if (initialVideoId) setSelectedVideo(initialVideoId); }, [initialVideoId]);
+  useEffect(() => { if (initialProcessId) setSelectedProcess(initialProcessId); }, [initialProcessId]);
+  useEffect(() => {
+    api
+      .getProfiles()
+      .then((all) => setKnownProcesses(Array.from(new Set(all.map((p) => p.process_id))).sort()))
+      .catch(() => setKnownProcesses([]));
+  }, []);
+  const processOptions = useMemo(
+    () => Array.from(new Set([...Object.keys(PROCESS_LABELS), ...knownProcesses, selectedProcess].filter(Boolean))),
+    [knownProcesses, selectedProcess],
+  );
 
   const videoIds = useMemo(
     () => Array.from(new Set(profiles.map((p) => p.evidence.video_id).filter((v): v is string => !!v))).sort(),
@@ -388,8 +413,9 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
               value={selectedProcess}
               onChange={(e) => setSelectedProcess(e.target.value)}
             >
-              <option value="PACK01">PACK01 — Packaging Line</option>
-              <option value="ASSY02">ASSY02 — Assembly Line</option>
+              {processOptions.map((code) => (
+                <option key={code} value={code}>{PROCESS_LABELS[code] ?? code}</option>
+              ))}
             </select>
           </div>
 
