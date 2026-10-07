@@ -46,7 +46,8 @@ def sweep_cmd(
     try:
         vlm = get_vlm_provider(settings)
         video_id = video_id_for(video)
-        work_dir = Path("data/work/vlm") / video_id / f"sweep-{vlm.name}"
+        # One folder per step-times mode: a sweep per KNOWHOW_VLM_STEP_TIMES value keeps its own details.
+        work_dir = Path("data/work/vlm") / video_id / f"sweep-{vlm.name}-{settings.vlm_step_times}"
         if segments is not None:
             loaded = [Segment.model_validate(s) for s in json.loads(segments.read_text())]
         else:

@@ -31,7 +31,7 @@ def run_sweep(
     """Describe ``segments`` once per fps and score each run. Artefacts go to ``work_dir``.
 
     ``step_timer``: how pass A places steps in their segment (``KNOWHOW_VLM_STEP_TIMES``), so a
-    sweep per value compares them.
+    sweep per value compares them; every row records its name in ``step_times``.
     """
     # The sweep compares sampling rates, so motion-adaptive fps (FR-02b) must not override it.
     fixed = [s.model_copy(update={"motion_score": None}) for s in segments]
@@ -57,5 +57,7 @@ def run_sweep(
             json.dumps([p.to_contract_dict() for p in profiles], ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-        rows.append(evaluate(truth, result, fps=fps, provider=provider.name, model=provider.model))
+        rows.append(
+            evaluate(truth, result, fps=fps, provider=provider.name, model=provider.model, step_times=step_timer.name)
+        )
     return rows
