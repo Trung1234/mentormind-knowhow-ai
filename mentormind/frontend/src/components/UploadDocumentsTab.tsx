@@ -288,10 +288,6 @@ export function UploadDocumentsTab() {
                 <div className="spinner spinner-lg" />
                 <span>Đang tách chunk và đưa vào kho tìm kiếm… (tự cập nhật mỗi 2 giây)</span>
                 {tracked && <span>Đã chạy {formatElapsed(now - tracked.startedAt)}</span>}
-                <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                  Lần đầu máy chủ còn tải model (bge-m3 ~2 GB, Docling) nên có thể mất vài phút. Có thể chuyển trang khác;
-                  quay lại đây vẫn theo dõi tiếp.
-                </span>
               </div>
             )}
 
