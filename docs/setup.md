@@ -13,7 +13,9 @@ Máy bạn: UI :5173 → API :8000 → Neo4j + Postgres (Docker) · cắt video 
 
 **Cách A (mặc định) — máy chủ của đội trên Vast.ai.** Người giữ tài khoản Vast bật máy và chạy `bash run.sh`
 (repo [mentormind-inference](https://github.com/osirisQdt2810/mentormind-inference), `scripts/vast/run.sh`): vLLM
-`Qwen3-VL-8B-Instruct` BF16 + gateway CPU sau Caddy (token) + ngrok, URL cố định. Script in ra các dòng `.env` (cũng ở
+`Qwen3-VL-8B-Thinking` FP8 + speculative decoding ngram (cấu hình đã chọn sau khi so sánh 4 model trên video LASI,
+[benchmarks/lasi-vlm](https://github.com/osirisQdt2810/mentormind-inference/blob/main/benchmarks/lasi-vlm/README.md))
++ gateway CPU sau Caddy (token) + ngrok, URL cố định. Script in ra các dòng `.env` (cũng ở
 `/root/mentormind-inference.env` trên máy chủ) — xin người giữ tài khoản gửi cho bạn. Máy chủ phải đang chạy khi bạn test.
 
 **Cách B — Ollama trên một Mac của đội, mở bằng ngrok** (chỉ VLM; ASR/Docling/embedding chạy trên máy bạn):
@@ -42,14 +44,16 @@ npm --prefix mentormind/frontend ci
 cp .env.example .env
 ```
 
-Sửa trong `.env` — **cách A** (dán các dòng `run.sh` in ra, thêm 4 dòng cuối):
+Sửa trong `.env` — **cách A** (dán các dòng `run.sh` in ra, thêm 3 dòng cuối):
 
 ```bash
 KNOWHOW_VLM_BASE_URL=https://<domain>.ngrok-free.dev/v1
-KNOWHOW_VLM_MODEL=Qwen/Qwen3-VL-8B-Instruct
+KNOWHOW_VLM_MODEL=Qwen/Qwen3-VL-8B-Thinking-FP8
 KNOWHOW_VLM_API_KEY=<token>
 KNOWHOW_VLM_MAX_FRAMES=40
-KNOWHOW_VLM_MAX_TOKENS=8192
+KNOWHOW_VLM_MAX_TOKENS=16384                                 # model Thinking: suy luận rồi mới trả lời
+KNOWHOW_LLM_MAX_TOKENS=16384
+KNOWHOW_VLM_CONCURRENCY=4                                    # vLLM gộp 4 request: job LASI 23 phút thay vì ~70
 KNOWHOW_INFERENCE_URL=https://<domain>.ngrok-free.dev/v1   # cùng máy chủ: ASR, embeddings, Docling
 KNOWHOW_INFERENCE_API_KEY=<token>
 KNOWHOW_ASR_PROVIDER=remote
@@ -58,17 +62,15 @@ KNOWHOW_DOC_EXTRACTOR=remote
 KNOWHOW_LOCAL_HOSTS=["<domain>.ngrok-free.dev"]             # máy chủ của đội: tính là local
 KNOWHOW_API_AGENTS=live
 KNOWHOW_VIDEO_METHOD=scene          # video đã dựng, nhiều cảnh (LASI); quay liền 1 người: hand_activity
-KNOWHOW_VLM_CONCURRENCY=4           # vLLM gộp 4 request: job 8B Thinking FP8 trên LASI 23 phút thay vì ~73
 ```
 
-Máy chủ cách A chạy model nào thì đặt `KNOWHOW_VLM_MODEL` theo dòng `run.sh` in ra. Bản nên dùng (so sánh trên LASI,
-`mentormind-inference/benchmarks/lasi-vlm/README.md`): `VLM_VARIANT=thinking-fp8` với
-`SPEC_CONFIG='{"method":"ngram","num_speculative_tokens":4,"prompt_lookup_max":4,"prompt_lookup_min":2}'`; Instruct
-nhanh hơn nhiều nhưng tìm ra ít hơn một nửa số bước.
+`run.sh` mặc định chạy cấu hình đã chọn (8B Thinking FP8 + ngram). Người giữ máy chủ đổi sang bản khác bằng
+`VLM_VARIANT=instruct|thinking|30b-thinking bash run.sh`; khi đó đặt `KNOWHOW_VLM_MODEL` và hai dòng `MAX_TOKENS` theo
+các dòng script in ra. Instruct nhanh hơn nhiều nhưng tìm ra chưa tới một nửa số bước.
 
 **Cách B**: `KNOWHOW_VLM_BASE_URL=https://user:matkhau@<tên>.ngrok-free.dev/v1`, `KNOWHOW_LOCAL_HOSTS=["<tên>.ngrok-free.dev"]`,
-`KNOWHOW_API_AGENTS=live`, `KNOWHOW_VIDEO_METHOD=scene`, `KNOWHOW_VLM_CONCURRENCY=1` (Ollama trả lời từng request một); giữ `KNOWHOW_ASR_PROVIDER`, `KNOWHOW_EMBEDDER`,
-`KNOWHOW_DOC_EXTRACTOR` mặc định (chạy trên máy bạn; lần đầu tải bge-m3 ~2 GB, Whisper ~480 MB, Docling).
+`KNOWHOW_API_AGENTS=live`, `KNOWHOW_VIDEO_METHOD=scene`, `KNOWHOW_VLM_CONCURRENCY=1` (Ollama trả lời từng request
+một); giữ `KNOWHOW_ASR_PROVIDER`, `KNOWHOW_EMBEDDER`, `KNOWHOW_DOC_EXTRACTOR` mặc định (chạy trên máy bạn; lần đầu tải bge-m3 ~2 GB, Whisper ~480 MB, Docling).
 
 Muốn chạy từng phần trên máy mình (vd. khi máy chủ tắt): đặt lại `KNOWHOW_ASR_PROVIDER=faster_whisper`,
 `KNOWHOW_EMBEDDER=bge-m3`, `KNOWHOW_DOC_EXTRACTOR=docling`. Vector của bge-m3 trên máy chủ trùng vector chạy local
@@ -78,7 +80,7 @@ Kiểm tra:
 
 ```bash
 uv run python -c "from mentormind.core.providers.vlm import get_vlm_provider as g; print('cloud' if g().is_cloud else 'local')"   # phải in: local
-uv run knowhow vlm ping --frames 8  # dòng cuối PASS (cách A ~3 s; cách B qua Mac 16 GB: 1–3 phút)
+uv run knowhow vlm ping --frames 8  # dòng cuối PASS (cách A ~5 s; cách B qua Mac 16 GB: 1–3 phút)
 uv run knowhow video providers      # cách A: dòng remote trỏ tới máy chủ, "local"
 ```
 
@@ -141,7 +143,8 @@ chạy thì thử Luồng C.
 ### Luồng B — Upload video → duyệt bước → hỏi trợ lý
 
 Video LASI dài **3 phút 14 giây** (cắt theo cảnh → ~30 đoạn, ~60 lượt VLM cho lượt A + B). Thời gian phụ thuộc VLM:
-**cách A** (vLLM BF16 trên Vast) ~8 s mỗi lượt → khoảng **8–10 phút**, cộng ~1 phút nhận dạng lời nói trên máy chủ;
+**cách A** (8B Thinking FP8 trên Vast) ~50 s mỗi lượt vì model suy luận trước khi trả lời; MentorMind gửi 4 lượt
+cùng lúc (`KNOWHOW_VLM_CONCURRENCY=4`) → cả job khoảng **23 phút** (gửi lần lượt: khoảng 70 phút);
 **cách B** (Ollama Q4 trên Mac 16 GB) vài phút mỗi lượt → **1–2 giờ**. Thử nhanh hơn với 1 phút đầu (~10 đoạn):
 
 ```bash
