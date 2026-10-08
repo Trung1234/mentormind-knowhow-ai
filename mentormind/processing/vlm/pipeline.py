@@ -8,13 +8,17 @@
 
 Artefacts under ``work_dir`` (FR-06): ``pass_a/`` (run 1 raw answers), ``pass_b/pass_a/`` (run 2),
 ``pass_c.json``, ``failed_segments.json``, ``predictions.json`` (final steps), ``profiles.json``.
-Frames are sampled once per segment and reused by both runs.
+Frames are sampled once per segment and reused by both runs. ``concurrency`` > 1
+(``KNOWHOW_VLM_CONCURRENCY``) runs both pass-A runs at once over one pool of that many workers: the
+requests in flight never exceed it, and the result is the one of the sequential passes (AC-30).
 """
 
 from __future__ import annotations
 
 import json
+import threading
 from collections.abc import Sequence
+from concurrent.futures import Executor, ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +34,7 @@ from mentormind.processing.vlm.passes.consistency import self_consistent
 from mentormind.processing.vlm.passes.describe import Sampler
 from mentormind.processing.vlm.passes.merge import MergeReport, merge_steps
 from mentormind.processing.vlm.passes.models import PassAResult
+from mentormind.processing.vlm.passes.parallel import wait_first_error
 from mentormind.processing.vlm.passes.step_times import DEFAULT_STEP_TIMER, StepTimer
 from mentormind.processing.vlm.transcript import DEFAULT_LAG_S, DEFAULT_LEAD_S, align
 
@@ -64,6 +69,7 @@ class DescribePipeline:
         transcript_lead_s: float = DEFAULT_LEAD_S,
         transcript_lag_s: float = DEFAULT_LAG_S,
         step_timer: StepTimer = DEFAULT_STEP_TIMER,
+        concurrency: int = 1,
     ) -> None:
         self.vlm = vlm
         #: Pass C runs only with an LLM; ``None`` skips it.
@@ -79,6 +85,8 @@ class DescribePipeline:
         self.transcript_lag_s = transcript_lag_s
         #: Spec 04 §3: how pass A places steps in their segment (``KNOWHOW_VLM_STEP_TIMES``).
         self.step_timer = step_timer
+        #: VLM requests in flight (passes A and B together); 1 = one at a time (AC-30).
+        self.concurrency = max(1, concurrency)
 
     def run(
         self,
@@ -93,10 +101,9 @@ class DescribePipeline:
         """
         work_dir.mkdir(parents=True, exist_ok=True)
         sampler = _cache(self._sampler)  # both pass-A runs see the same frames
-        first = self.pass_a(segments, work_dir, sampler=sampler)
+        first, second = self._both_runs(segments, work_dir, sampler)
         steps = first
-        if self.consistency:
-            second = self.pass_a(segments, work_dir / "pass_b", sampler=sampler)
+        if second is not None:
             steps = self.pass_b(first, second)
         report = None
         if self.llm is not None:
@@ -111,8 +118,38 @@ class DescribePipeline:
             failed_segments=[f.segment_id for f in steps.failed],
         )
 
-    def pass_a(self, segments: Sequence[Segment], work_dir: Path, *, sampler: Sampler | None = None) -> PassAResult:
-        """Describe every segment once (VLM)."""
+    def _both_runs(
+        self, segments: Sequence[Segment], work_dir: Path, sampler: Sampler
+    ) -> tuple[PassAResult, PassAResult | None]:
+        """Pass A, and its second run for pass B; at once over one pool when ``concurrency`` > 1."""
+        if self.concurrency == 1:
+            first = self.pass_a(segments, work_dir, sampler=sampler)
+            second = self.pass_a(segments, work_dir / "pass_b", sampler=sampler) if self.consistency else None
+            return first, second
+        with ThreadPoolExecutor(self.concurrency, thread_name_prefix="vlm") as pool:
+            if not self.consistency:
+                return self.pass_a(segments, work_dir, sampler=sampler, executor=pool), None
+            # Two waiting threads, one per run; every VLM request goes through ``pool``.
+            with ThreadPoolExecutor(2, thread_name_prefix="pass") as runs:
+                first_run = runs.submit(self.pass_a, segments, work_dir, sampler=sampler, executor=pool)
+                second_run = runs.submit(self.pass_a, segments, work_dir / "pass_b", sampler=sampler, executor=pool)
+                try:
+                    wait_first_error([first_run, second_run])
+                except BaseException:
+                    # an error (or Ctrl+C) in one run: the other run's queued requests are not sent
+                    pool.shutdown(wait=False, cancel_futures=True)
+                    raise
+                return first_run.result(), second_run.result()
+
+    def pass_a(
+        self,
+        segments: Sequence[Segment],
+        work_dir: Path,
+        *,
+        sampler: Sampler | None = None,
+        executor: Executor | None = None,
+    ) -> PassAResult:
+        """Describe every segment once (VLM); in parallel over ``executor`` when given."""
         return describe_segments(
             segments,
             self.vlm,
@@ -122,6 +159,7 @@ class DescribePipeline:
             max_frames=self.max_frames,
             sampler=sampler or self._sampler,
             step_timer=self.step_timer,
+            executor=executor,
         )
 
     def pass_b(self, first: PassAResult, second: PassAResult) -> PassAResult:
@@ -177,12 +215,14 @@ def read_profiles(path: Path) -> list[WorkProfile]:
 
 
 def _cache(sampler: Sampler) -> Sampler:
-    """The same frames for both pass-A runs: sample each segment once."""
+    """The same frames for both pass-A runs: sample each segment once (also when the runs overlap)."""
     seen: dict[str, SampledFrames] = {}
+    lock = threading.Lock()  # one sampling at a time: the two runs never sample one segment twice
 
     def sample(segment: Segment, destination: Any, **kwargs: Any) -> SampledFrames:
-        if segment.segment_id not in seen:
-            seen[segment.segment_id] = sampler(segment, destination, **kwargs)
-        return seen[segment.segment_id]
+        with lock:
+            if segment.segment_id not in seen:
+                seen[segment.segment_id] = sampler(segment, destination, **kwargs)
+            return seen[segment.segment_id]
 
     return sample

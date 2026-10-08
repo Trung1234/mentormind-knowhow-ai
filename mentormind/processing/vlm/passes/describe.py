@@ -10,6 +10,9 @@ Where each step starts and ends is up to a :class:`~processing.vlm.passes.step_t
 (``KNOWHOW_VLM_STEP_TIMES``): by default the steps tile their segment in start order (AC-24), or
 they keep the model's own spans clamped into the segment (AC-28).
 
+With an ``executor`` (``KNOWHOW_VLM_CONCURRENCY`` > 1) the segments are described in parallel; the
+result is the same as one at a time: steps in segment order, the same files (AC-30).
+
 Post-processing into WorkProfiles lives in :mod:`processing.vlm.passes.postprocess`.
 """
 
@@ -18,6 +21,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Callable, Sequence
+from concurrent.futures import Executor
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +41,7 @@ from mentormind.processing.vlm.passes.models import (
     PassAResult,
     TimedStep,
 )
+from mentormind.processing.vlm.passes.parallel import wait_first_error
 from mentormind.processing.vlm.passes.prompting import render_prompt
 from mentormind.processing.vlm.passes.step_times import DEFAULT_STEP_TIMER, StepTimer
 
@@ -86,18 +91,20 @@ def describe_segments(
     temperature: float = PASS_A_TEMPERATURE,
     sampler: Sampler = sample_frames,
     step_timer: StepTimer = DEFAULT_STEP_TIMER,
+    executor: Executor | None = None,
 ) -> PassAResult:
     """Run pass A over ``segments`` (in order). Never raises for one bad segment.
 
     ``step_timer`` places each segment's steps in time (spec 04 §3; the callers pass
-    ``get_step_timer(settings.vlm_step_times)``).
+    ``get_step_timer(settings.vlm_step_times)``). ``executor`` describes the segments in parallel
+    (its workers bound the requests in flight); the result is the one of the sequential loop (AC-30).
     """
-    result = PassAResult()
-    for segment in segments:
+
+    def describe(segment: Segment, into: PassAResult) -> None:
         _describe_one(
             segment,
             provider,
-            result,
+            into,
             process_id=process_id,
             work_dir=work_dir,
             default_fps=default_fps,
@@ -106,6 +113,17 @@ def describe_segments(
             sampler=sampler,
             step_timer=step_timer,
         )
+
+    result = PassAResult()
+    if executor is None:
+        for segment in segments:
+            describe(segment, result)
+    else:
+        parts = [PassAResult() for _ in segments]
+        futures = [executor.submit(describe, segment, part) for segment, part in zip(segments, parts, strict=True)]
+        wait_first_error(futures)  # an error a segment cannot absorb (e.g. DataGuard) stops the pass, as the loop
+        for part in parts:
+            _add(result, part)
     if result.failed:
         (work_dir / "failed_segments.json").write_text(
             json.dumps([f.model_dump() for f in result.failed], ensure_ascii=False, indent=2),
@@ -193,6 +211,17 @@ def _describe_one(
                 keyframes=list(segment.keyframes),
             )
         )
+
+
+def _add(result: PassAResult, part: PassAResult) -> None:
+    """Append one segment's pass-A result, as the sequential loop would have."""
+    result.steps.extend(part.steps)
+    result.failed.extend(part.failed)
+    result.scenes.update(part.scenes)
+    result.prompt_tokens += part.prompt_tokens
+    result.completion_tokens += part.completion_tokens
+    result.latency_s += part.latency_s
+    result.calls += part.calls
 
 
 def _account(result: PassAResult, response: VLMResponse) -> None:

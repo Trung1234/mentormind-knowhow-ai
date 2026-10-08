@@ -53,7 +53,7 @@ KNOWHOW_VLM_API_KEY=<token>
 KNOWHOW_VLM_MAX_FRAMES=40
 KNOWHOW_VLM_MAX_TOKENS=16384                                 # model Thinking: suy luận rồi mới trả lời
 KNOWHOW_LLM_MAX_TOKENS=16384
-KNOWHOW_VLM_CONCURRENCY=4                                    # request cùng lúc mỗi job video (có từ PR #20)
+KNOWHOW_VLM_CONCURRENCY=4                                    # vLLM gộp 4 request: job LASI 23 phút thay vì ~70
 KNOWHOW_INFERENCE_URL=https://<domain>.ngrok-free.dev/v1   # cùng máy chủ: ASR, embeddings, Docling
 KNOWHOW_INFERENCE_API_KEY=<token>
 KNOWHOW_ASR_PROVIDER=remote
@@ -64,9 +64,13 @@ KNOWHOW_API_AGENTS=live
 KNOWHOW_VIDEO_METHOD=scene          # video đã dựng, nhiều cảnh (LASI); quay liền 1 người: hand_activity
 ```
 
+`run.sh` mặc định chạy cấu hình đã chọn (8B Thinking FP8 + ngram). Người giữ máy chủ đổi sang bản khác bằng
+`VLM_VARIANT=instruct|thinking|30b-thinking bash run.sh`; khi đó đặt `KNOWHOW_VLM_MODEL` và hai dòng `MAX_TOKENS` theo
+các dòng script in ra. Instruct nhanh hơn nhiều nhưng tìm ra chưa tới một nửa số bước.
+
 **Cách B**: `KNOWHOW_VLM_BASE_URL=https://user:matkhau@<tên>.ngrok-free.dev/v1`, `KNOWHOW_LOCAL_HOSTS=["<tên>.ngrok-free.dev"]`,
-`KNOWHOW_API_AGENTS=live`, `KNOWHOW_VIDEO_METHOD=scene`; giữ `KNOWHOW_ASR_PROVIDER`, `KNOWHOW_EMBEDDER`,
-`KNOWHOW_DOC_EXTRACTOR` mặc định (chạy trên máy bạn; lần đầu tải bge-m3 ~2 GB, Whisper ~480 MB, Docling).
+`KNOWHOW_API_AGENTS=live`, `KNOWHOW_VIDEO_METHOD=scene`, `KNOWHOW_VLM_CONCURRENCY=1` (Ollama trả lời từng request
+một); giữ `KNOWHOW_ASR_PROVIDER`, `KNOWHOW_EMBEDDER`, `KNOWHOW_DOC_EXTRACTOR` mặc định (chạy trên máy bạn; lần đầu tải bge-m3 ~2 GB, Whisper ~480 MB, Docling).
 
 Muốn chạy từng phần trên máy mình (vd. khi máy chủ tắt): đặt lại `KNOWHOW_ASR_PROVIDER=faster_whisper`,
 `KNOWHOW_EMBEDDER=bge-m3`, `KNOWHOW_DOC_EXTRACTOR=docling`. Vector của bge-m3 trên máy chủ trùng vector chạy local

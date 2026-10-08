@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
@@ -43,6 +44,8 @@ from mentormind.core.schemas.work_profile import WorkProfile, validate_against_c
 from mentormind.processing.vlm.passes.prompting import render_prompt
 
 log = logging.getLogger(__name__)
+#: One audit line at a time: proposals may run on several threads.
+_AUDIT_LOCK = threading.Lock()
 
 #: ``partial_ratio`` (0-100, lowercased) the purpose span must reach against the excerpt.
 QUOTE_THRESHOLD = 85.0
@@ -238,6 +241,7 @@ def _write(record: ReasonAuditRecord, audit: Path | None) -> None:
     )
     if audit is None:
         return
-    audit.parent.mkdir(parents=True, exist_ok=True)
-    with audit.open("a", encoding="utf-8") as handle:
-        handle.write(record.model_dump_json() + "\n")
+    with _AUDIT_LOCK:  # the API job may propose for several steps at once (KNOWHOW_VLM_CONCURRENCY)
+        audit.parent.mkdir(parents=True, exist_ok=True)
+        with audit.open("a", encoding="utf-8") as handle:
+            handle.write(record.model_dump_json() + "\n")

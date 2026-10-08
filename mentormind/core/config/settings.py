@@ -12,7 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -88,6 +88,10 @@ class Settings(BaseSettings):
     # segment = the steps tile the segment in start order; model = the VLM's own ~1 s spans. Tiling
     # matched the hand-labelled LASI steps better (time recall 0.59 -> 0.85, mean IoU 0.34 -> 0.50).
     vlm_step_times: Literal["segment", "model"] = "segment"
+    # Spec 04 §3: VLM/LLM requests one video job keeps in flight (passes A and B together, then the
+    # reason proposals). 1 = one at a time, as before. A server that batches (vLLM) decodes several
+    # answers for about the price of one: a Thinking model's job is then several times shorter.
+    vlm_concurrency: int = Field(default=1, ge=1, le=16)
 
     # --- LLM (spec 06; also spec 04 pass C / propose-reasons) ---------------------------------
     # Empty = the LLM is the VLM: same provider, server, model and key as KNOWHOW_VLM_* (the

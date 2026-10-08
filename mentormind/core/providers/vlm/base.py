@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from abc import abstractmethod
 from collections.abc import Mapping, Sequence
@@ -102,14 +103,17 @@ class VLMProvider(ProviderBase):
         )
 
     def _blur_faces(self, images: list[ImageInput]) -> tuple[list[ImageInput], int]:
-        if self.face_blurrer is None:
-            self.face_blurrer = FaceBlurrer.from_policy(self.image_policy)
-        blurred, total = [], 0
-        for image in images:
-            data, count = self.face_blurrer.blur(image.data)
-            blurred.append(ImageInput(path=image.path, mime_type="image/jpeg", data=data))
-            total += count
-        return blurred, total
+        # One blur at a time per provider: the face detector (one cv2.FaceDetectorYN) is not
+        # thread-safe, and a job may call generate from several threads (KNOWHOW_VLM_CONCURRENCY).
+        with _face_blur_lock(self):
+            if self.face_blurrer is None:
+                self.face_blurrer = FaceBlurrer.from_policy(self.image_policy)
+            blurred, total = [], 0
+            for image in images:
+                data, count = self.face_blurrer.blur(image.data)
+                blurred.append(ImageInput(path=image.path, mime_type="image/jpeg", data=data))
+                total += count
+            return blurred, total
 
     def generate_json(
         self,
@@ -150,3 +154,15 @@ class VLMProvider(ProviderBase):
         max_tokens: int | None,
     ) -> tuple[str, TokenUsage | None]:
         """Call the model once; return its text and token usage (None when unreported)."""
+
+
+_FACE_BLUR_LOCKS = threading.Lock()
+
+
+def _face_blur_lock(provider: VLMProvider) -> threading.Lock:
+    """The provider's own face-blur lock, created on first use (subclasses need no ``__init__`` call)."""
+    with _FACE_BLUR_LOCKS:
+        lock = provider.__dict__.get("_face_blur_lock")
+        if lock is None:
+            lock = provider.__dict__["_face_blur_lock"] = threading.Lock()
+        return lock
