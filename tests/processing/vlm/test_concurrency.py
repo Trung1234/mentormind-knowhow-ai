@@ -13,6 +13,9 @@ from typing import Any
 import pytest
 
 from mentormind.core.config import Settings
+from mentormind.core.guard import GuardPolicy
+from mentormind.core.guard.image import FaceBlurrer
+from mentormind.core.providers.errors import ProviderError
 from mentormind.core.providers.models import TokenUsage
 from mentormind.core.providers.vlm.backends.fake import FakeVLM
 from mentormind.core.providers.vlm.models import ImageInput
@@ -28,8 +31,16 @@ class KeyedVLM(FakeVLM):
     Records how many calls are in flight at once; ``delays`` makes some segments answer slower.
     """
 
-    def __init__(self, delays: Mapping[str, float] | None = None, default_delay: float = 0.02) -> None:
-        super().__init__()
+    def __init__(
+        self,
+        delays: Mapping[str, float] | None = None,
+        default_delay: float = 0.02,
+        *,
+        is_cloud: bool = False,
+        failing: str | None = None,
+    ) -> None:
+        super().__init__(is_cloud=is_cloud)
+        self.failing = failing  # this segment's calls fail like a server that keeps answering 503
         self.delays = dict(delays or {})
         self.default_delay = default_delay
         self.in_flight = 0
@@ -48,6 +59,10 @@ class KeyedVLM(FakeVLM):
         max_tokens: int | None,
     ) -> tuple[str, TokenUsage | None]:
         segment_id = Path(images[0].path).parent.name
+        if segment_id == self.failing:
+            with self._lock:
+                self.order.append(segment_id)
+            raise ProviderError("HTTP 503 after the retries")
         with self._lock:
             self.in_flight += 1
             self.max_in_flight = max(self.max_in_flight, self.in_flight)
@@ -126,3 +141,36 @@ def test_ac_30_knowhow_vlm_concurrency_defaults_to_one_and_must_be_positive(monk
     monkeypatch.setenv("KNOWHOW_VLM_CONCURRENCY", "0")
     with pytest.raises(ValueError):
         Settings(_env_file=None)
+
+
+def test_ac_30_cloud_frames_are_face_blurred_one_call_at_a_time(tmp_path: Path) -> None:
+    """The face detector is not thread-safe: with N calls in flight blurring must still run one at a time."""
+    inside = peak = detected = 0
+    lock = threading.Lock()
+
+    def detector(image: Any) -> list[tuple[int, int, int, int]]:
+        nonlocal inside, peak, detected
+        with lock:
+            inside += 1
+            peak = max(peak, inside)
+        time.sleep(0.002)
+        with lock:
+            inside -= 1
+            detected += 1
+        return []
+
+    vlm = KeyedVLM(default_delay=0.03, is_cloud=True)
+    vlm.guard_policy = GuardPolicy(audit_dir=tmp_path / "audit")
+    vlm.face_blurrer = FaceBlurrer(detector)
+    pipeline(vlm, 4).run(segments(6), tmp_path / "run")
+    assert vlm.max_in_flight == 4  # the requests themselves still overlap
+    assert peak == 1 and detected == 12 * 3  # 12 calls x 3 frames, never two detections at once
+
+
+@pytest.mark.parametrize("concurrency", [1, 2, 4])
+def test_ac_30_an_error_stops_the_queued_requests_of_both_runs(tmp_path: Path, concurrency: int) -> None:
+    vlm = KeyedVLM(default_delay=0.05, failing="VID-TEST-S002")
+    with pytest.raises(ProviderError):
+        pipeline(vlm, concurrency).run(segments(20), tmp_path / "run")
+    # sequential: segment 1 then the failing segment 2; in parallel at most the requests already in flight
+    assert len(vlm.order) <= 2 + 2 * concurrency

@@ -34,6 +34,7 @@ from mentormind.processing.vlm.passes.consistency import self_consistent
 from mentormind.processing.vlm.passes.describe import Sampler
 from mentormind.processing.vlm.passes.merge import MergeReport, merge_steps
 from mentormind.processing.vlm.passes.models import PassAResult
+from mentormind.processing.vlm.passes.parallel import wait_first_error
 from mentormind.processing.vlm.passes.step_times import DEFAULT_STEP_TIMER, StepTimer
 from mentormind.processing.vlm.transcript import DEFAULT_LAG_S, DEFAULT_LEAD_S, align
 
@@ -132,6 +133,12 @@ class DescribePipeline:
             with ThreadPoolExecutor(2, thread_name_prefix="pass") as runs:
                 first_run = runs.submit(self.pass_a, segments, work_dir, sampler=sampler, executor=pool)
                 second_run = runs.submit(self.pass_a, segments, work_dir / "pass_b", sampler=sampler, executor=pool)
+                try:
+                    wait_first_error([first_run, second_run])
+                except BaseException:
+                    # an error (or Ctrl+C) in one run: the other run's queued requests are not sent
+                    pool.shutdown(wait=False, cancel_futures=True)
+                    raise
                 return first_run.result(), second_run.result()
 
     def pass_a(

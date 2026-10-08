@@ -329,15 +329,10 @@ def _uploaded(settings: Settings, video_id: str) -> VideoAsset:
 
 def _in_parallel(work: Callable[[T], None], items: Sequence[T], workers: int) -> None:
     """``work(item)`` for each item, ``workers`` at a time; the first error stops the rest and is raised."""
+    from mentormind.processing.vlm.passes.parallel import wait_first_error
+
     with ThreadPoolExecutor(workers, thread_name_prefix="reasons") as pool:
-        futures = [pool.submit(work, item) for item in items]
-        try:
-            for future in futures:
-                future.result()
-        except BaseException:
-            for future in futures:
-                future.cancel()
-            raise
+        wait_first_error([pool.submit(work, item) for item in items])
 
 
 def _on_each_call(vlm: "VLMProvider", callback: Callable[[int], None]) -> None:

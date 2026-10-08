@@ -41,6 +41,7 @@ from mentormind.processing.vlm.passes.models import (
     PassAResult,
     TimedStep,
 )
+from mentormind.processing.vlm.passes.parallel import wait_first_error
 from mentormind.processing.vlm.passes.prompting import render_prompt
 from mentormind.processing.vlm.passes.step_times import DEFAULT_STEP_TIMER, StepTimer
 
@@ -120,13 +121,7 @@ def describe_segments(
     else:
         parts = [PassAResult() for _ in segments]
         futures = [executor.submit(describe, segment, part) for segment, part in zip(segments, parts, strict=True)]
-        try:
-            for future in futures:
-                future.result()  # an error a segment cannot absorb (e.g. DataGuard) stops the pass, as in the loop
-        except BaseException:
-            for future in futures:
-                future.cancel()
-            raise
+        wait_first_error(futures)  # an error a segment cannot absorb (e.g. DataGuard) stops the pass, as the loop
         for part in parts:
             _add(result, part)
     if result.failed:
