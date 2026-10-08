@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "../api";
+import { ConfirmDialog } from "./ConfirmDialog";
 import {
   DataClassification,
+  DocumentInfo,
   DocumentIngestFile,
   DocumentIngestResult,
   JobResponse,
@@ -12,7 +14,9 @@ import {
   CheckCircle2,
   Database,
   FileText,
+  RefreshCw,
   ShieldCheck,
+  Trash2,
   Upload,
 } from "lucide-react";
 
@@ -97,6 +101,12 @@ export function UploadDocumentsTab() {
   const [job,            setJob]            = useState<JobResponse<DocumentIngestResult> | null>(null);
   const [errorMsg,       setErrorMsg]       = useState<string | null>(null);
   const [now,            setNow]            = useState(Date.now());
+  // Indexed documents (GET /documents) and their deletion; null = not loaded yet.
+  const [documents,      setDocuments]      = useState<DocumentInfo[] | null>(null);
+  const [docsError,      setDocsError]      = useState<string | null>(null);
+  const [deleting,       setDeleting]       = useState<string | null>(null);
+  const [toDelete,       setToDelete]       = useState<DocumentInfo | null>(null);
+  const [docMsg,         setDocMsg]         = useState<{ type: "success" | "error"; text: string } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   // Polling stops when the user leaves the tab and resumes from localStorage when they come back.
@@ -137,6 +147,39 @@ export function UploadDocumentsTab() {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, [running]);
+
+  const loadDocuments = async () => {
+    try {
+      const list = await api.getDocuments();
+      if (!mounted.current) return;
+      setDocuments(list);
+      setDocsError(null);
+    } catch (err) {
+      if (mounted.current) setDocsError(describeError(err));
+    }
+  };
+
+  // On open, and once a document job ends (its files join the list).
+  const jobEnded = job?.status === "done" || job?.status === "failed";
+  useEffect(() => { loadDocuments(); }, [jobEnded]);
+
+  const handleDeleteDocument = async (doc: DocumentInfo) => {
+    setToDelete(null);
+    setDeleting(doc.doc_id);
+    setDocMsg(null);
+    try {
+      const r = await api.deleteDocument(doc.doc_id);
+      setDocMsg({
+        type: "success",
+        text: `Đã xoá ${doc.name} (${doc.doc_id}): ${r.chunks_deleted} chunk khỏi kho tìm kiếm, ${r.uploads_removed} tệp tải lên.`,
+      });
+      await loadDocuments();
+    } catch (err) {
+      setDocMsg({ type: "error", text: `Không xoá được ${doc.name}: ${describeError(err)}` });
+    } finally {
+      setDeleting(null);
+    }
+  };
 
   const handleUpload = async () => {
     if (files.length === 0 || !classification) return;
@@ -345,6 +388,92 @@ export function UploadDocumentsTab() {
             )}
           </div>
         </div>
+      )}
+
+      {/* ── Indexed documents (GET /documents) with delete ── */}
+      <div className="card">
+        <div className="card-header">
+          <div className="card-title">
+            <div className="card-icon ci-cyan">
+              <Database size={14} color="var(--accent-cyan)" />
+            </div>
+            Tài liệu đã index
+            {documents && <span className="badge badge-cyan" style={{ marginLeft: "0.3rem" }}>{documents.length}</span>}
+          </div>
+          <button id="btn-refresh-documents" className="btn btn-ghost btn-sm" onClick={loadDocuments} disabled={deleting !== null}>
+            <RefreshCw size={13} />
+            Tải lại
+          </button>
+        </div>
+
+        <div className="card-body" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          {docMsg && (
+            <div className={`alert alert-${docMsg.type}`}>
+              {docMsg.type === "success"
+                ? <CheckCircle2 size={15} style={{ flexShrink: 0, marginTop: 2 }} />
+                : <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 2 }} />}
+              <span>{docMsg.text}</span>
+            </div>
+          )}
+
+          {docsError ? (
+            <div className="alert alert-error">
+              <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 2 }} />
+              <span>Không đọc được danh sách tài liệu: {docsError}</span>
+            </div>
+          ) : documents === null ? (
+            <div className="loading-center" style={{ padding: "1.5rem 1rem" }}>
+              <div className="spinner" />
+              <span>Đang đọc danh sách tài liệu…</span>
+            </div>
+          ) : documents.length === 0 ? (
+            <span style={{ fontSize: "0.9rem", color: "var(--text-muted)" }}>Chưa có tài liệu nào trong kho tìm kiếm.</span>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Tệp</th>
+                    <th>doc_id</th>
+                    <th>Nhãn dữ liệu</th>
+                    <th className="num">Số chunk</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {documents.map((d) => (
+                    <tr key={d.doc_id}>
+                      <td>{d.name}</td>
+                      <td className="mono">{d.doc_id}</td>
+                      <td>{d.data_classification ? CLASSIFICATION_LABELS[d.data_classification] : "—"}</td>
+                      <td className="num">{d.chunks}</td>
+                      <td style={{ textAlign: "right" }}>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => setToDelete(d)}
+                          disabled={deleting !== null}
+                        >
+                          {deleting === d.doc_id ? <div className="spinner" /> : <Trash2 size={13} />}
+                          {deleting === d.doc_id ? "Đang xoá…" : "Xoá"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {toDelete && (
+        <ConfirmDialog title="Xoá tài liệu này?" onConfirm={() => handleDeleteDocument(toDelete)} onCancel={() => setToDelete(null)}>
+          <p>
+            Tài liệu <strong>{toDelete.name}</strong> ({toDelete.doc_id}, {toDelete.chunks} chunk) bị gỡ khỏi kho tìm kiếm:
+            trợ lý sẽ không trích dẫn nó nữa.
+          </p>
+          <p>Tệp chunk và tệp đã tải lên trên máy chủ cũng bị xoá.</p>
+        </ConfirmDialog>
       )}
     </div>
   );

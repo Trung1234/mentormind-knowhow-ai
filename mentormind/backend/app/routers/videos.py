@@ -4,6 +4,7 @@ Cutting, keyframes, clips and the transcript are spec 03's ``VideoCapturePipelin
 """
 
 import re
+import shutil
 import uuid
 from collections.abc import Callable
 from pathlib import Path
@@ -12,8 +13,10 @@ from typing import TYPE_CHECKING, Any
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field
 
-from mentormind.backend.app.deps import get_profile_store
+from mentormind.backend.app.deletion import ProfileStoreBusyError, delete_profiles
+from mentormind.backend.app.deps import LoaderOpener, get_loader_opener, get_profile_store
 from mentormind.backend.app.uploads import upload_name
+from mentormind.backend.app.video_jobs import busy_message, running_videos
 from mentormind.capture.video.segmenters import METHODS, Method
 from mentormind.core.config import Settings, get_settings
 from mentormind.core.schemas import (
@@ -21,8 +24,10 @@ from mentormind.core.schemas import (
     JobStatus,
     Segment,
     VideoAsset,
+    VideoDeleteResult,
     VideoProcessProgress,
     VideoProcessResult,
+    WorkProfile,
 )
 from mentormind.knowledge_base.store.profile_store import ProfileStore
 
@@ -35,6 +40,9 @@ router = APIRouter(prefix="/videos", tags=["videos"])
 
 VIDEO_SUFFIXES = (".avi", ".m4v", ".mkv", ".mov", ".mp4", ".webm")
 VIDEO_ID = re.compile(r"VID-[0-9a-f]{12}")
+#: Any video id a profile may carry that is also a plain folder name (no ``.``, ``/``): safe to delete.
+#: A leading ``_`` is reserved for the server's own folders (``_incoming`` = uploads in progress).
+FOLDER_NAME = re.compile(r"[A-Za-z0-9-][A-Za-z0-9_-]*")
 WINDOW_S = 10.0
 DEFAULT_PROCESS_ID = "PACK01"
 _CHUNK = 1 << 20
@@ -108,7 +116,12 @@ def process_video(
     asset = _uploaded(settings, video_id)
     job_id = f"job-vid-{uuid.uuid4().hex[:8]}"
     store.create_job(job_id, "video_process")
-    background_tasks.add_task(run_video_process_task, job_id, asset, method, req.fps, settings, store)
+    running_videos.hold(asset.video_id)  # no deleting its steps or files until the job ends (spec 08 §2)
+    try:
+        background_tasks.add_task(run_video_process_task, job_id, asset, method, req.fps, settings, store)
+    except BaseException:
+        running_videos.release(asset.video_id)
+        raise
     return {"job_id": job_id}
 
 
@@ -126,21 +139,59 @@ def get_segments(video_id: str) -> list[Segment]:
         ) from exc
 
 
+@router.delete("/{video_id}", response_model=VideoDeleteResult)
+def delete_video(
+    video_id: str,
+    store: ProfileStore = Depends(get_profile_store),
+    open_loader: LoaderOpener = Depends(get_loader_opener),
+) -> VideoDeleteResult:
+    """Every step of the video, then its files (spec 08 §2, AC-22).
+
+    The files stay when an approved step could not be unloaded: that step still shows them.
+    """
+    work = get_settings().work_dir
+    folders = [work / "video" / video_id, work / "vlm" / video_id]
+    profiles = [p for p in store.list_profiles() if p.evidence.video_id == video_id]
+    if not FOLDER_NAME.fullmatch(video_id) or not (profiles or any(f.exists() for f in folders)):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Không có video {video_id}.")
+    if running_videos.holds(video_id):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=busy_message([video_id]))
+    try:
+        deleted = delete_profiles(store, profiles, open_loader)
+    except ProfileStoreBusyError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    result = VideoDeleteResult(
+        video_id=video_id, deleted=deleted.deleted, unpublished=deleted.unpublished, failed=deleted.failed
+    )
+    if not deleted.failed:
+        for folder in folders:
+            if folder.is_dir():
+                result.files_removed += sum(1 for f in folder.rglob("*") if not f.is_dir())
+                shutil.rmtree(folder)
+    return result
+
+
 def run_video_process_task(
     job_id: str, asset: VideoAsset, method: Method, fps: float | None, settings: Settings, store: ProfileStore
 ) -> None:
-    """The background job of ``POST /videos/{id}/process``; any error ends it ``failed`` (AC-05)."""
-    store.update_job(job_id, JobStatus.RUNNING)
+    """The background job of ``POST /videos/{id}/process``; any error ends it ``failed`` (AC-05).
 
-    def report(progress: VideoProcessResult) -> None:
-        store.update_job(job_id, JobStatus.RUNNING, result=progress.model_dump(mode="json"))
-
+    The video stays held (no deleting it, spec 08 §2) until the job has recorded how it ended.
+    """
     try:
-        result = describe_video(asset, method=method, fps=fps, settings=settings, report=report)
-    except Exception as exc:
-        store.update_job(job_id, JobStatus.FAILED, error=str(exc) or type(exc).__name__)
-        return
-    store.update_job(job_id, JobStatus.DONE, result=result.model_dump(mode="json"))
+        store.update_job(job_id, JobStatus.RUNNING)
+
+        def report(progress: VideoProcessResult) -> None:
+            store.update_job(job_id, JobStatus.RUNNING, result=progress.model_dump(mode="json"))
+
+        try:
+            result = describe_video(asset, method=method, fps=fps, settings=settings, report=report)
+        except Exception as exc:
+            store.update_job(job_id, JobStatus.FAILED, error=str(exc) or type(exc).__name__)
+            return
+        store.update_job(job_id, JobStatus.DONE, result=result.model_dump(mode="json"))
+    finally:
+        running_videos.release(asset.video_id)
 
 
 def capture_pipeline(settings: Settings) -> "VideoCapturePipeline":
@@ -166,7 +217,8 @@ def describe_video(
     from mentormind.core.guard import DataGuard
     from mentormind.core.providers.llm import get_llm_provider
     from mentormind.core.providers.vlm import get_vlm_provider
-    from mentormind.processing.vlm.passes.reasons import propose_reasons
+    from mentormind.processing.vlm.passes.reasons import examined, propose_reasons, reasons_audit_path
+    from mentormind.processing.vlm.passes.step_times import get_step_timer
     from mentormind.processing.vlm.pipeline import DescribePipeline
     from mentormind.processing.vlm.profiles import FileProfileSink, get_profile_sink
 
@@ -216,6 +268,7 @@ def describe_video(
         max_frames=settings.vlm_max_frames,
         transcript_lead_s=settings.transcript_lead_s,
         transcript_lag_s=settings.transcript_lag_s,
+        step_timer=get_step_timer(settings.vlm_step_times),
     )
     work_dir = work / "vlm" / asset.video_id / f"describe-{vlm.name}"
     drafts = pipeline.run(captured.segments, work_dir, captured.transcript)
@@ -225,20 +278,24 @@ def describe_video(
 
     quoting = [p for p in stored if p.evidence.transcript_excerpt]
     result.steps_with_excerpt = len(quoting)
-    waiting = [p for p in quoting if p.reason is None]
-    proposed = {}
+    waiting = [p for p in quoting if examined(p)]
+    current = {p.profile_id: p for p in stored}
+    filled: list[str] = []
+
+    def save(profile: WorkProfile) -> None:
+        # As `knowhow vlm propose-reasons`: each accepted step is stored before its audit line (spec 04
+        # §5); the file sink rewrites the video, the store only that step.
+        current[profile.profile_id] = profile
+        sink.save(asset.video_id, list(current.values()) if isinstance(sink, FileProfileSink) else [profile])
+        filled.append(profile.profile_id)
+
+    audit = reasons_audit_path(work, asset.video_id)  # spec 04 §5: the user's self-check
     for done, profile in enumerate(waiting):
         stage("reasons", done, len(waiting))
-        [after] = propose_reasons([profile], llm)
-        if after.reason != profile.reason:
-            proposed[after.profile_id] = after
-    if proposed:
-        # As `knowhow vlm propose-reasons`: the file sink rewrites the video, the store only what changed.
-        everything = [proposed.get(p.profile_id, p) for p in stored]
-        sink.save(asset.video_id, everything if isinstance(sink, FileProfileSink) else list(proposed.values()))
+        propose_reasons([profile], llm, audit=audit, save=save)
     if waiting:
         stage("reasons", len(waiting), len(waiting))
-    result.reasons_filled = len(proposed)
+    result.reasons_filled = len(filled)
     return result
 
 

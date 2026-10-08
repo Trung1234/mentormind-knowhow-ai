@@ -13,8 +13,10 @@ Acceptance Criteria tested:
 import pytest
 from fastapi.testclient import TestClient
 
+from mentormind.agents.adapters import rest
 from mentormind.backend.app.deps import get_knowledge_loader, get_profile_store
 from mentormind.backend.app.main import app
+from mentormind.core.config import get_settings
 from mentormind.core.schemas import WorkProfile
 from mentormind.knowledge_base.store.profile_store import ProfileStore
 
@@ -56,7 +58,10 @@ def mock_store(tmp_path):
 
 
 @pytest.fixture
-def client(mock_store):
+def client(mock_store, monkeypatch):
+    # These tests check the routers' demo answers (spec 08): a developer .env with
+    # KNOWHOW_API_AGENTS=live would send them to the real LLM instead.
+    monkeypatch.setattr(rest, "get_settings", lambda: get_settings().model_copy(update={"api_agents": "mock"}))
     app.dependency_overrides[get_profile_store] = lambda: mock_store
 
     class FakeLoader:

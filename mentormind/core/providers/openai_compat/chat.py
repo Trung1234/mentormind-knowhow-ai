@@ -87,6 +87,10 @@ def message_text(body: Mapping[str, Any]) -> str:
         raise ProviderError(f"Unexpected chat response shape: {str(body)[:500]}") from exc
     if isinstance(content, str):
         return content
+    if content is None:
+        # No answer text: a thinking model (vLLM --reasoning-parser) that spent max_tokens reasoning
+        # returns content=null. An empty answer, which callers treat as unreadable (spec 04 AC-29).
+        return ""
     if isinstance(content, list):  # some vendors return content parts
         return "".join(str(part.get("text", "")) for part in content if isinstance(part, dict))
     raise ProviderError(f"Unexpected message content type: {type(content).__name__}")

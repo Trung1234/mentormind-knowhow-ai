@@ -11,6 +11,7 @@ from mentormind.core.schemas.video import Segment
 from mentormind.processing.vlm.frames.sampler import sample_frames
 from mentormind.processing.vlm.passes import describe_segments, to_work_profiles
 from mentormind.processing.vlm.passes.describe import Sampler
+from mentormind.processing.vlm.passes.step_times import DEFAULT_STEP_TIMER, StepTimer
 from mentormind.processing.vlm.sweep.metrics import SweepRow, evaluate
 from mentormind.processing.vlm.sweep.truth import TruthStep
 
@@ -25,8 +26,13 @@ def run_sweep(
     work_dir: Path,
     max_frames: int,
     sampler: Sampler | None = None,
+    step_timer: StepTimer = DEFAULT_STEP_TIMER,
 ) -> list[SweepRow]:
-    """Describe ``segments`` once per fps and score each run. Artefacts go to ``work_dir``."""
+    """Describe ``segments`` once per fps and score each run. Artefacts go to ``work_dir``.
+
+    ``step_timer``: how pass A places steps in their segment (``KNOWHOW_VLM_STEP_TIMES``), so a
+    sweep per value compares them; every row records its name in ``step_times``.
+    """
     # The sweep compares sampling rates, so motion-adaptive fps (FR-02b) must not override it.
     fixed = [s.model_copy(update={"motion_score": None}) for s in segments]
     rows = []
@@ -41,6 +47,7 @@ def run_sweep(
             default_fps=fps,
             max_frames=max_frames,
             sampler=sampler or sample_frames,
+            step_timer=step_timer,
         )
         (run_dir / "predictions.json").write_text(result.model_dump_json(indent=2), encoding="utf-8")
         profiles = to_work_profiles(
@@ -50,5 +57,7 @@ def run_sweep(
             json.dumps([p.to_contract_dict() for p in profiles], ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-        rows.append(evaluate(truth, result, fps=fps, provider=provider.name, model=provider.model))
+        rows.append(
+            evaluate(truth, result, fps=fps, provider=provider.name, model=provider.model, step_times=step_timer.name)
+        )
     return rows

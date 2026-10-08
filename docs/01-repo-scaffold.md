@@ -36,7 +36,9 @@ mentormind-knowhow-ai/
 │   │       ├── openai_compat/  # bảng endpoint vendor, locality, resolve, chat client
 │   │       ├── parsing/        # trích JSON từ câu trả lời model
 │   │       ├── vlm/            # VLM (spec 04 §2): base, models, registry, factory, catalog, backends/
-│   │       └── llm/            # LLM (spec 06 §2): base, models, registry, factory, catalog, context, backends/
+│   │       ├── llm/            # LLM (spec 06 §2): base, models, registry, factory, catalog, context, backends/
+│   │       ├── asr/            # ASR (spec 03 FR-07c): faster_whisper tại máy, remote trên máy chủ suy luận
+│   │       └── inference/      # máy chủ suy luận của đội (Whisper, Docling, bge-m3): endpoint, client
 │   ├── capture/                # Việt Hoàng
 │   │   ├── ingest/             # spec 02
 │   │   └── video/              # spec 03
@@ -66,7 +68,7 @@ mentormind-knowhow-ai/
 │   ├── golden_set/             # spec 09, được commit
 │   └── work/                   # output trung gian, KHÔNG commit
 ├── scripts/demo.sh
-└── 3rdparty/vlm_server/        # submodule vlm-engine: Ollama + Qwen3-VL-8B Q4 tự host (spec 04 FR-08) — Phúc
+└── 3rdparty/vlm_server/        # submodule mentormind-inference (trước: vlm-engine): VLM (Ollama Q4 / vLLM BF16) + gateway CPU (ASR, embeddings, Docling)
 ```
 
 > **Quy ước tên module trong các spec:** mọi đường dẫn module viết tắt, bỏ tiền tố package gốc — `core.schemas` nghĩa là `mentormind.core.schemas`, `core.providers.vlm` là `mentormind.core.providers.vlm`; đường dẫn file `core/guard/data_guard.py` là `mentormind/core/guard/data_guard.py`. Tên CLI (`knowhow`) và prefix biến môi trường (`KNOWHOW_`) không đổi.
@@ -95,6 +97,15 @@ KNOWHOW_VECTOR_BACKEND=pgvector        # pgvector | memory
 KNOWHOW_PG_DSN=postgresql://knowhow:change-me@localhost:5432/knowhow
 KNOWHOW_VECTOR_TABLE=knowhow_chunks
 KNOWHOW_EMBED_DIM=1024                 # bge-m3 dense
+KNOWHOW_EMBEDDER=bge-m3                # bge-m3 (tại máy) | remote (máy chủ suy luận) | hashing (dev)
+KNOWHOW_DOC_EXTRACTOR=docling          # docling (tại máy) | remote (máy chủ suy luận)
+KNOWHOW_ASR_PROVIDER=faster_whisper    # faster_whisper (tại máy) | remote (máy chủ suy luận) | fake
+# máy chủ suy luận riêng của đội cho các giá trị `remote` (spec 02 FR-02c/FR-07d, spec 03 FR-07c);
+# local/cloud theo URL + KNOWHOW_LOCAL_HOSTS như VLM; key trống = KNOWHOW_VLM_API_KEY khi KNOWHOW_VLM_BASE_URL cùng host
+KNOWHOW_INFERENCE_URL=
+KNOWHOW_INFERENCE_API_KEY=
+KNOWHOW_INFERENCE_TIMEOUT_S=1800
+KNOWHOW_INFERENCE_MAX_RETRIES=2
 KNOWHOW_VLM_PROVIDER=local_openai      # local_openai | openrouter | siliconflow | qwen_api | openai_compatible | fake
 # trống = endpoint mặc định của provider (local_openai: Ollama http://127.0.0.1:11434/v1, qwen3-vl:8b) và tên Qwen3-VL-8B của provider đó
 KNOWHOW_VLM_BASE_URL=
@@ -155,3 +166,6 @@ KNOWHOW_SIGMA_CSV_DIR=data/mock_sigma
 - v1.10 (28/9, Phúc): contract WorkProfile thêm `actor` (`human` | `robot` | `machine` | `null`: ai làm bước; `human` gộp công nhân + kỹ sư), `schema_version` giữ `1.0` (FR-08; spec 04 AC-18).
 - v1.11 (28/9, Phúc): mọi provider model về `core/providers/` (`vlm/`, `llm/` cạnh phần dùng chung); làm mờ mặt ở `core/guard/image.py` (§2).
 - v1.12 (29/9, review): `init.sql` v1.2 khớp contract + constitution — nhãn `public|synthetic|factory_confidential`, `reason_source` chỉ `expert_verbal|expert_interview`, `knowledge_units` = WorkProfile (có `data_classification`, thời gian evidence tính bằng giây), CHECK cho 3 luật `allOf` + reject phải có comment, một bảng vector `knowhow_chunks` (trigger: chỉ profile approved, bỏ duyệt thì xóa chunk), full-text `simple`+`unaccent`; đã chạy thử trên `pgvector/pgvector:pg16` (FR-05). T01-7 xong: `VectorChunk`/`VectorHit`, `Embedder`, backend `memory`, `get_vector_store()` (FR-05c, AC-08). T01-6 xong: `.github/workflows/ci.yml` (FR-07). `.python-version` = 3.11 (FR-01). API đọc `core.config.Settings` (`app_name`, `cors_origins`); bỏ `backend/requirements.txt`, `backend/app/config.py`, `backend/.env.example` (FR-01, FR-03). `scripts/demo.sh`: preflight + luồng spec 08 §4.
+- v1.13 (08/10, Phúc): §4 thêm `KNOWHOW_INFERENCE_URL`/`_API_KEY`/`_TIMEOUT_S`/`_MAX_RETRIES` (máy chủ suy luận riêng của đội cho Whisper, Docling, bge-m3), `KNOWHOW_DOC_EXTRACTOR`, giá trị `remote` của `KNOWHOW_EMBEDDER` và `KNOWHOW_ASR_PROVIDER`; §2 thêm `core/providers/{asr,inference}/` (spec 02 v1.5, spec 03 v1.9).
+- v1.14 (08/10, Phúc, review): §4 `KNOWHOW_INFERENCE_API_KEY` trống chỉ lấy `KNOWHOW_VLM_API_KEY` khi `KNOWHOW_VLM_BASE_URL` cùng host (spec 02 v1.6).
+- v1.15 (08/10, Phúc): submodule `3rdparty/vlm_server` đổi sang repo mentormind-inference (URL https, repo public) — gateway CPU cho ASR/embeddings/Docling từ xa (spec 02/03, `KNOWHOW_INFERENCE_URL`).

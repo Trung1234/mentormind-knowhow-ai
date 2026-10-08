@@ -4,7 +4,8 @@
 ``data/work/video/<id>/segments.json``, or ``--segments FILE``) or a raw ``--video FILE`` cut by
 spec 03's ``VideoCapturePipeline`` (``--method``, fixed 10 s windows by default, as ``sweep`` does). Drafts
 go to the sink of ``KNOWHOW_PROFILE_SINK`` (spec 08's store when present, else
-``data/work/vlm/<video_id>/profiles.json``); ``propose-reasons`` reads and updates them there.
+``data/work/vlm/<video_id>/profiles.json``); ``propose-reasons`` reads and updates them there and
+appends one line per profile examined to ``data/work/vlm/<video_id>/reasons_audit.jsonl`` (spec 04 §5).
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ from mentormind.core.schemas.common import DataClassification
 if TYPE_CHECKING:
     from mentormind.core.providers.llm import LLMProvider
     from mentormind.core.schemas.video import Segment
+    from mentormind.core.schemas.work_profile import WorkProfile
 
 WORK = Path("data/work")
 
@@ -58,6 +60,7 @@ def describe_cmd(
     from mentormind.core.providers.errors import ProviderError
     from mentormind.core.providers.llm.context import strictest
     from mentormind.core.providers.vlm import get_vlm_provider
+    from mentormind.processing.vlm.passes.step_times import get_step_timer
     from mentormind.processing.vlm.pipeline import DescribePipeline
     from mentormind.processing.vlm.profiles import ProfileSinkError, get_profile_sink
     from mentormind.processing.vlm.transcript import load_transcript
@@ -89,6 +92,7 @@ def describe_cmd(
             consistency=consistency,
             transcript_lead_s=settings.transcript_lead_s,
             transcript_lag_s=settings.transcript_lag_s,
+            step_timer=get_step_timer(settings.vlm_step_times),
         )
         result = pipeline.run(loaded, work_dir, transcript)
     except ConfidentialDataError as exc:
@@ -133,7 +137,7 @@ def propose_reasons_cmd(
     """Fill reasons from the expert's own words (transcript) into the video's profiles."""
     from mentormind.core.guard import ConfidentialDataError
     from mentormind.core.providers.errors import ProviderError
-    from mentormind.processing.vlm.passes.reasons import propose_reasons
+    from mentormind.processing.vlm.passes.reasons import examined, propose_reasons, reasons_audit_path
     from mentormind.processing.vlm.profiles import (
         FileProfileSink,
         ProfileSinkError,
@@ -156,26 +160,32 @@ def propose_reasons_cmd(
             err=True,
         )
         raise typer.Exit(1)
-    candidates = len([p for p in profiles if p.evidence.transcript_excerpt and p.reason is None])
+    candidates = len([p for p in profiles if examined(p)])
     if candidates == 0:
         typer.echo(
-            f"{len(profiles)} profile, không profile nào có transcript_excerpt (cần transcript của "
-            "spec 03) → không có gì để làm."
+            f"{len(profiles)} profile, không bản nháp nào có transcript_excerpt mà chưa có lý do (cần transcript "
+            "của spec 03; bước đã duyệt/từ chối/đang duyệt không bị xét lại) → không có gì để làm."
         )
         return
+    audit = reasons_audit_path(WORK, video_id)
+    current = {p.profile_id: p for p in profiles}
+    changed: list[WorkProfile] = []
+
+    def save(profile: WorkProfile) -> None:
+        # Each accepted profile is stored before its audit line (spec 04 §5): a run stopped half-way
+        # keeps what it found. The store gets only that profile (re-saving untouched ones would count
+        # as id clashes); the file is the whole video.
+        current[profile.profile_id] = profile
+        sink.save(video_id, list(current.values()) if isinstance(sink, FileProfileSink) else [profile])
+        changed.append(profile)
+
     try:
-        updated = propose_reasons(profiles, _llm(settings))
-    except (ConfidentialDataError, ProviderError) as exc:
-        typer.secho(f"Lỗi: {exc}", fg=typer.colors.RED, err=True)
+        propose_reasons(profiles, _llm(settings), audit=audit, save=save)
+    except (ConfidentialDataError, ProviderError, ProfileSinkError) as exc:
+        typer.secho(f"Lỗi: {exc} (đã lưu {len(changed)} lý do trước lỗi)", fg=typer.colors.RED, err=True)
         raise typer.Exit(1) from exc
-    changed = [new for old, new in zip(profiles, updated, strict=True) if old.reason != new.reason]
-    if changed:
-        # Only the profiles now in_review: re-saving untouched ones would count as id clashes.
-        if isinstance(sink, FileProfileSink):
-            sink.save(video_id, updated)
-        else:
-            sink.save(video_id, changed)
     typer.echo(f"{candidates} profile có transcript → điền lý do cho {len(changed)} (in_review) → {sink.where}")
+    typer.echo(f"tự kiểm từng quyết định: {audit}")
 
 
 def _llm(settings: Settings) -> LLMProvider:

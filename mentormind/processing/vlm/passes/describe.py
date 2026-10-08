@@ -6,6 +6,10 @@ validate the answer against :data:`PASS_A_SCHEMA`; an invalid answer is retried 
 while the other segments carry on (AC-06). Raw answers are kept under
 ``data/work/vlm/<video_id>/pass_a/`` (FR-06).
 
+Where each step starts and ends is up to a :class:`~processing.vlm.passes.step_times.StepTimer`
+(``KNOWHOW_VLM_STEP_TIMES``): by default the steps tile their segment in start order (AC-24), or
+they keep the model's own spans clamped into the segment (AC-28).
+
 Post-processing into WorkProfiles lives in :mod:`processing.vlm.passes.postprocess`.
 """
 
@@ -34,6 +38,7 @@ from mentormind.processing.vlm.passes.models import (
     TimedStep,
 )
 from mentormind.processing.vlm.passes.prompting import render_prompt
+from mentormind.processing.vlm.passes.step_times import DEFAULT_STEP_TIMER, StepTimer
 
 PASS_A_TEMPERATURE = 0.2
 #: Repair reason when pass A answered in English (spec 04 §3): the steps become Vietnamese SOPs.
@@ -80,8 +85,13 @@ def describe_segments(
     max_frames: int,
     temperature: float = PASS_A_TEMPERATURE,
     sampler: Sampler = sample_frames,
+    step_timer: StepTimer = DEFAULT_STEP_TIMER,
 ) -> PassAResult:
-    """Run pass A over ``segments`` (in order). Never raises for one bad segment."""
+    """Run pass A over ``segments`` (in order). Never raises for one bad segment.
+
+    ``step_timer`` places each segment's steps in time (spec 04 §3; the callers pass
+    ``get_step_timer(settings.vlm_step_times)``).
+    """
     result = PassAResult()
     for segment in segments:
         _describe_one(
@@ -94,6 +104,7 @@ def describe_segments(
             max_frames=max_frames,
             temperature=temperature,
             sampler=sampler,
+            step_timer=step_timer,
         )
     if result.failed:
         (work_dir / "failed_segments.json").write_text(
@@ -114,6 +125,7 @@ def _describe_one(
     max_frames: int,
     temperature: float,
     sampler: Sampler,
+    step_timer: StepTimer,
 ) -> None:
     sampled = sampler(
         segment,
@@ -165,14 +177,12 @@ def _describe_one(
         return
     if output.scene:
         result.scenes[segment.segment_id] = output.scene
-    for step in output.steps:
-        start = min(step.t_start_rel, duration)
-        end = min(max(step.t_end_rel, step.t_start_rel), duration)
+    for step, start, end in step_timer.place(output.steps, segment):
         result.steps.append(
             TimedStep(
                 segment_id=segment.segment_id,
-                t_start=round(segment.t_start + start, 2),
-                t_end=round(segment.t_start + end, 2),
+                t_start=start,
+                t_end=end,
                 step=step.step.strip(),
                 actor=step.actor,
                 hand_action=step.hand_action,

@@ -1,4 +1,4 @@
-"""spec 04 T04-6 — matching rule, metrics, the CSV of AC-07, truth file, fixed windows."""
+"""spec 04 T04-6 — matching rule, metrics, the CSV of AC-07, truth file, fixed windows; AC-28."""
 
 from __future__ import annotations
 
@@ -16,16 +16,20 @@ from mentormind.core.providers.vlm.backends.fake import FakeVLM
 from mentormind.core.schemas.common import DataClassification
 from mentormind.core.schemas.video import Segment
 from mentormind.processing.vlm.frames import SampledFrames
+from mentormind.processing.vlm.passes import PassAResult
+from mentormind.processing.vlm.passes.step_times import ModelSpans, SegmentTiling, StepTimer
 from mentormind.processing.vlm.sweep import (
     CSV_COLUMNS,
     TruthStep,
     actor_accuracy,
     load_truth,
+    markdown_table,
     match_steps,
     order_accuracy,
     run_sweep,
     write_csv,
 )
+from tests.processing.vlm.passes.test_describe import TIMED, TIMED_S002
 
 REPO = REPO_ROOT
 
@@ -131,6 +135,30 @@ def test_ac_07_sweep_writes_every_required_column(tmp_path: Path) -> None:
     assert float(table[0]["key_point_recall"]) == 1.0
     assert (tmp_path / "work" / "fps1" / "profiles_draft.json").is_file()
     assert "actor_accuracy" in table[0]
+
+
+@pytest.mark.parametrize(("timer", "mode"), [(None, "segment"), (SegmentTiling(), "segment"), (ModelSpans(), "model")])
+def test_ac_28_sweep_places_steps_with_its_timer_and_records_it(
+    timer: StepTimer | None, mode: str, tmp_path: Path
+) -> None:
+    extra = {} if timer is None else {"step_timer": timer}
+    rows = run_sweep(
+        segments(2),
+        [TruthStep(step="Nhặt cốc", t_start=10, t_end=15)],
+        [1],
+        FakeVLM([TIMED]),
+        process_id="PACK01",
+        work_dir=tmp_path / "work",
+        max_frames=48,
+        sampler=fake_sampler,
+        **extra,
+    )
+    saved = (tmp_path / "work" / "fps1" / "predictions.json").read_text(encoding="utf-8")
+    steps = PassAResult.model_validate_json(saved).steps
+    spans = [(s.step, s.t_start, s.t_end) for s in steps if s.segment_id == "VID-TEST-S002"]
+    assert spans == TIMED_S002[mode]
+    assert [r.step_times for r in rows] == [mode]
+    assert f"| {mode} |" in markdown_table(rows)
 
 
 def test_repo_groundtruth_file_loads() -> None:

@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from mentormind.backend.app.routers import (
     assistant,
+    documents,
     health,
     ingest,
     jobs,
@@ -36,6 +37,7 @@ app.include_router(profiles.router)
 app.include_router(media.router)
 app.include_router(jobs.router)
 app.include_router(ingest.router)
+app.include_router(documents.router)
 app.include_router(videos.router)
 app.include_router(assistant.router)
 app.include_router(rca.router)

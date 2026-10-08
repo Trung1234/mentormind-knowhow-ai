@@ -32,6 +32,17 @@ def test_providers_lists_the_local_asr_backends() -> None:
     assert "faster_whisper" in result.output and "* fake" in result.output and "local" in result.output
 
 
+def test_ac_17_providers_lists_remote_on_the_inference_server(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("KNOWHOW_ASR_PROVIDER", "remote")
+    monkeypatch.setenv("KNOWHOW_INFERENCE_URL", "https://team:s3cret@inference.example.com/v1")
+    monkeypatch.setenv("KNOWHOW_LOCAL_HOSTS", "[]")
+    get_settings.cache_clear()
+    result = runner.invoke(app, ["video", "providers"])
+    assert result.exit_code == 0, result.output
+    assert "* remote" in result.output and "server" in result.output
+    assert "máy chủ https://inference.example.com/v1 (cloud)" in result.output and "s3cret" not in result.output
+
+
 def test_segment_writes_the_segments_and_reports_the_method(tmp_path: Path) -> None:
     video = synthetic_video(tmp_path / "in.mp4", 25)
     result = runner.invoke(

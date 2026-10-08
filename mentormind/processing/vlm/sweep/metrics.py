@@ -36,6 +36,8 @@ class SweepRow(BaseModel):
     failed_segments: int
     provider: str
     model: str
+    #: How pass A placed the steps in time (``KNOWHOW_VLM_STEP_TIMES``), so a saved row tells.
+    step_times: str
 
 
 def order_accuracy(matches: Sequence[Match], predicted: Sequence[TimedStep]) -> float | None:
@@ -94,6 +96,7 @@ def evaluate(
     fps: float,
     provider: str,
     model: str,
+    step_times: str,
 ) -> SweepRow:
     predicted = result.steps
     matches = match_steps(truth, predicted)
@@ -117,6 +120,7 @@ def evaluate(
         failed_segments=len(result.failed),
         provider=provider,
         model=model,
+        step_times=step_times,
     )
 
 

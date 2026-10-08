@@ -17,6 +17,7 @@ CREATE TABLE jobs (
 ```
 - Mọi lần ghi validate bằng `validate_against_contract`.
 - Sửa nội dung profile → `version += 1`, `status = "in_review"`.
+- Xoá profile → xoá luôn các `review_events` của nó.
 
 ## 2. REST API (FastAPI) — `backend.app.main:app`
 | Method & path | Body / query | Trả về | Ghi chú |
@@ -27,10 +28,15 @@ CREATE TABLE jobs (
 | `POST /videos/{video_id}/process` | `{method?, fps?}` | `{job_id}` | segment → transcribe → describe → propose-reasons, xem dưới bảng |
 | `GET /videos/{video_id}/segments` | — | `list[Segment]` (spec 03 §3) | đọc `data/work/video/<video_id>/segments.json`; trang 1 lấy clip + keyframe từ đây |
 | `GET /jobs/{job_id}` | — | `{status, result, error}` | `queued/running/done/failed` |
-| `GET /profiles` | `process_id?`, `status?` | `list[WorkProfile]` | |
+| `GET /profiles` | `process_id?`, `status?` | `list[WorkProfile + published]` | `published` = bước đang có trong đồ thị (định nghĩa ở "Xoá dữ liệu"), để hộp thoại xoá cảnh báo; không thuộc contract |
 | `GET /profiles/{id}` | — | `WorkProfile` + lịch sử review | |
 | `PATCH /profiles/{id}` | các trường sửa được | `WorkProfile` | không cho sửa `profile_id`, `generated_by`, `created_at` |
 | `POST /profiles/{id}/review` | `{action: approve\|reject, reviewer, comment?, error_tags[]}` | `WorkProfile` | approve → `kg.load_profiles`; reject sau khi đã approved → `kg.unload_profile` |
+| `DELETE /profiles/{id}` | — | `ProfileDeleteResult` | xoá một bước, xem "Xoá dữ liệu" dưới bảng |
+| `POST /profiles/delete` | `{profile_ids: [...]}` | `ProfileDeleteResult` | xoá nhiều bước |
+| `DELETE /videos/{video_id}` | — | `VideoDeleteResult` | xoá mọi bước của video + tệp của video |
+| `GET /documents` | — | `list[DocumentInfo]` | tài liệu đã tách chunk, đọc từ `data/work/chunks/*.jsonl` |
+| `DELETE /documents/{doc_id}` | — | `DocumentDeleteResult` | chunk trong vector store + file chunk + bản tải lên |
 | `POST /assistant/ask` | `AskRequest` | `AssistantAnswer` | spec 06 |
 | `POST /rca/investigate` | `RcaRequest` | `RcaReport` | 404 khi `LotNotFound` |
 | `GET /sigma/lots` | `process_id?` | `list[LotRecord]` | đọc Sigma adapter (spec 07, `KNOWHOW_SIGMA_ADAPTER`) — cùng nguồn với RCA Agent; cho dropdown UI |
@@ -49,18 +55,31 @@ CREATE TABLE jobs (
 - Rồi `DescribePipeline` đủ lượt A, B, C với VLM/LLM cấu hình trong `.env` (DataGuard kiểm trước lời gọi đầu tiên) → profile `draft` vào profile store như `knowhow vlm describe`; mỗi bước mang `transcript_excerpt` của riêng nó (spec 04 §3). Bước có excerpt → `propose-reasons` (LLM, hậu kiểm khớp excerpt); không có transcript thì `reason` để trống, chuyên gia nhập ở trang 1.
 - `result.progress = {stage, done, total}`, `stage` ∈ `cut` (cắt + keyframe + clip, đếm theo đoạn), `transcribe` (ASR, theo giây audio), `describe` (lượt gọi VLM của lượt A và B), `merge` (lượt C), `reasons` (theo bước có excerpt). Xong → `result` = `{video_id, process_id, method, method_used, segments, profiles: [profile_id], failed_segments, transcript_lines, steps_with_excerpt, reasons_filled, progress}`. Lỗi → `failed` + message.
 
+Xoá dữ liệu (`DELETE /profiles/{id}`, `POST /profiles/delete`, `DELETE /videos/{video_id}`, `GET`/`DELETE /documents`):
+- Bước **đã lên đồ thị** = `status = approved`, hoặc lần review gần nhất là `approve` (bước đã duyệt rồi bị sửa thành `in_review`: graph vẫn giữ bản cũ, AC-01), hoặc `in_review` còn khối `review` mà chưa có review event nào (bước nạp vào store ở trạng thái đã duyệt, không qua API duyệt — `seed_demo`, dữ liệu nhập — rồi `knowhow kg load-profiles` và bị sửa). Bước đó được gỡ bằng `kg.unload_profile` (spec 05 FR-04: xoá `Step` và chunk `work_profile` trong pgvector) **trước**, rồi mới xoá khỏi profile store. Bước khác (`draft`, `rejected`, `in_review` chưa từng duyệt) chỉ xoá khỏi profile store, không mở Neo4j/pgvector — xoá nháp vẫn chạy khi hai dịch vụ này tắt.
+- Xoá giữ khoá ghi của profile store từ **trước** khi gỡ tới khi xoá xong (như duyệt giữ khoá khi nạp graph), nên một lần duyệt đang ghi không làm lệnh xoá hết giờ sau khi graph đã gỡ bước; store bị khoá quá `timeout` (5 s) → 503 "Kho profile đang bận", chưa gỡ, chưa xoá gì.
+- Video có job xử lý đang `queued`/`running` trong process API (job vẫn còn lưu bước và ghi `data/work/vlm/<video_id>/`) → `DELETE /videos/{video_id}` và mọi lệnh xoá có bước của video đó → 409 kèm lý do tiếng Việt, không xoá gì; job xong hoặc lỗi thì xoá được.
+- Gỡ khỏi đồ thị lỗi (Neo4j/pgvector không phản hồi) → bước đó giữ nguyên trong store (store không bao giờ quên một bước mà graph còn phục vụ) và nằm trong `failed`; các bước khác vẫn bị xoá. `ProfileDeleteResult` = `{deleted: [profile_id], unpublished: [profile_id] (các bước đã gỡ khỏi Neo4j + pgvector, nằm trong deleted), failed: [{profile_id, error}]}`.
+- `DELETE /profiles/{id}`: id không có → 404; bước đó gỡ lỗi → 503 kèm lý do, không xoá gì.
+- `POST /profiles/delete`: danh sách rỗng → 422; có id không tồn tại → 404 nêu các id đó, không xoá gì; id lặp tính một lần. Gỡ lỗi một phần → 200 với `failed`.
+- `DELETE /videos/{video_id}`: xoá mọi profile có `evidence.video_id = video_id` như trên, rồi xoá `data/work/video/<video_id>/` (video gốc, `video.json`, `segments.json`, `transcript.json`, `keyframes/`, `clips/`) và `data/work/vlm/<video_id>/`. `video_id` phải là một tên thư mục (chữ, số, `-`, `_`) không bắt đầu bằng `_` (dành cho thư mục của máy chủ, vd. `_incoming` chứa video đang tải lên); không có profile nào lẫn thư mục nào → 404. Có bước gỡ lỗi → giữ nguyên các tệp (bước đó còn dùng keyframe/clip), 200 với `failed`. `VideoDeleteResult` = `ProfileDeleteResult` + `{video_id, files_removed}`.
+- `GET /documents`: mỗi `data/work/chunks/<doc_id>.jsonl` (do `POST /ingest/documents` hoặc `knowhow ingest run` ghi, cùng nguồn mà `ingest index` đọc) → `DocumentInfo = {doc_id, name (tên tệp gốc, từ source_path), title, data_classification, extractor, chunks}`, xếp theo tên. Đọc file chunk chứ không đọc vector store vì `VectorStore` không có thao tác liệt kê và file chunk có ở mọi backend.
+- `DELETE /documents/{doc_id}`: `doc_id` không đúng dạng `DOC-` + 12 hex, hoặc không có file chunk lẫn bản tải lên → 404. Xoá chunk khỏi vector store trước (`delete_where({"source_type": "document", "doc_id": doc_id})`); store không kết nối được hoặc lỗi → 503, chưa xoá tệp nào (xoá lại sau). Rồi xoá `data/work/chunks/<doc_id>.jsonl` và mọi bản tải lên trong `data/work/docs/` có cùng nội dung (cùng `doc_id`), bỏ thư mục job đã rỗng. `DocumentDeleteResult = {doc_id, chunks_deleted, chunk_file_removed, uploads_removed}`. Node `Document` của graph (chỉ có khi một bước đã duyệt trích tài liệu) không bị đụng.
+
 Job chạy bằng `BackgroundTasks` (MVP, một process). Lỗi trong job → `status=failed`, `error` có message, không làm sập server. Job chết theo process: API khởi động lại khi job còn `queued`/`running` thì job đó không bao giờ xong, nên `GET /jobs/{id}` trả nó `failed` kèm thông báo khởi động lại (job tạo trước lúc process API hiện tại khởi động).
 
 ## 3. UI — `ui/streamlit_app.py` (tablet, tiếng Việt)
 Cấu hình: `layout="wide"`, cỡ chữ ≥ 16px, nút bấm lớn; UI chỉ gọi REST API, không import trực tiếp module nghiệp vụ.
 
 **Trang 1 — "Duyệt thao tác"**
-- Bộ lọc process + trạng thái (mặc định `draft` và `in_review`) + video (các `evidence.video_id` trong danh sách); các bước của một video xếp theo `t_start`.
+- Bộ lọc process (PACK01, ASSY02 và mọi mã công đoạn đã có bước trong `GET /profiles`, kể cả mã gõ khi tải video) + trạng thái (mặc định `draft` và `in_review`) + video (các `evidence.video_id` trong danh sách); các bước của một video xếp theo `t_start`.
+- Nút **Duyệt các bước này** ở trang 4 mở trang này đúng process + video của video vừa xử lý.
 - Mỗi profile: 3 keyframe (ảnh thật từ `evidence.keyframes`, qua `/media`), trình phát clip đúng `t_start–t_end`, có tiếng khi video có audio (clip của đoạn chứa bước, lấy từ `GET /videos/{video_id}/segments`), các trường sửa được (step, hand_action, key_point, exceptions, pass_criteria).
 - Ô "Lời chuyên gia (transcript)" hiện `evidence.transcript_excerpt` của riêng bước đó (spec 04 §3: mỗi câu thuộc một bước); chưa có thì ghi rõ và nhắc chuyên gia tự nhập lý do.
 - Ô `reason` + chọn `reason_source` (bắt buộc chọn khi có nhập reason).
 - Multi-select `error_tags` (bỏ sót / bịa bước / sai thứ tự / sai vật / sai thao tác / khác).
 - Nút **Duyệt** / **Từ chối** (từ chối bắt buộc nhập lý do).
+- Xoá: nút **Xoá bước** cạnh Duyệt/Từ chối/Lưu; mỗi bước trong danh sách có ô chọn, nút **Xoá các bước đã chọn (n)** trên danh sách (vô hiệu khi n = 0); nút **Xoá video này** cạnh bộ lọc video (vô hiệu khi chưa chọn video). Mọi nút xoá mở hộp thoại xác nhận tiếng Việt nêu cái sẽ mất (số bước — với video: mọi bước của video, kể cả bước bị bộ lọc ẩn —, bước đang có trong đồ thị tri thức theo `published` của `GET /profiles` bị gỡ khỏi đồ thị, tệp video/keyframe/clip); **Huỷ** → không gửi request. Đang xoá: spinner + "Đang xoá…", khoá các nút xoá, Duyệt, Từ chối, Lưu. Xong → thông báo số bước đã xoá; bước không gỡ được khỏi đồ thị hiện lỗi kèm lý do.
 
 **Trang 2 — "Hỏi trợ lý"**
 - Chọn công đoạn, ô câu hỏi, câu trả lời với marker [n]; bấm citation → hiện keyframe/clip hoặc đoạn tài liệu. API điền cho UI: mọi citation có `excerpt` (đoạn trích, lấy từ `snippet` của agent); citation `work_profile` có `title` (tên bước), `t_start`/`t_end` và `keyframe_url` (`/media/...`) lấy từ profile.
@@ -74,6 +93,7 @@ Cấu hình: `layout="wide"`, cỡ chữ ≥ 16px, nút bấm lớn; UI chỉ g�
 - Tài liệu: chọn một hoặc nhiều tệp `.pdf .docx .xlsx .pptx` và nhãn dữ liệu (Công khai / Dữ liệu tổng hợp / Mật – dữ liệu nhà máy). Không chọn sẵn nhãn: nút **Tải lên & xử lý** bị vô hiệu tới khi có ít nhất một tệp và đã chọn nhãn.
 - Gửi `POST /ingest/documents`, rồi hỏi `GET /jobs/{id}` mỗi ~2 giây tới khi `done`/`failed`; hiện trạng thái Đang chờ / Đang xử lý / Hoàn tất / Lỗi, kèm tên tệp và thời gian đã chạy. Như video, job id được nhớ trong trình duyệt: chuyển tab hoặc tải lại trang vẫn thấy tiến độ và kết quả; nút tải lên bị khóa khi job còn chạy.
 - Xong → bảng từng tệp (tên, `doc_id`, extractor, số trang, số chunk, bỏ qua/lỗi) và tổng số chunk đã index. Lỗi hiện bằng tiếng Việt, không có stack trace.
+- Bảng **Tài liệu đã index** (`GET /documents`: tệp, `doc_id`, nhãn, số chunk; tải lại khi một job tài liệu xong), mỗi dòng có nút **Xoá** → hộp thoại xác nhận tiếng Việt (chunk bị gỡ khỏi kho tìm kiếm, tệp tải lên bị xoá) → `DELETE /documents/{doc_id}`; đang xoá hiện spinner trên dòng đó.
 
 ## 4. `make demo` — `scripts/demo.sh`
 1. `make up` và chờ healthy → `knowhow kg init` → `knowhow sigma gen-mock` → `knowhow kg load-sigma --classification synthetic`.
@@ -109,6 +129,11 @@ Cấu hình: `layout="wide"`, cỡ chữ ≥ 16px, nút bấm lớn; UI chỉ g�
 - **AC-16** `POST /assistant/ask` (live): citation có `excerpt` khi agent có `snippet`; citation `work_profile` của một profile có trong store mang `title` = tên bước, `t_start`/`t_end` của bước và `keyframe_url` dạng `/media/...` khi profile có keyframe.
 - **AC-17** Job còn `running` từ trước khi API khởi động lại → `GET /jobs/{id}` trả `failed` + thông báo khởi động lại; job tạo sau khi khởi động vẫn `running`.
 - **AC-18** `POST /videos/{id}/process` (bộ cắt, ASR, VLM, LLM giả): `method=hand_activity` khi thiếu MediaPipe → job `done`, `result.method_used="scene"`; `method` ngoài 3 giá trị → 422; video có audio → `transcript_lines` > 0, mỗi bước chỉ trích câu của nó, `steps_with_excerpt` và `reasons_filled` đúng; `progress.stage` đi qua `cut` → `transcribe` → `describe`.
+- **AC-19** `DELETE /profiles/{id}` một bước chưa từng duyệt (`draft`, `rejected`) → 200, `deleted = [id]`, `GET /profiles/{id}` → 404, lịch sử review của nó cũng mất; Neo4j/pgvector không được mở (vẫn xoá được khi chúng tắt). id không tồn tại → 404.
+- **AC-20** Xoá bước `approved`, hoặc `in_review` sau một lần approve, hoặc bước nạp sẵn ở trạng thái `approved` (không review event) rồi bị sửa → `Step` và chunk `work_profile` biến mất khỏi graph/vector store rồi bước mới bị xoá khỏi store, `unpublished = [id]`; `GET /profiles` trả `published=true` cho đúng các bước đó; Neo4j/pgvector tắt → 503 kèm lý do, bước còn nguyên trong store và graph; profile store đang bị một lệnh ghi khác khoá → 503, bước còn nguyên trong store và graph.
+- **AC-21** `POST /profiles/delete` nhiều id (có bước đã duyệt) → xoá hết, bước đã duyệt được gỡ khỏi graph; có id không tồn tại → 404, không xoá gì; danh sách rỗng → 422; Neo4j/pgvector tắt → 200, nháp vẫn bị xoá, bước đã duyệt nằm trong `failed` và còn trong store.
+- **AC-22** `DELETE /videos/{video_id}` → mọi bước của video bị xoá (bước đã duyệt được gỡ khỏi graph), `data/work/video/<video_id>/` và `data/work/vlm/<video_id>/` không còn, video khác cùng bước của nó còn nguyên; video không có bước lẫn thư mục, hoặc id không phải tên thư mục → 404; bước đã duyệt không gỡ được → các tệp được giữ, `failed` nêu bước đó; video đang có job xử lý → 409 cho `DELETE /videos/{id}` và cho lệnh xoá bước của video đó, không xoá gì, job xong (kể cả lỗi) thì xoá được; `DELETE /videos/_incoming` → 404, tệp đang tải lên còn nguyên.
+- **AC-23** `GET /documents` liệt kê mỗi file chunk (`doc_id`, tên tệp, nhãn, số chunk). `DELETE /documents/{doc_id}` → chunk của tài liệu biến mất khỏi vector store (chunk tài liệu khác còn), file chunk và mọi bản tải lên cùng nội dung bị xoá, `GET /documents` không còn nó; `doc_id` lạ hoặc sai dạng → 404; vector store lỗi → 503, không tệp nào bị xoá.
 
 ## 7. Tasks
 - [ ] T08-1 Profile store + test.
@@ -120,6 +145,8 @@ Cấu hình: `layout="wide"`, cỡ chữ ≥ 16px, nút bấm lớn; UI chỉ g�
 - [x] T08-7 Tải tài liệu: `POST /ingest/documents` chạy thật spec 02 run + index (thay kết quả giả), `classification` bắt buộc, tên tệp chỉ giữ phần tên; trang 4 "Tải tài liệu" (AC-09..AC-12).
 - [x] T08-8 Luồng UI đầy đủ: tải video → job xử lý thật (cắt `fixed_window` tạm thay spec 03, keyframe, describe A–C, propose-reasons khi có transcript) → trang 1 có keyframe/clip/transcript và lọc theo video → trợ lý có trích dẫn đủ thông tin, RCA lấy lot từ Sigma adapter; job dở dang khi API khởi động lại → `failed` (AC-13..AC-17).
 - [x] T08-9 Nối spec 03 vào luồng UI: `method` cắt, transcribe khi có audio, transcript theo bước, tiến độ theo giai đoạn (AC-18).
+- [x] T08-10 Xoá dữ liệu: API xoá một / nhiều bước (bước đã duyệt gỡ khỏi Neo4j + pgvector), xoá cả video (bước + tệp), liệt kê và xoá tài liệu; nút xoá có hộp thoại xác nhận ở trang 1 và trang 4 (AC-19..AC-23).
+- [x] T08-11 Sửa sau review phần xoá: bước nạp sẵn đã duyệt rồi bị sửa vẫn được gỡ khỏi đồ thị; `GET /profiles` có `published` cho hộp thoại xoá; khoá store trước khi gỡ (503 khi bận); 409 khi video còn job; `_incoming` không phải video (AC-20, AC-22).
 
 ## Changelog
 - v1.0 (23/9): khởi tạo.
@@ -135,3 +162,6 @@ Cấu hình: `layout="wide"`, cỡ chữ ≥ 16px, nút bấm lớn; UI chỉ g�
 - v1.10 (07/10, Phúc): trang 4 video: chip giai đoạn đã xong có dấu ✓; giai đoạn vừa bắt đầu (chưa biết tổng) hiện "<giai đoạn>…" thay vì "0/0" (spec 03 AC-15).
 - v1.11 (07/10, Phúc): trình phát ở trang 1 có tiếng (clip giữ audio theo spec 03 FR-06 v1.8, bỏ `muted`); vẫn chỉ phát `t_start–t_end` của bước.
 - v1.12 (07/10, Phúc): trang 1 — Approve/Reject/Save hiện spinner + "Đang duyệt…/Đang từ chối…/Đang lưu…" và khóa cả ba nút tới khi API trả về (approve đồng bộ Neo4j + pgvector mất ~5 s, trước đây không có phản hồi gì).
+- v1.13 (08/10, Phúc): xoá dữ liệu (T08-10) — trang duyệt bị rối vì không xoá được gì. Thêm `DELETE /profiles/{id}`, `POST /profiles/delete`, `DELETE /videos/{video_id}` (bước + `data/work/video/<id>/` + `data/work/vlm/<id>/`), `GET /documents` (đọc file chunk) và `DELETE /documents/{doc_id}` (chunk trong vector store + file chunk + bản tải lên). Bước đã lên đồ thị được gỡ bằng `kg.unload_profile` trước khi xoá khỏi store; gỡ lỗi thì giữ bước và báo `failed`/503, xoá nháp không cần Neo4j/pgvector. Trang 1: nút Xoá bước, chọn nhiều bước để xoá, Xoá video này; trang 4: bảng tài liệu đã index có nút Xoá; mọi thao tác xoá có hộp thoại xác nhận tiếng Việt. AC-19..AC-23.
+- v1.14 (08/10, Phúc, review): xoá dữ liệu — (1) "đã lên đồ thị" gồm cả bước nạp sẵn ở trạng thái `approved` không có review event (`seed_demo`) rồi bị sửa thành `in_review`: trước đây chỉ bị xoá khỏi store, `Step` và chunk còn lại mà không xoá được nữa; (2) `GET /profiles` kèm `published` để hộp thoại xoá ở trang 1 cảnh báo cả bước đã duyệt rồi bị sửa (trước chỉ đếm `status = approved`), hộp thoại xoá video nêu số bước; (3) xoá giữ khoá ghi của SQLite trước khi gỡ khỏi graph (trước đây lệnh duyệt đang ghi làm lệnh xoá hết giờ sau khi graph đã gỡ: 500, store vẫn `approved`), store bận → 503; (4) video còn job xử lý → 409 (trước đây job lưu lại các bước vừa xoá và tạo lại `data/work/vlm/<video_id>/`); (5) `video_id` bắt đầu bằng `_` không phải video (`DELETE /videos/_incoming` xoá mất video đang tải lên). AC-20, AC-22 bổ sung; T08-11.
+- v1.15 (08/10, Phúc): trang 1 — bộ lọc process chỉ có PACK01/ASSY02 viết cứng và "Duyệt các bước này" chỉ đặt video, nên video tải lên với mã công đoạn khác (vd. ASSY02 khi lọc đang là PACK01, hay một mã mới) mở ra danh sách trống và không chọn lại được: nút giờ mang theo process của video, bộ lọc liệt kê mọi mã đã có bước.

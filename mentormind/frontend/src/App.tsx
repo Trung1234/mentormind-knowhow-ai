@@ -29,8 +29,9 @@ export default function App() {
     if (tab === "assistant" || tab === "rca" || tab === "review" || tab === "upload") return tab;
     return "review";
   });
-  // Set by "Duyệt các bước này" on the upload page: the review page opens on that video's steps.
-  const [reviewVideoId, setReviewVideoId] = useState<string | null>(null);
+  // Set by "Duyệt các bước này" on the upload page: the review page opens on that video's steps,
+  // under the process code typed at upload (any code, not only the demo lines).
+  const [reviewTarget, setReviewTarget] = useState<{ videoId: string; processId: string } | null>(null);
   const [healthStatus, setHealthStatus] = useState<{ status: string; neo4j: string; postgres: string } | null>(null);
   const [apiError, setApiError] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(() => {
@@ -192,13 +193,13 @@ export default function App() {
 
       {/* ── Main Content ── */}
       <main className="main-content">
-        {activeTab === "review"    && <ReviewProfilesTab initialVideoId={reviewVideoId} />}
+        {activeTab === "review"    && <ReviewProfilesTab initialVideoId={reviewTarget?.videoId ?? null} initialProcessId={reviewTarget?.processId ?? null} />}
         {activeTab === "assistant" && <AssistantTab />}
         {activeTab === "rca"       && <RcaTab />}
         {activeTab === "upload"    && (
           <UploadTab
-            onReviewVideo={(videoId) => {
-              setReviewVideoId(videoId);
+            onReviewVideo={(videoId, processId) => {
+              setReviewTarget({ videoId, processId });
               setActiveTab("review");
             }}
           />

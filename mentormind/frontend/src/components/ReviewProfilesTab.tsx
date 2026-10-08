@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api, mediaUrl } from "../api";
+import { ConfirmDialog } from "./ConfirmDialog";
 import {
   ErrorTag,
+  ProfileDeleteResult,
   ProfilePatchRequest,
   ProfileStatus,
   ReasonSource,
@@ -26,6 +28,7 @@ import {
   ShieldCheck,
   FileText,
   MessageSquareQuote,
+  Trash2,
 } from "lucide-react";
 
 // ── Status badge class helper ─────────────────────────────────
@@ -41,23 +44,61 @@ function statusBadge(s: ProfileStatus) {
 
 const formatTime = (t?: number | null) => (t == null ? "—" : `${t.toFixed(1)}s`);
 
+// What the open confirmation dialog would delete (spec 08 §3: every delete asks first).
+// For a video, `steps` counts all its steps (filters ignored); null when they could not be listed.
+type DeleteTarget =
+  | { kind: "step"; profile: WorkProfile }
+  | { kind: "steps"; ids: string[] }
+  | { kind: "video"; videoId: string; steps: { total: number; published: number } | null };
+
+// In the knowledge graph: the API says so (an approved step edited back to in_review still is).
+const isPublished = (p: WorkProfile) => p.published ?? p.status === "approved";
+
+// Vietnamese summary of DELETE /profiles/{id}, POST /profiles/delete or DELETE /videos/{id}.
+function deletionMessage(r: ProfileDeleteResult): { type: "success" | "error"; text: string } {
+  let text = `Đã xoá ${r.deleted.length} bước`;
+  if (r.unpublished.length > 0) text += ` (${r.unpublished.length} bước đã duyệt được gỡ khỏi đồ thị tri thức)`;
+  text += ".";
+  if (r.failed.length > 0) {
+    text += ` Chưa xoá được ${r.failed.length} bước: ${r.failed.map((f) => `${f.profile_id} — ${f.error}`).join("; ")}.`;
+  }
+  return { type: r.failed.length > 0 ? "error" : "success", text };
+}
+
 // Up to 3 keyframes of a step: first, middle and last (a merged step carries 3 per segment).
 function pickKeyframes(keyframes: string[] = []): string[] {
   if (keyframes.length <= 3) return keyframes;
   return [keyframes[0], keyframes[Math.floor(keyframes.length / 2)], keyframes[keyframes.length - 1]];
 }
 
-export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: string | null }) {
+// Process lines named in the filter; any other code typed at video upload is listed as-is.
+const PROCESS_LABELS: Record<string, string> = {
+  PACK01: "PACK01 — Packaging Line",
+  ASSY02: "ASSY02 — Assembly Line",
+};
+
+export function ReviewProfilesTab({
+  initialVideoId = null,
+  initialProcessId = null,
+}: {
+  initialVideoId?: string | null;
+  initialProcessId?: string | null;
+}) {
   const [profiles,        setProfiles]        = useState<WorkProfile[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<WorkProfile | null>(null);
-  const [selectedProcess, setSelectedProcess] = useState<string>("PACK01");
+  const [selectedProcess, setSelectedProcess] = useState<string>(initialProcessId ?? "PACK01");
+  // Every process code that has steps (GET /profiles without a filter), for the process filter.
+  const [knownProcesses,  setKnownProcesses]  = useState<string[]>([]);
   const [selectedStatus,  setSelectedStatus]  = useState<string>("");
   const [selectedVideo,   setSelectedVideo]   = useState<string>(initialVideoId ?? "");
   // Segments per video (GET /videos/{id}/segments) for the clip player; null = none saved for that video.
   const [segments,        setSegments]        = useState<Record<string, Segment[] | null>>({});
   const [loading,         setLoading]         = useState(false);
   // The action whose request is in flight: approve syncs Neo4j + pgvector (~5 s), so show it.
-  const [pending,         setPending]         = useState<"approve" | "reject" | "save" | null>(null);
+  const [pending,         setPending]         = useState<"approve" | "reject" | "save" | "delete-step" | "delete-steps" | "delete-video" | null>(null);
+  // Steps ticked in the list for "Xoá các bước đã chọn", and the delete waiting for confirmation.
+  const [checked,         setChecked]         = useState<string[]>([]);
+  const [confirm,         setConfirm]         = useState<DeleteTarget | null>(null);
   const [actionMsg,       setActionMsg]       = useState<{ type: "success" | "error" | "warning"; text: string } | null>(null);
 
   // Editable form state
@@ -90,6 +131,17 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
 
   useEffect(() => { loadProfiles(); }, [selectedProcess, selectedStatus]);
   useEffect(() => { if (initialVideoId) setSelectedVideo(initialVideoId); }, [initialVideoId]);
+  useEffect(() => { if (initialProcessId) setSelectedProcess(initialProcessId); }, [initialProcessId]);
+  useEffect(() => {
+    api
+      .getProfiles()
+      .then((all) => setKnownProcesses(Array.from(new Set(all.map((p) => p.process_id))).sort()))
+      .catch(() => setKnownProcesses([]));
+  }, []);
+  const processOptions = useMemo(
+    () => Array.from(new Set([...Object.keys(PROCESS_LABELS), ...knownProcesses, selectedProcess].filter(Boolean))),
+    [knownProcesses, selectedProcess],
+  );
 
   const videoIds = useMemo(
     () => Array.from(new Set(profiles.map((p) => p.evidence.video_id).filter((v): v is string => !!v))).sort(),
@@ -112,9 +164,16 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
     if (visible.length === 0) {
       setSelectedProfile(null);
     } else if (!selectedProfile || !visible.some((p) => p.profile_id === selectedProfile.profile_id)) {
-      selectProfile(visible[0]);
+      selectProfile(visible[0], true); // keep the message, e.g. that the selected step was just deleted
     }
   }, [visible]);
+
+  // Only the ticked steps still on screen are deleted: a filter change never deletes hidden ones.
+  const checkedVisible = visible.filter((p) => checked.includes(p.profile_id)).map((p) => p.profile_id);
+  const allChecked = visible.length > 0 && checkedVisible.length === visible.length;
+  const toggleChecked = (id: string) =>
+    setChecked((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  const toggleAll = () => setChecked(allChecked ? [] : visible.map((p) => p.profile_id));
 
   const selectedVideoId = selectedProfile?.evidence.video_id ?? null;
   useEffect(() => {
@@ -125,7 +184,7 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
       .catch(() => setSegments((prev) => ({ ...prev, [selectedVideoId]: null })));
   }, [selectedVideoId]);
 
-  const selectProfile = (p: WorkProfile) => {
+  const selectProfile = (p: WorkProfile, keepMessage = false) => {
     setSelectedProfile(p);
     setStep(p.step || "");
     setHandAction(p.hand_action || "");
@@ -135,7 +194,7 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
     setPassCriteria(p.pass_criteria || "");
     setReviewComment("");
     setSelectedErrorTags([]);
-    setActionMsg(null);
+    if (!keepMessage) setActionMsg(null);
   };
 
   const hasReasonWithoutSource = reason.trim().length > 0 && !reasonSource;
@@ -212,6 +271,107 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
     }
   };
 
+  const handleDelete = async (target: DeleteTarget) => {
+    setConfirm(null);
+    setActionMsg(null);
+    try {
+      if (target.kind === "video") {
+        setPending("delete-video");
+        const r = await api.deleteVideo(target.videoId);
+        const msg = deletionMessage(r);
+        setActionMsg(
+          r.failed.length > 0
+            ? { type: "error", text: `${msg.text} Tệp của video ${r.video_id} được giữ lại cho tới khi xoá được các bước này.` }
+            : { type: "success", text: `Đã xoá video ${r.video_id} — ${msg.text} Đã xoá ${r.files_removed} tệp trên máy chủ.` },
+        );
+        if (r.failed.length === 0) {
+          setSelectedVideo("");
+          setSegments((prev) => {
+            const next = { ...prev };
+            delete next[r.video_id];
+            return next;
+          });
+        }
+        setChecked((prev) => prev.filter((id) => !r.deleted.includes(id)));
+      } else {
+        setPending(target.kind === "step" ? "delete-step" : "delete-steps");
+        const r =
+          target.kind === "step"
+            ? await api.deleteProfile(target.profile.profile_id)
+            : await api.deleteProfiles(target.ids);
+        setActionMsg(deletionMessage(r));
+        setChecked((prev) => prev.filter((id) => !r.deleted.includes(id)));
+      }
+      await loadProfiles();
+    } catch (err: any) {
+      setActionMsg({ type: "error", text: `XOÁ THẤT BẠI: ${err.message}` });
+    } finally {
+      setPending(null);
+    }
+  };
+
+  const publishedAmong = (ids: string[]) =>
+    profiles.filter((p) => ids.includes(p.profile_id) && isPublished(p)).length;
+
+  // Counts every step of the video, not only those the filters show, before asking to confirm.
+  const askDeleteVideo = async (videoId: string) => {
+    let steps: { total: number; published: number } | null = null;
+    try {
+      const all = (await api.getProfiles()).filter((p) => p.evidence.video_id === videoId);
+      steps = { total: all.length, published: all.filter(isPublished).length };
+    } catch {
+      steps = null; // the dialog then speaks without numbers
+    }
+    setConfirm({ kind: "video", videoId, steps });
+  };
+
+  const confirmTitle = (t: DeleteTarget) =>
+    t.kind === "step" ? "Xoá bước này?" : t.kind === "steps" ? `Xoá ${t.ids.length} bước đã chọn?` : "Xoá video này?";
+
+  const confirmBody = (t: DeleteTarget) => {
+    if (t.kind === "video") {
+      return (
+        <>
+          <p>
+            Video <strong>{t.videoId}</strong>: {t.steps ? <strong>{t.steps.total} bước</strong> : "mọi bước"} của video
+            (kể cả bước đang bị bộ lọc ẩn) bị xoá khỏi hàng duyệt, cùng tệp video, keyframe, clip và transcript trên máy chủ.
+          </p>
+          {t.steps ? (
+            t.steps.published > 0 && (
+              <p>
+                {t.steps.published} bước trong số đó đang có trong đồ thị tri thức: cũng bị gỡ khỏi đồ thị tri thức và kho
+                tìm kiếm, trợ lý sẽ không trích dẫn nữa.
+              </p>
+            )
+          ) : (
+            <p>Bước đã duyệt của video (nếu có) cũng bị gỡ khỏi đồ thị tri thức và kho tìm kiếm.</p>
+          )}
+        </>
+      );
+    }
+    const ids = t.kind === "step" ? [t.profile.profile_id] : t.ids;
+    const approved = publishedAmong(ids);
+    return (
+      <>
+        {t.kind === "step" ? (
+          <p>
+            Bước <strong>{t.profile.profile_id}</strong> — “{t.profile.step}” bị xoá khỏi hàng duyệt cùng lịch sử duyệt của nó.
+          </p>
+        ) : (
+          <p>
+            {ids.length} bước bị xoá khỏi hàng duyệt cùng lịch sử duyệt: <strong>{ids.join(", ")}</strong>.
+          </p>
+        )}
+        {approved > 0 && (
+          <p>
+            {t.kind === "step" ? "Bước này" : `${approved} bước trong số đó`} đang có trong đồ thị tri thức (đã duyệt, kể cả
+            khi đã sửa sau lúc duyệt): cũng bị gỡ khỏi đồ thị tri thức và kho tìm kiếm, trợ lý sẽ không trích dẫn nữa.
+          </p>
+        )}
+      </>
+    );
+  };
+
   const toggleErrorTag = (tag: ErrorTag) => {
     setSelectedErrorTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
@@ -253,8 +413,9 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
               value={selectedProcess}
               onChange={(e) => setSelectedProcess(e.target.value)}
             >
-              <option value="PACK01">PACK01 — Packaging Line</option>
-              <option value="ASSY02">ASSY02 — Assembly Line</option>
+              {processOptions.map((code) => (
+                <option key={code} value={code}>{PROCESS_LABELS[code] ?? code}</option>
+              ))}
             </select>
           </div>
 
@@ -294,6 +455,16 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
               ))}
               {selectedVideo && !videoIds.includes(selectedVideo) && <option value={selectedVideo}>{selectedVideo}</option>}
             </select>
+            <button
+              id="btn-delete-video"
+              className="btn btn-danger btn-sm"
+              disabled={!selectedVideo || pending !== null}
+              onClick={() => askDeleteVideo(selectedVideo)}
+              title={selectedVideo ? `Xoá video ${selectedVideo} và mọi bước của nó` : "Chọn một video để xoá"}
+            >
+              {pending === "delete-video" ? <div className="spinner" /> : <Trash2 size={13} />}
+              {pending === "delete-video" ? "Đang xoá…" : "Xoá video này"}
+            </button>
           </div>
 
           <button id="btn-refresh" className="btn btn-ghost btn-sm" onClick={loadProfiles} style={{ marginLeft: "auto" }}>
@@ -329,7 +500,30 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
             </span>
           </div>
 
-          <div className="profile-list" style={{ maxHeight: "calc(100vh - 250px)" }}>
+          <div className="profile-bulk-bar">
+            <label style={{ display: "flex", alignItems: "center", gap: "0.45rem", cursor: "pointer" }}>
+              <input
+                id="check-all-profiles"
+                type="checkbox"
+                className="profile-check"
+                checked={allChecked}
+                disabled={visible.length === 0 || pending !== null}
+                onChange={toggleAll}
+              />
+              Chọn tất cả
+            </label>
+            <button
+              id="btn-delete-selected"
+              className="btn btn-danger btn-sm"
+              disabled={checkedVisible.length === 0 || pending !== null}
+              onClick={() => setConfirm({ kind: "steps", ids: checkedVisible })}
+            >
+              {pending === "delete-steps" ? <div className="spinner" /> : <Trash2 size={13} />}
+              {pending === "delete-steps" ? "Đang xoá…" : `Xoá các bước đã chọn (${checkedVisible.length})`}
+            </button>
+          </div>
+
+          <div className="profile-list" style={{ maxHeight: "calc(100vh - 290px)" }}>
             {loading ? (
               <div className="loading-center">
                 <div className="spinner" />
@@ -349,6 +543,15 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
                     className={`profile-item ${isSel ? "selected" : ""}`}
                     onClick={() => selectProfile(p)}
                   >
+                    <input
+                      type="checkbox"
+                      className="profile-check"
+                      aria-label={`Chọn ${p.profile_id} để xoá`}
+                      checked={checked.includes(p.profile_id)}
+                      disabled={pending !== null}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={() => toggleChecked(p.profile_id)}
+                    />
                     <div className="profile-step-num">{String(p.step_order).padStart(2, "0")}</div>
                     <div className="profile-info">
                       <div className="profile-step-text">{p.step}</div>
@@ -687,7 +890,7 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr", gap: "0.85rem" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 1fr", gap: "0.85rem" }}>
                   <button id="btn-approve" className="btn btn-success btn-lg" onClick={handleApprove} disabled={hasReasonWithoutSource || pending !== null}>
                     {pending === "approve" ? <div className="spinner" /> : <CheckCircle size={16} />}
                     {pending === "approve" ? "Đang duyệt…" : <>Approve &amp; Verify</>}
@@ -699,6 +902,15 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
                   <button id="btn-save" className="btn btn-primary btn-lg" onClick={handleSavePatch} disabled={pending !== null}>
                     {pending === "save" ? <div className="spinner" /> : <Save size={16} />}
                     {pending === "save" ? "Đang lưu…" : `Save Draft v${selectedProfile.version + 1}`}
+                  </button>
+                  <button
+                    id="btn-delete-step"
+                    className="btn btn-danger btn-lg"
+                    onClick={() => setConfirm({ kind: "step", profile: selectedProfile })}
+                    disabled={pending !== null}
+                  >
+                    {pending === "delete-step" ? <div className="spinner" /> : <Trash2 size={16} />}
+                    {pending === "delete-step" ? "Đang xoá…" : "Xoá bước"}
                   </button>
                 </div>
               </div>
@@ -714,6 +926,12 @@ export function ReviewProfilesTab({ initialVideoId = null }: { initialVideoId?: 
           </div>
         )}
       </div>
+
+      {confirm && (
+        <ConfirmDialog title={confirmTitle(confirm)} onConfirm={() => handleDelete(confirm)} onCancel={() => setConfirm(null)}>
+          {confirmBody(confirm)}
+        </ConfirmDialog>
+      )}
     </div>
   );
 }

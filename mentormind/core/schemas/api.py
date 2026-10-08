@@ -13,6 +13,7 @@ from mentormind.core.schemas.work_profile import (
     ExceptionCase,
     Expert,
     ReasonSource,
+    WorkProfile,
 )
 
 
@@ -118,6 +119,68 @@ class VideoProcessResult(BaseModel):
     steps_with_excerpt: int = 0
     reasons_filled: int = 0
     progress: VideoProcessProgress | None = None
+
+
+class ProfileDeleteRequest(BaseModel):
+    """Body of ``POST /profiles/delete`` (spec 08 §2, AC-21)."""
+
+    profile_ids: list[str] = Field(min_length=1)
+
+
+class ProfileListItem(WorkProfile):
+    """A ``GET /profiles`` item: the profile plus whether the knowledge graph serves it (spec 08 §2)."""
+
+    #: In Neo4j + pgvector: deleting the step also unloads it (the UI warns). Not part of the contract.
+    published: bool = False
+
+
+class DeleteFailure(BaseModel):
+    """A step kept because the graph / vector store could not drop it (spec 08 §2)."""
+
+    profile_id: str
+    error: str
+
+
+class ProfileDeleteResult(BaseModel):
+    """What a step deletion removed (spec 08 §2, AC-19..AC-21)."""
+
+    #: Removed from the profile store.
+    deleted: list[str] = Field(default_factory=list)
+    #: Of ``deleted``: also removed from Neo4j and pgvector (they had been approved).
+    unpublished: list[str] = Field(default_factory=list)
+    #: Kept unchanged: published, and unloading them failed.
+    failed: list[DeleteFailure] = Field(default_factory=list)
+
+
+class VideoDeleteResult(ProfileDeleteResult):
+    """``DELETE /videos/{video_id}`` (spec 08 §2, AC-22)."""
+
+    video_id: str
+    #: Files removed under ``data/work/video/<video_id>/`` and ``data/work/vlm/<video_id>/``.
+    files_removed: int = 0
+
+
+class DocumentInfo(BaseModel):
+    """One indexed document of ``GET /documents``: a ``data/work/chunks/<doc_id>.jsonl`` (spec 08 §2, AC-23)."""
+
+    doc_id: str
+    #: File name of the source (from the chunks' ``source_path``).
+    name: str
+    title: str | None = None
+    data_classification: DataClassification | None = None
+    extractor: str | None = None
+    chunks: int = 0
+
+
+class DocumentDeleteResult(BaseModel):
+    """``DELETE /documents/{doc_id}`` (spec 08 §2, AC-23)."""
+
+    doc_id: str
+    #: Chunks removed from the vector store.
+    chunks_deleted: int = 0
+    chunk_file_removed: bool = False
+    #: Uploaded copies removed under ``data/work/docs/``.
+    uploads_removed: int = 0
 
 
 class AskRequest(BaseModel):

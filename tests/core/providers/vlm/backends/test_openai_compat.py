@@ -75,3 +75,10 @@ def test_generate_json_raises_invalid_json_with_raw_text(settings: Settings) -> 
     with pytest.raises(InvalidJSONError) as info:
         vlm.generate_json([], "p", {"type": "object"}, classification="synthetic")
     assert "xin lỗi" in info.value.raw_text
+
+
+def test_ac_29_a_null_answer_is_an_empty_answer_not_a_provider_error(settings: Settings, frames: list[Path]) -> None:
+    vlm = get_vlm_provider(settings, http=RecordingHttp(content=None))
+    assert vlm.generate(frames, "p", classification="synthetic").text == ""
+    with pytest.raises(InvalidJSONError):  # what pass A and pass C already handle per segment
+        vlm.generate_json(frames, "p", {"type": "object"}, classification="synthetic")

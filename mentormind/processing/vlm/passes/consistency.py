@@ -39,6 +39,11 @@ def self_consistent(first: PassAResult, second: PassAResult, threshold: float = 
 
 
 def _agreed(ours: list[TimedStep], theirs: list[TimedStep], threshold: float) -> list[TimedStep]:
+    """Pairs best score first (ties: model order); the kept steps come back in the first run's order.
+
+    The caller's sort on ``(t_start, t_end)`` is stable, so steps sharing a span (``SegmentTiling``
+    gives one span to every step with the same start) keep the order the model returned (§3).
+    """
     candidates = sorted(
         (
             (score, i, j)
@@ -46,20 +51,18 @@ def _agreed(ours: list[TimedStep], theirs: list[TimedStep], threshold: float) ->
             for j, b in enumerate(theirs)
             if overlaps(a.t_start, a.t_end, b.t_start, b.t_end) and (score := similarity(a.step, b.step)) >= threshold
         ),
-        reverse=True,
+        key=lambda c: (-c[0], c[1], c[2]),
     )
-    used_ours: set[int] = set()
     used_theirs: set[int] = set()
-    kept = []
+    kept: dict[int, TimedStep] = {}
     for score, i, j in candidates:
-        if i in used_ours or j in used_theirs:
+        if i in kept or j in used_theirs:
             continue
-        used_ours.add(i)
         used_theirs.add(j)
         confidence = (ours[i].confidence + theirs[j].confidence) / 2 * score / 100
         update = {"confidence": round(confidence, 3), "actor": _actor(ours[i], theirs[j])}
-        kept.append(ours[i].model_copy(update=update))
-    return kept
+        kept[i] = ours[i].model_copy(update=update)
+    return [kept[i] for i in sorted(kept)]
 
 
 def _actor(a: TimedStep, b: TimedStep) -> Actor | None:

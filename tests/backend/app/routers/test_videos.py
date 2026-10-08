@@ -18,6 +18,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from mentormind.agents.adapters import rest as rest_adapter
 from mentormind.agents.adapters.factory import _sigma
 from mentormind.backend.app.deps import get_profile_store
 from mentormind.backend.app.main import app
@@ -94,6 +95,9 @@ def client(
 ) -> Iterator[TestClient]:
     fake_ffmpeg(monkeypatch)
     monkeypatch.setattr(videos_router, "get_settings", lambda: settings)
+    # The RCA/assistant routers read settings through the REST adapter: hermetic too (mock agents),
+    # whatever KNOWHOW_API_AGENTS a developer .env sets.
+    monkeypatch.setattr(rest_adapter, "get_settings", lambda: settings)
     monkeypatch.setattr(vlm_providers, "get_vlm_provider", lambda s=None: FakeVLM([*RUN_1, *RUN_2]))
     monkeypatch.setattr(llm_providers, "get_llm_provider", lambda s=None: FakeLLM([MERGE]))
     app.dependency_overrides[get_profile_store] = lambda: store
@@ -241,16 +245,20 @@ def test_ac_18_hand_activity_without_mediapipe_cuts_by_scene(
 
 
 def test_ac_18_speech_is_transcribed_quoted_per_step_and_turned_into_reasons(
-    client: TestClient, capture: Capture, store: ProfileStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    client: TestClient,
+    capture: Capture,
+    store: ProfileStore,
+    settings: Settings,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_ffmpeg(monkeypatch, audio=True)
     capture.speech = [
         ASRSegment(text="Nhặt cốc lên nhé.", t_start=0.5, t_end=1.5),
         ASRSegment(text="Xếp nghiêng để cốc không bị nứt.", t_start=9.0, t_end=10.5),
     ]
-    monkeypatch.setattr(
-        llm_providers, "get_llm_provider", lambda s=None: FakeLLM([MERGE, {"reason": "để cốc không bị nứt"}])
-    )
+    reason = {"has_reason": True, "purpose_span": "để cốc không bị nứt"}
+    monkeypatch.setattr(llm_providers, "get_llm_provider", lambda s=None: FakeLLM([MERGE, reason]))
     stages: list[str] = []
     update_job = store.update_job
 
@@ -272,11 +280,38 @@ def test_ac_18_speech_is_transcribed_quoted_per_step_and_turned_into_reasons(
     assert picking["evidence"]["transcript_excerpt"] == "Nhặt cốc lên nhé."  # each step only its own words
     assert placing["evidence"]["transcript_excerpt"] == "Xếp nghiêng để cốc không bị nứt."
     assert (placing["reason"], placing["reason_source"], placing["status"]) == (
-        "để cốc không bị nứt",
+        "Xếp nghiêng để cốc không bị nứt.",  # the expert's sentence holding the span (spec 04 AC-26)
         "expert_verbal",
         "in_review",
     )
     assert (picking["reason"], picking["status"]) == (None, "draft")  # not in its own words: refused
+    # Spec 04 AC-27: the self-check audit sits next to the video's describe artefacts.
+    audit = settings.work_dir / "vlm" / video_id / "reasons_audit.jsonl"
+    decisions = [json.loads(line) for line in audit.read_text(encoding="utf-8").splitlines()]
+    assert [(d["profile_id"], d["decision"]) for d in decisions] == [
+        (picking["profile_id"], "rejected_not_verbatim"),
+        (placing["profile_id"], "accepted"),
+    ]
+
+
+@pytest.mark.parametrize(("step_times", "span"), [("segment", (8.0, 15.0)), ("model", (8.0, 11.5))])
+def test_ac_28_the_video_job_times_steps_by_the_setting(
+    client: TestClient,
+    settings: Settings,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    step_times: str,
+    span: tuple[float, float],
+) -> None:
+    """Spec 04 AC-28: KNOWHOW_VLM_STEP_TIMES reaches pass A of the API job."""
+    configured = settings.model_copy(update={"vlm_step_times": step_times})
+    monkeypatch.setattr(videos_router, "get_settings", lambda: configured)
+    video_id = _upload(client, synthetic_video(tmp_path / "pack.mp4", 20)).json()["video_id"]
+    job_id = client.post(f"/videos/{video_id}/process", json={"method": "fixed_window"}).json()["job_id"]
+    assert client.get(f"/jobs/{job_id}").json()["status"] == "done"
+    drafts = client.get("/profiles", params={"process_id": "PACK01"}).json()
+    merged = next(p for p in drafts if p["step"] == "Đặt cốc vào thùng carton")
+    assert (merged["evidence"]["t_start"], merged["evidence"]["t_end"]) == span
 
 
 def test_ac_18_without_a_method_the_server_default_is_used(

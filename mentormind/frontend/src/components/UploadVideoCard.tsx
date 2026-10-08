@@ -99,7 +99,7 @@ function formatElapsed(ms: number): string {
 
 const formatTime = (t?: number | null) => (t == null ? "—" : `${t.toFixed(1)}s`);
 
-export function UploadVideoCard({ onReview }: { onReview: (videoId: string) => void }) {
+export function UploadVideoCard({ onReview }: { onReview: (videoId: string, processId: string) => void }) {
   const [file,           setFile]           = useState<File | null>(null);
   const [processId,      setProcessId]      = useState("PACK01");
   const [method,         setMethod]         = useState<CutMethod | "">("");
@@ -435,7 +435,7 @@ export function UploadVideoCard({ onReview }: { onReview: (videoId: string) => v
 
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", flexWrap: "wrap" }}>
               {job?.status === "done" && (
-                <button id="btn-review-video" className="btn btn-success btn-lg" onClick={() => onReview(tracked.videoId)}>
+                <button id="btn-review-video" className="btn btn-success btn-lg" onClick={() => onReview(tracked.videoId, tracked.processId)}>
                   <ListChecks size={16} />
                   Duyệt các bước này
                 </button>

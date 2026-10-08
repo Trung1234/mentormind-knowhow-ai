@@ -3,7 +3,7 @@
 #   docker compose up -d --build               mentormind (dev) + vlm-server (Ollama, Qwen3-VL-8B Q4)
 #   docker compose --profile lite up -d        + PostgreSQL/pgvector + Neo4j (= make up)
 #   docker compose exec mentormind bash        then: uv run knowhow vlm ping
-# vlm-server = vlm-engine's Ollama image (3rdparty/vlm_server/docker/Dockerfile.ollama): it pulls
+# vlm-server = mentormind-inference's Ollama image (tag kept: vlm-engine:ollama) (3rdparty/vlm_server/docker/Dockerfile.ollama): it pulls
 # qwen3-vl:8b on first start; VLM_SERVER_IMAGE_MIN_TOKENS sets the token floor of one image.
 # Without Docker (macOS too): bash 3rdparty/vlm_server/scripts/serve-ollama.sh
 #

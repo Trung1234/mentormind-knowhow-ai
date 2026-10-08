@@ -50,7 +50,7 @@ fmt:
 	uv run ruff check --fix .
 
 # spec 04 FR-08: self-hosted Qwen3-VL-8B (Q4) on Ollama without Docker, macOS or Linux
-# (vlm-engine, 3rdparty/vlm_server). Settings: VLM_SERVER_* in .env, or flags (--help).
+# (mentormind-inference, 3rdparty/vlm_server). Settings: VLM_SERVER_* in .env, or flags (--help).
 vlm-server:
 	env $$(grep -sE '^(VLM_SERVER_[A-Z_]+|VLM_GPU)=[^[:space:]]' .env | sed 's/[[:space:]]*#.*//') \
 		bash 3rdparty/vlm_server/scripts/serve-ollama.sh

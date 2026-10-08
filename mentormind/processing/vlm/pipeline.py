@@ -30,6 +30,7 @@ from mentormind.processing.vlm.passes.consistency import self_consistent
 from mentormind.processing.vlm.passes.describe import Sampler
 from mentormind.processing.vlm.passes.merge import MergeReport, merge_steps
 from mentormind.processing.vlm.passes.models import PassAResult
+from mentormind.processing.vlm.passes.step_times import DEFAULT_STEP_TIMER, StepTimer
 from mentormind.processing.vlm.transcript import DEFAULT_LAG_S, DEFAULT_LEAD_S, align
 
 
@@ -62,6 +63,7 @@ class DescribePipeline:
         sampler: Sampler = sample_frames,
         transcript_lead_s: float = DEFAULT_LEAD_S,
         transcript_lag_s: float = DEFAULT_LAG_S,
+        step_timer: StepTimer = DEFAULT_STEP_TIMER,
     ) -> None:
         self.vlm = vlm
         #: Pass C runs only with an LLM; ``None`` skips it.
@@ -75,6 +77,8 @@ class DescribePipeline:
         #: Spec 04 §3: speech this long before/after a step still counts as about it.
         self.transcript_lead_s = transcript_lead_s
         self.transcript_lag_s = transcript_lag_s
+        #: Spec 04 §3: how pass A places steps in their segment (``KNOWHOW_VLM_STEP_TIMES``).
+        self.step_timer = step_timer
 
     def run(
         self,
@@ -117,6 +121,7 @@ class DescribePipeline:
             default_fps=self.default_fps,
             max_frames=self.max_frames,
             sampler=sampler or self._sampler,
+            step_timer=self.step_timer,
         )
 
     def pass_b(self, first: PassAResult, second: PassAResult) -> PassAResult:
