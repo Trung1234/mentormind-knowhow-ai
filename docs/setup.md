@@ -42,7 +42,7 @@ npm --prefix mentormind/frontend ci
 cp .env.example .env
 ```
 
-Sửa trong `.env` — **cách A** (dán các dòng `run.sh` in ra, thêm 3 dòng cuối):
+Sửa trong `.env` — **cách A** (dán các dòng `run.sh` in ra, thêm 4 dòng cuối):
 
 ```bash
 KNOWHOW_VLM_BASE_URL=https://<domain>.ngrok-free.dev/v1
@@ -58,10 +58,16 @@ KNOWHOW_DOC_EXTRACTOR=remote
 KNOWHOW_LOCAL_HOSTS=["<domain>.ngrok-free.dev"]             # máy chủ của đội: tính là local
 KNOWHOW_API_AGENTS=live
 KNOWHOW_VIDEO_METHOD=scene          # video đã dựng, nhiều cảnh (LASI); quay liền 1 người: hand_activity
+KNOWHOW_VLM_CONCURRENCY=4           # vLLM gộp 4 request: job 8B Thinking FP8 trên LASI 23 phút thay vì ~85
 ```
 
+Máy chủ cách A chạy model nào thì đặt `KNOWHOW_VLM_MODEL` theo dòng `run.sh` in ra. Bản nên dùng (so sánh trên LASI,
+`mentormind-inference/benchmarks/lasi-vlm/README.md`): `VLM_VARIANT=thinking-fp8` với
+`SPEC_CONFIG='{"method":"ngram","num_speculative_tokens":4,"prompt_lookup_max":4,"prompt_lookup_min":2}'`; Instruct
+nhanh hơn nhiều nhưng tìm ra ít hơn một nửa số bước.
+
 **Cách B**: `KNOWHOW_VLM_BASE_URL=https://user:matkhau@<tên>.ngrok-free.dev/v1`, `KNOWHOW_LOCAL_HOSTS=["<tên>.ngrok-free.dev"]`,
-`KNOWHOW_API_AGENTS=live`, `KNOWHOW_VIDEO_METHOD=scene`; giữ `KNOWHOW_ASR_PROVIDER`, `KNOWHOW_EMBEDDER`,
+`KNOWHOW_API_AGENTS=live`, `KNOWHOW_VIDEO_METHOD=scene`, `KNOWHOW_VLM_CONCURRENCY=1` (Ollama trả lời từng request một); giữ `KNOWHOW_ASR_PROVIDER`, `KNOWHOW_EMBEDDER`,
 `KNOWHOW_DOC_EXTRACTOR` mặc định (chạy trên máy bạn; lần đầu tải bge-m3 ~2 GB, Whisper ~480 MB, Docling).
 
 Muốn chạy từng phần trên máy mình (vd. khi máy chủ tắt): đặt lại `KNOWHOW_ASR_PROVIDER=faster_whisper`,
