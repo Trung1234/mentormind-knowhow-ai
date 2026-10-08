@@ -5,10 +5,12 @@ Cutting, keyframes, clips and the transcript are spec 03's ``VideoCapturePipelin
 
 import re
 import shutil
+import threading
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field
@@ -35,6 +37,8 @@ if TYPE_CHECKING:
     from mentormind.capture.video import VideoCapturePipeline
     from mentormind.core.providers.vlm import VLMProvider
     from mentormind.core.schemas.api import VideoStage
+
+T = TypeVar("T")
 
 router = APIRouter(prefix="/videos", tags=["videos"])
 
@@ -269,6 +273,7 @@ def describe_video(
         transcript_lead_s=settings.transcript_lead_s,
         transcript_lag_s=settings.transcript_lag_s,
         step_timer=get_step_timer(settings.vlm_step_times),
+        concurrency=settings.vlm_concurrency,
     )
     work_dir = work / "vlm" / asset.video_id / f"describe-{vlm.name}"
     drafts = pipeline.run(captured.segments, work_dir, captured.transcript)
@@ -282,17 +287,33 @@ def describe_video(
     current = {p.profile_id: p for p in stored}
     filled: list[str] = []
 
+    saving = threading.Lock()  # proposals may run in parallel (KNOWHOW_VLM_CONCURRENCY)
+
     def save(profile: WorkProfile) -> None:
         # As `knowhow vlm propose-reasons`: each accepted step is stored before its audit line (spec 04
         # §5); the file sink rewrites the video, the store only that step.
-        current[profile.profile_id] = profile
-        sink.save(asset.video_id, list(current.values()) if isinstance(sink, FileProfileSink) else [profile])
-        filled.append(profile.profile_id)
+        with saving:
+            current[profile.profile_id] = profile
+            sink.save(asset.video_id, list(current.values()) if isinstance(sink, FileProfileSink) else [profile])
+            filled.append(profile.profile_id)
 
     audit = reasons_audit_path(work, asset.video_id)  # spec 04 §5: the user's self-check
-    for done, profile in enumerate(waiting):
-        stage("reasons", done, len(waiting))
-        propose_reasons([profile], llm, audit=audit, save=save)
+    if settings.vlm_concurrency == 1:
+        for done, profile in enumerate(waiting):
+            stage("reasons", done, len(waiting))
+            propose_reasons([profile], llm, audit=audit, save=save)
+    else:
+        stage("reasons", 0, len(waiting))
+        finished = 0
+
+        def propose(profile: WorkProfile) -> None:
+            nonlocal finished
+            propose_reasons([profile], llm, audit=audit, save=save)
+            with saving:
+                finished += 1
+                stage("reasons", finished, len(waiting))
+
+        _in_parallel(propose, waiting, settings.vlm_concurrency)
     if waiting:
         stage("reasons", len(waiting), len(waiting))
     result.reasons_filled = len(filled)
@@ -306,16 +327,35 @@ def _uploaded(settings: Settings, video_id: str) -> VideoAsset:
     return VideoAsset.model_validate_json(path.read_text(encoding="utf-8"))
 
 
+def _in_parallel(work: Callable[[T], None], items: Sequence[T], workers: int) -> None:
+    """``work(item)`` for each item, ``workers`` at a time; the first error stops the rest and is raised."""
+    with ThreadPoolExecutor(workers, thread_name_prefix="reasons") as pool:
+        futures = [pool.submit(work, item) for item in items]
+        try:
+            for future in futures:
+                future.result()
+        except BaseException:
+            for future in futures:
+                future.cancel()
+            raise
+
+
 def _on_each_call(vlm: "VLMProvider", callback: Callable[[int], None]) -> None:
-    """Call ``callback(n)`` after the n-th ``generate`` of this provider instance (job progress)."""
+    """Call ``callback(n)`` after the n-th ``generate`` of this provider instance (job progress).
+
+    Calls may finish on several threads at once (``KNOWHOW_VLM_CONCURRENCY``): the count and the
+    callback run under a lock, so ``n`` goes up by one each time and progress never steps back.
+    """
     generate = vlm.generate
     calls = 0
+    lock = threading.Lock()
 
     def counted(*args: Any, **kwargs: Any) -> Any:
         nonlocal calls
         response = generate(*args, **kwargs)
-        calls += 1
-        callback(calls)
+        with lock:
+            calls += 1
+            callback(calls)
         return response
 
     setattr(vlm, "generate", counted)  # this instance only: get_vlm_provider builds a new one per call

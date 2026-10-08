@@ -323,3 +323,61 @@ def test_ac_18_without_a_method_the_server_default_is_used(
     job_id = client.post(f"/videos/{video_id}/process", json={"method": None}).json()["job_id"]
     result = client.get(f"/jobs/{job_id}").json()["result"]
     assert (result["method"], result["method_used"]) == ("scene", "scene")
+
+
+@pytest.mark.parametrize("concurrency", [1, 3])
+def test_ac_30_the_video_job_runs_its_requests_in_parallel_with_the_same_result(
+    client: TestClient,
+    capture: Capture,
+    store: ProfileStore,
+    settings: Settings,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    concurrency: int,
+) -> None:
+    """Spec 04 AC-30: KNOWHOW_VLM_CONCURRENCY reaches the API job; progress only goes up; one audit line per step."""
+    from tests.processing.vlm.test_concurrency import KeyedVLM
+
+    configured = settings.model_copy(update={"vlm_concurrency": concurrency})
+    monkeypatch.setattr(videos_router, "get_settings", lambda: configured)
+    vlm = KeyedVLM(default_delay=0.02)
+    monkeypatch.setattr(vlm_providers, "get_vlm_provider", lambda s=None: vlm)
+    fake_ffmpeg(monkeypatch, audio=True)
+    capture.speech = [
+        ASRSegment(text="Đặt nghiêng để cốc không bị nứt.", t_start=1.0, t_end=3.0),
+        ASRSegment(text="Nhìn kỹ mép cốc trước khi đóng.", t_start=6.0, t_end=8.0),
+        ASRSegment(text="Cốc số hai cũng đặt nghiêng.", t_start=11.0, t_end=13.0),
+        ASRSegment(text="Kiểm tra lại lần cuối nhé.", t_start=16.0, t_end=18.0),
+    ]
+    reason = {"has_reason": True, "purpose_span": "để cốc không bị nứt"}
+    monkeypatch.setattr(llm_providers, "get_llm_provider", lambda s=None: FakeLLM([MERGE, reason]))
+    progress: list[tuple[str, float]] = []
+    update_job = store.update_job
+
+    def spy(job_id: str, status: Any, result: Any = None, error: Any = None) -> Any:
+        if result and result.get("progress"):
+            progress.append((result["progress"]["stage"], result["progress"]["done"]))
+        return update_job(job_id, status, result=result, error=error)
+
+    monkeypatch.setattr(store, "update_job", spy)
+    video_id = _upload(client, synthetic_video(tmp_path / "pack.mp4", 20)).json()["video_id"]
+    job_id = client.post(f"/videos/{video_id}/process", json={"method": "fixed_window"}).json()["job_id"]
+    job = client.get(f"/jobs/{job_id}").json()
+    assert job["status"] == "done", job
+    assert vlm.max_in_flight == concurrency  # 2 segments x 2 runs = 4 calls, 3 at once when allowed
+    examined = job["result"]["steps_with_excerpt"]
+    for stage, total in (("describe", 4), ("reasons", examined)):
+        done = [d for s, d in progress if s == stage]
+        assert done == sorted(done) and done[-1] == total, progress  # progress only goes up
+    drafts = sorted(
+        (p["step"], p["reason"], p["status"]) for p in client.get("/profiles", params={"process_id": "PACK01"}).json()
+    )
+    assert drafts == [  # the same whether the requests ran one at a time or 3 at once
+        ("Kiểm tra cốc số 2", None, "draft"),
+        ("Đặt cốc số 1 vào thùng", "Đặt nghiêng để cốc không bị nứt.", "in_review"),
+        ("Đặt cốc vào thùng carton", None, "draft"),  # pass C merged "Kiểm tra cốc số 1" + "Đặt cốc số 2 ..."
+    ]
+    audit = settings.work_dir / "vlm" / video_id / "reasons_audit.jsonl"
+    decisions = [json.loads(line) for line in audit.read_text(encoding="utf-8").splitlines()]
+    assert len(decisions) == examined == len({d["profile_id"] for d in decisions})  # one line per step
+    assert sorted(d["decision"] for d in decisions) == ["accepted", *["rejected_not_verbatim"] * (examined - 1)]

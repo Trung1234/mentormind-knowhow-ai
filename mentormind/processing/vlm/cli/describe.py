@@ -93,6 +93,7 @@ def describe_cmd(
             transcript_lead_s=settings.transcript_lead_s,
             transcript_lag_s=settings.transcript_lag_s,
             step_timer=get_step_timer(settings.vlm_step_times),
+            concurrency=settings.vlm_concurrency,
         )
         result = pipeline.run(loaded, work_dir, transcript)
     except ConfidentialDataError as exc:
