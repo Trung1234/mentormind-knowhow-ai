@@ -14,7 +14,9 @@ from typing import Any
 
 import pytest
 
+from mentormind.core.config import Settings
 from mentormind.core.providers.errors import ProviderError
+from mentormind.core.providers.llm import get_llm_provider
 from mentormind.core.providers.llm.backends.fake import FakeLLM
 from mentormind.core.schemas import ReasonAuditRecord
 from mentormind.core.schemas.work_profile import WorkProfile, validate_against_contract
@@ -27,6 +29,7 @@ from mentormind.processing.vlm.passes.reasons import (
     propose_reasons,
     reasons_audit_path,
 )
+from tests.core.providers.fakes import RecordingHttp
 
 TRANSCRIPT = "giờ tôi xoay ngược linh kiện vì nếu không sẽ trầy mặt khi đóng nắp hộp"
 
@@ -272,3 +275,26 @@ def test_ac_27_an_accepted_line_is_written_only_once_the_profile_is_saved(tmp_pa
     with pytest.raises(OSError):
         propose_reasons([draft()], FakeLLM([answer("vì nếu không sẽ trầy mặt")]), audit=audit, save=broken)
     assert not audit.exists()  # never "accepted" for a reason the store does not hold
+
+
+def test_ac_29_a_null_answer_leaves_the_draft_and_the_next_step_still_runs(tmp_path: Path) -> None:
+    """A thinking model that spends max_tokens reasoning answers content=null: that step is unreadable."""
+    secrets = tmp_path / "secrets.env"
+    secrets.write_text("", encoding="utf-8")
+    settings = Settings(
+        _env_file=None,
+        llm_provider="local_openai",
+        llm_model=None,
+        llm_api_key=None,
+        secrets_file=secrets,
+        guard_audit_dir=tmp_path / "audit",
+    )
+    llm = get_llm_provider(settings, http=RecordingHttp(content=None))
+    audit = reasons_audit_path(tmp_path / "work", "VID-TEST")
+    first, second = draft(number=1), draft(number=2)
+    updated = propose_reasons([first, second], llm, audit=audit)
+    assert updated == [first, second]  # both stay drafts, no reason
+    assert [(line.profile_id, line.decision) for line in audit_lines(audit)] == [
+        ("WP-PACK01-001", "unreadable"),
+        ("WP-PACK01-002", "unreadable"),
+    ]

@@ -18,6 +18,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from mentormind.agents.adapters import rest as rest_adapter
 from mentormind.agents.adapters.factory import _sigma
 from mentormind.backend.app.deps import get_profile_store
 from mentormind.backend.app.main import app
@@ -94,6 +95,9 @@ def client(
 ) -> Iterator[TestClient]:
     fake_ffmpeg(monkeypatch)
     monkeypatch.setattr(videos_router, "get_settings", lambda: settings)
+    # The RCA/assistant routers read settings through the REST adapter: hermetic too (mock agents),
+    # whatever KNOWHOW_API_AGENTS a developer .env sets.
+    monkeypatch.setattr(rest_adapter, "get_settings", lambda: settings)
     monkeypatch.setattr(vlm_providers, "get_vlm_provider", lambda s=None: FakeVLM([*RUN_1, *RUN_2]))
     monkeypatch.setattr(llm_providers, "get_llm_provider", lambda s=None: FakeLLM([MERGE]))
     app.dependency_overrides[get_profile_store] = lambda: store

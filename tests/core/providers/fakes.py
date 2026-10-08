@@ -11,7 +11,8 @@ from pydantic import BaseModel, Field
 class RecordingHttp(BaseModel):
     """HttpClient fake: records every POST, answers with a canned chat completion."""
 
-    content: str = '{"steps": []}'
+    #: None = the server sent ``content: null`` (a thinking model that ran out of tokens while reasoning).
+    content: str | None = '{"steps": []}'
     posts: list[tuple[str, dict[str, Any], dict[str, str]]] = Field(default_factory=list)
 
     def post_json(
