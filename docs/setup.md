@@ -58,7 +58,7 @@ KNOWHOW_DOC_EXTRACTOR=remote
 KNOWHOW_LOCAL_HOSTS=["<domain>.ngrok-free.dev"]             # máy chủ của đội: tính là local
 KNOWHOW_API_AGENTS=live
 KNOWHOW_VIDEO_METHOD=scene          # video đã dựng, nhiều cảnh (LASI); quay liền 1 người: hand_activity
-KNOWHOW_VLM_CONCURRENCY=4           # vLLM gộp 4 request: job 8B Thinking FP8 trên LASI 23 phút thay vì ~85
+KNOWHOW_VLM_CONCURRENCY=4           # vLLM gộp 4 request: job 8B Thinking FP8 trên LASI 23 phút thay vì ~73
 ```
 
 Máy chủ cách A chạy model nào thì đặt `KNOWHOW_VLM_MODEL` theo dòng `run.sh` in ra. Bản nên dùng (so sánh trên LASI,
