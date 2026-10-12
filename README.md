@@ -86,25 +86,17 @@ Một video sau khi phân tích có thể tạo ra:
 
 ### Video analysis
 
-![Video analysis](docs/assets/readme/01-video-analysis.png)
-
 Video được gắn **process code**, **cutting method** và **data classification** trước khi chạy pipeline. Kết quả hiển thị số segment, số WorkProfile draft, transcript và trạng thái xử lý.
 
 ### Human-in-the-Loop Review
-
-![Human review](docs/assets/readme/02-human-review.png)
 
 Reviewer chọn từng WorkProfile để xem **keyframe, clip, timestamp và transcript**, sau đó sửa/duyệt/reject trước khi đồng bộ sang Knowledge Base.
 
 ### Know-How Assistant
 
-![Know-how assistant](docs/assets/readme/03-assistant.png)
-
 Assistant truy xuất tri thức theo process line. Ở chế độ `live`, nguồn retrieval là tài liệu đã index và **bước video đã được Approve**; draft chưa duyệt không được xem là authoritative knowledge.
 
 ### Root Cause Analysis (5-Why)
-
-![RCA](docs/assets/readme/04-rca.png)
 
 RCA nhận production lot từ Sigma/MES mock feed hoặc symptom nhập tay để hỗ trợ tạo chuỗi 5-Why, failure hypotheses và preventive actions. Kết quả là **hỗ trợ điều tra**, không thay thế kết luận của kỹ sư.
 
