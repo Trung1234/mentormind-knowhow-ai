@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MentorMind — Số hóa tri thức chuyên gia | DENSO Hackathon</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="css/presentation.css">
+</head>
+<body>
+
+  <!-- Background Ambient Lights & Tech Grid -->
+  <div class="ambient-bg">
+    <div class="ambient-glow-1"></div>
+    <div class="ambient-glow-2"></div>
+    <div class="ambient-grid"></div>
+  </div>
+
+  <!-- Deck Main Container -->
+  <div class="deck-container">
+    
+    <!-- Top Application Bar -->
+    <header class="top-bar">
+      <div class="top-brand">
+        <div class="denso-badge">
+          <span class="dot"></span>
+          DENSO HACKATHON
+        </div>
+        <span class="brand-name">MentorMind</span>
+        <span class="brand-sub">/ DENSO A2</span>
+      </div>
+
+      <div class="top-center">
+        <!-- Rehearse Pitch Timer -->
+        <div class="pitch-timer" id="pitchTimer" title="Bấm để bắt đầu / tạm dừng bộ đếm 5 phút">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span id="timerText">05:00</span>
+        </div>
+
+        <!-- Slide Position -->
+        <div class="top-slide-status">
+          Slide <strong id="currentSlideNum">01</strong> / <span id="totalSlidesNum">08</span>
+        </div>
+      </div>
+
+      <div class="top-controls">
+        <!-- GitHub Branch Link Chip -->
+        <a href="https://github.com/Trung1234/mentormind-knowhow-ai/tree/vinh/feat-api-ui" target="_blank" rel="noopener noreferrer" class="btn-lang" title="Open GitHub Branch (vinh/feat-api-ui)" style="text-decoration: none;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          vinh/feat-api-ui
+        </a>
+
+        <!-- Slide Overview Toggle -->
+        <button class="btn-icon" id="btnOverview" title="Slide Overview Grid (Key O or M)" aria-label="Overview">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+        </button>
+
+        <!-- Presenter Notes Toggle -->
+        <button class="btn-icon" id="btnNotes" title="Presenter Notes (Key N)" aria-label="Presenter Notes">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+        </button>
+
+        <!-- Shortcuts Help Modal -->
+        <button class="btn-icon" id="btnHelp" title="Keyboard Shortcuts (Key ? or K)" aria-label="Help">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+        </button>
+
+        <!-- Fullscreen Mode Toggle -->
+        <button class="btn-icon" id="btnFullscreen" title="Bật/tắt toàn màn hình (Phím F)" aria-label="Fullscreen">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Stage Canvas -->
+    <main class="stage">
+      <div class="slide-canvas">
+
+
+        <section class="slide active" id="slide-1">
+          <div class="hero-wrapper hero-compact">
+            <div class="hero-tag"><span class="dot"></span>DENSO HACKATHON · BÀI TOÁN A2</div>
+            <h1 class="hero-title">MentorMind<br><span class="gradient-text">Từ thao tác chuyên gia đến tri thức có kiểm chứng</span></h1>
+            <p class="hero-desc">Video + lời giải thích + tài liệu sản xuất → WorkProfile đã duyệt → trợ lý AI trả lời có trích nguồn tại trạm làm việc.</p>
+            <div class="value-equation">
+              <div class="eq-card"><span>🎥</span><strong>Video thao tác</strong><small>AI thấy chuyên gia làm gì</small></div>
+              <div class="eq-plus">+</div>
+              <div class="eq-card"><span>🎙️</span><strong>Lời chuyên gia</strong><small>học được vì sao</small></div>
+              <div class="eq-plus">+</div>
+              <div class="eq-card"><span>📄</span><strong>SOP / bản vẽ</strong><small>evidence đối chiếu</small></div>
+              <div class="eq-arrow">→</div>
+              <div class="eq-card highlight"><span>✅</span><strong>AI Assistant</strong><small>trả lời có nguồn</small></div>
+            </div>
+            <div class="hero-meta-footer"><div class="hero-meta-item"><span>👥</span><span>Đội: <strong>MentorMind</strong></span></div><div class="hero-meta-item"><span>🏭</span><span>Ngữ cảnh: <strong>DENSO Manufacturing</strong></span></div><div class="hero-meta-item"><span>📦</span><span>Demo: Kitting &amp; Packing Assembly</span></div></div>
+          </div>
+        </section>
+
+        <section class="slide" id="slide-2">
+          <div class="slide-header"><span class="slide-category">VẤN ĐỀ &amp; INSIGHT</span><h2 class="slide-title">Video cho biết “làm gì”, nhưng chưa đủ để biết “vì sao”</h2><p class="slide-subtitle">Trong sản xuất, tri thức quan trọng thường nằm ở mẹo thao tác, dấu hiệu bất thường và lý do ra quyết định — những phần SOP thường không ghi đủ.</p></div>
+          <div class="slide-body"><div class="insight-layout">
+            <div class="pain-points-list">
+              <div class="pain-card"><div class="pain-icon">🧑‍🏭</div><div class="pain-text"><h4>Tri thức đang rời khỏi nhà máy</h4><p>Chuyên gia nghỉ hưu hoặc luân chuyển mang theo bí quyết chưa được chuẩn hóa.</p></div></div>
+              <div class="pain-card"><div class="pain-icon">📄</div><div class="pain-text"><h4>Tài liệu chỉ mô tả quy trình chuẩn</h4><p>SOP thường nói bước làm, nhưng thiếu lý do, ngoại lệ và tiêu chí nhận biết đạt/không đạt.</p></div></div>
+              <div class="pain-card"><div class="pain-icon">⚠️</div><div class="pain-text"><h4>Một sai lệch nhỏ ảnh hưởng cả lô</h4><p>Đặt sai góc, bỏ qua tín hiệu lỗi hoặc thao tác thiếu kinh nghiệm có thể gây lỗi dây chuyền.</p></div></div>
+            </div>
+            <div class="action-reason-card">
+              <div class="ar-header"><span>INSIGHT CỐT LÕI</span><strong>Action ≠ Reason</strong></div>
+              <div class="ar-columns">
+                <div class="ar-col"><h3>AI có thể thấy</h3><p>“Chuyên gia nghiêng connector trước khi đưa vào jig.”</p><small>Evidence: keyframe + timestamp</small></div>
+                <div class="ar-col warning"><h3>AI không được bịa</h3><p>“Vì đưa thẳng vào dễ cong chân pin.”</p><small>Chỉ lấy từ lời chuyên gia / phỏng vấn</small></div>
+              </div>
+              <div class="guardrail-note">Nguyên tắc: AI tạo bản nháp, chuyên gia duyệt, tri thức đã duyệt mới được dùng để trả lời.</div>
+            </div>
+          </div></div>
+        </section>
+
+        <section class="slide" id="slide-3">
+          <div class="slide-header"><span class="slide-category">FLOW GIẢI PHÁP</span><h2 class="slide-title">Luồng end-to-end: Capture → Review → Knowledge → Agent</h2><p class="slide-subtitle">MentorMind không chỉ thu dữ liệu; hệ thống biến dữ liệu hiện trường thành hồ sơ tri thức có evidence và trạng thái duyệt rõ ràng.</p></div>
+          <div class="slide-body"><div class="solution-flow vi-flow">
+            <div class="flow-stage"><span>1</span><h4>Đầu vào</h4><p>Video thao tác, audio phỏng vấn, SOP/PDF/Excel, dữ liệu lỗi Sigma.</p></div><div class="flow-arrow">→</div>
+            <div class="flow-stage"><span>2</span><h4>Trích xuất</h4><p>Transcript segment, keyframe, video segment, object, timestamp.</p></div><div class="flow-arrow">→</div>
+            <div class="flow-stage"><span>3</span><h4>Hồ sơ nháp</h4><p>WorkProfile nháp: step, key point, reason = null nếu chưa có evidence.</p></div><div class="flow-arrow">→</div>
+            <div class="flow-stage"><span>4</span><h4>Chuyên gia duyệt</h4><p>Sửa reason, bổ sung điều kiện, ngoại lệ, tiêu chí đạt và phê duyệt.</p></div><div class="flow-arrow">→</div>
+            <div class="flow-stage"><span>5</span><h4>Khai thác</h4><p>Trợ lý AI trả lời tại trạm, gợi ý xử lý lỗi và truy nguyên nguyên nhân.</p></div>
+          </div><div class="flow-output-strip"><strong>Output chính từ video:</strong> transcript segment · keyframe · action/observation · evidence timestamp · draft WorkProfile.</div></div>
+        </section>
+
+        <section class="slide" id="slide-4">
+          <div class="slide-header"><span class="slide-category">KIẾN TRÚC &amp; CÔNG NGHỆ</span><h2 class="slide-title">Kiến trúc tách lớp để demo được và mở rộng được</h2><p class="slide-subtitle">Mỗi lớp có trạng thái rõ: đã implement, đang tích hợp demo, hoặc nằm trong roadmap sau MVP.</p></div>
+          <div class="slide-body"><div class="arch-tech-layout">
+            <div class="arch-mini-pipeline">
+              <div class="pipeline-node"><span>Capture</span><b>Video / Audio / SOP</b><small>Đã có sample</small></div>
+              <div class="pipeline-line"></div>
+              <div class="pipeline-node"><span>Extract</span><b>Docling · VLM · ASR</b><small>Docling + VLM demo</small></div>
+              <div class="pipeline-line"></div>
+              <div class="pipeline-node"><span>Review</span><b>WorkProfile</b><small>UI review/export</small></div>
+              <div class="pipeline-line"></div>
+              <div class="pipeline-node"><span>KB</span><b>pgvector + Neo4j</b><small>Vector/Graph</small></div>
+              <div class="pipeline-line"></div>
+              <div class="pipeline-node"><span>Agent</span><b>Work Assistant + RCA</b><small>live/mock configurable</small></div>
+            </div>
+            <div class="tech-status-grid">
+              <div class="status-card ok"><h4>Đã implement</h4><p>React/Vite UI · FastAPI · Pydantic schema · PostgreSQL + pgvector · Docling ingest/index · Work/RCA agent adapter</p></div>
+              <div class="status-card demo"><h4>Demo / đang nối</h4><p>Video upload/process UI · WorkProfile review · Assistant trả lời từ KB thật · Export PDF</p></div>
+              <div class="status-card next"><h4>Roadmap</h4><p>Voice interview · two-pass video sampling · RCA với Sigma thật · evaluation report hoàn chỉnh</p></div>
+            </div>
+            <div class="security-strip"><strong>Data Governance:</strong> Public/Synthetic có thể dùng cloud · Factory Confidential ưu tiên local/self-host · Draft/Rejected không được dùng trả lời chính thức · Approved mới vào KB.</div>
+          </div></div>
+        </section>
+
+        <section class="slide" id="slide-5">
+          <div class="slide-header"><span class="slide-category">PROTOTYPE VALIDATION</span><h2 class="slide-title">Team đã kiểm chứng được gì từ video LASI?</h2><p class="slide-subtitle">Kết quả thử nghiệm ban đầu giúp chốt hướng prompt, model và chi phí xử lý video trước khi có dữ liệu DENSO chuyên sâu.</p></div>
+          <div class="slide-body"><div class="validation-grid">
+            <div class="validation-card big"><span class="metric-label">Prompt có actor</span><div class="metric-main">Recall 0.19 → 0.33</div><p>Thêm trường <code>actor</code> giúp model phân biệt thao tác người và robot tốt hơn.</p></div>
+            <div class="validation-card"><span class="metric-label">Precision</span><div class="metric-main">0.29 → 0.45</div><p>Giảm mô tả thừa và bám sát thao tác hơn.</p></div>
+            <div class="validation-card"><span class="metric-label">Qwen3-VL 8B vs 32B</span><div class="metric-main">52.8s vs 221.1s</div><p>8B nhanh hơn khoảng 4 lần; 32B không tăng recall trong test này.</p></div>
+            <div class="validation-card caution"><span class="metric-label">Giới hạn hiện tại</span><div class="metric-main">Preliminary</div><p>1 video LASI, ground truth còn draft; dùng để chọn hướng MVP, không overclaim accuracy sản xuất.</p></div>
+          </div><div class="validation-takeaway">Kết luận kỹ thuật: ưu tiên Qwen3-VL-8B / compatible VLM cho MVP, bổ sung prompt có actor, và giữ human review cho reason.</div></div>
+        </section>
+
+        <section class="slide" id="slide-6">
+          <div class="slide-header"><span class="slide-category">DEMO GOLDEN PATH</span><h2 class="slide-title">Demo một vertical slice: PACK01</h2><p class="slide-subtitle">Không demo quá rộng; tập trung flow chạy được từ dữ liệu mẫu đến câu trả lời có citation.</p></div>
+          <div class="slide-body"><div class="demo-evidence-layout">
+            <div class="demo-screen"><div class="screen-top"><span></span><span></span><span></span></div><h4>① Upload dữ liệu</h4><p>packing_sop.pdf, video packing, mock Sigma CSV</p><div class="fake-file-row">📄 packing_sop.pdf <b>synthetic</b></div><div class="fake-file-row">🎥 packing_demo.mp4 <b>public/synthetic</b></div></div>
+            <div class="demo-screen"><div class="screen-top"><span></span><span></span><span></span></div><h4>② Duyệt WorkProfile</h4><p>Step, key point, reason, ngoại lệ, evidence</p><div class="fake-profile"><strong>PACK01-S03</strong><small>Reason: chờ expert xác nhận</small><em>status: draft → approved</em></div></div>
+            <div class="demo-screen"><div class="screen-top"><span></span><span></span><span></span></div><h4>③ Hỏi Assistant</h4><p>“Bước này làm thế nào?” → trả lời có nguồn</p><div class="fake-answer">Không tiếp tục đóng gói nếu phát hiện chân pin cong. <b>[SOP-01 · 00:12–00:18]</b></div></div>
+          </div><div class="quote-vn"><strong>Câu chốt khi demo:</strong> “Nếu chưa có evidence đã duyệt, hệ thống từ chối thay vì bịa lý do.”</div></div>
+        </section>
+
+        <section class="slide" id="slide-7">
+          <div class="slide-header"><span class="slide-category">KPI &amp; GIÁ TRỊ</span><h2 class="slide-title">Đánh giá bằng chất lượng câu trả lời và giá trị vận hành</h2><p class="slide-subtitle">MentorMind cần chứng minh hai thứ: trả lời đúng nguồn và giúp người mới xử lý tình huống nhanh hơn.</p></div>
+          <div class="slide-body"><div class="kpi-layout">
+            <div class="kpi-card"><span>KPI kỹ thuật</span><h3>Faithfulness ≥ 0.85</h3><p>Câu trả lời phải bám evidence, không tự thêm lý do chưa được duyệt.</p></div>
+            <div class="kpi-card"><span>KPI retrieval</span><h3>Context P/R ≥ 0.70</h3><p>Truy xuất đúng và đủ đoạn SOP/video/profile cần thiết.</p></div>
+            <div class="kpi-card"><span>KPI nghiệp vụ</span><h3>Giảm thời gian tra cứu</h3><p>Người vận hành hỏi theo công đoạn/lỗi thay vì lục tài liệu thủ công.</p></div>
+            <div class="business-card"><h4>Giá trị cho DENSO</h4><ul><li>Giữ lại tri thức chuyên gia khi luân chuyển/nghỉ hưu.</li><li>Chuẩn hóa training cho người mới theo evidence.</li><li>Hỗ trợ truy nguyên lỗi theo lot/công đoạn/thao tác.</li><li>Tôn trọng chuyên gia: có tên, nguồn và cơ chế ghi nhận.</li></ul></div>
+          </div></div>
+        </section>
+
+        <section class="slide" id="slide-8">
+          <div class="slide-header"><span class="slide-category">ROADMAP &amp; KẾT LUẬN</span><h2 class="slide-title">Từ capture đến trợ lý AI trong 3 tháng</h2><p class="slide-subtitle">MVP tập trung vào flow có evidence; roadmap mở rộng sang voice interview, RCA và pilot tại công đoạn thật.</p></div>
+          <div class="slide-body"><div class="roadmap-timeline compact"><div class="timeline-card"><span class="timeline-month">THÁNG 1</span><h4 class="timeline-title">Capture + Template</h4><ul class="timeline-tasks"><li><span>WorkProfile schema.</span></li><li><span>Ingest SOP/video sample.</span></li><li><span>Golden Path PACK01.</span></li></ul></div><div class="timeline-card"><span class="timeline-month">THÁNG 2</span><h4 class="timeline-title">KB + Agent</h4><ul class="timeline-tasks"><li><span>pgvector + Neo4j.</span></li><li><span>Work Assistant có citation.</span></li><li><span>Review/approve UI.</span></li></ul></div><div class="timeline-card"><span class="timeline-month">THÁNG 3</span><h4 class="timeline-title">Evaluation + Pilot</h4><ul class="timeline-tasks"><li><span>Ragas + Golden QA.</span></li><li><span>RCA + Sigma adapter.</span></li><li><span>Pilot tại packing.</span></li></ul></div></div><div class="vision-quote-card"><div class="vision-text"><h3>“Video cho biết chuyên gia làm gì. Chuyên gia cho biết tại sao. MentorMind biến cả hai thành tri thức có kiểm chứng.”</h3><p>Giữ lại bí quyết chuyên gia — trao quyền cho con người, không thay thế.</p></div><div class="vision-badge">DENSO HACKATHON · THANK YOU &amp; Q&amp;A</div></div></div>
+        </section>
+
+
+      </div>
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <footer class="bottom-bar">
+      <!-- Progress Bar -->
+      <div class="progress-rail">
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="slide-dots" id="slideDots"></div>
+      </div>
+
+      <!-- Nav Controls -->
+      <div class="nav-buttons">
+        <button class="btn-nav" id="btnPrev" title="Slide trước (Mũi tên trái)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          Trước
+          <span class="kbd-hint">&larr;</span>
+        </button>
+
+        <button class="btn-nav primary" id="btnNext" title="Slide sau (Space hoặc mũi tên phải)">
+          Sau
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          <span class="kbd-hint" style="background: rgba(255,255,255,0.25); color: #fff;">Space</span>
+        </button>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ====================================================================
+       PRESENTER NOTES DRAWER
+       ==================================================================== -->
+  <aside class="notes-drawer" id="notesDrawer">
+    <div class="notes-header">
+      <div class="notes-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+        Ghi chú thuyết trình
+      </div>
+      <button class="btn-icon" id="closeNotesBtn" title="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+    <div class="notes-content" id="notesContent">
+      <!-- Injected by presentation.js -->
+    </div>
+  </aside>
+
+  <!-- ====================================================================
+       OVERVIEW MODAL (BENTO GRID)
+       ==================================================================== -->
+  <div class="modal-overlay" id="overviewModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">Tổng quan slide (bấm để chuyển nhanh)</div>
+        <button class="btn-icon" data-close-modal title="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="overview-grid" id="overviewGrid">
+          <!-- Injected by presentation.js -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       LIGHTBOX MODAL (HIGH-RES DIAGRAM)
+       ==================================================================== -->
+  <div class="modal-overlay" id="lightboxModal">
+    <div class="modal-card lightbox-img-wrapper">
+      <div class="modal-header">
+        <div class="modal-title">Sơ đồ kiến trúc chi tiết MentorMind</div>
+        <button class="btn-icon" data-close-modal title="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body" style="text-align: center;">
+        <img src="assets/architecture-diagram.png" alt="Architecture Diagram" class="lightbox-img" onerror="this.src='https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=1200&q=80'">
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       HELP MODAL (KEYBOARD SHORTCUTS)
+       ==================================================================== -->
+  <div class="modal-overlay" id="helpModal">
+    <div class="modal-card" style="max-width: 600px;">
+      <div class="modal-header">
+        <div class="modal-title">Phím tắt khi thuyết trình</div>
+        <button class="btn-icon" data-close-modal title="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <table class="kbd-table">
+          <tbody>
+            <tr>
+              <td><kbd>→</kbd> / <kbd>Space</kbd> / <kbd>Enter</kbd></td>
+              <td>Chuyển sang slide sau</td>
+            </tr>
+            <tr>
+              <td><kbd>←</kbd> / <kbd>Backspace</kbd></td>
+              <td>Quay lại slide trước</td>
+            </tr>
+            <tr>
+              <td><kbd>Home</kbd> / <kbd>End</kbd></td>
+              <td>Đến slide đầu / slide cuối</td>
+            </tr>
+            <tr>
+              <td><kbd>F</kbd></td>
+              <td>Bật/tắt toàn màn hình</td>
+            </tr>
+            <tr>
+              <td><kbd>O</kbd> or <kbd>M</kbd></td>
+              <td>Bật/tắt lưới tổng quan slide</td>
+            </tr>
+            <tr>
+              <td><kbd>N</kbd></td>
+              <td>Bật/tắt ghi chú thuyết trình</td>
+            </tr>
+            <tr>
+              <td><kbd>T</kbd></td>
+              <td>Bắt đầu / tạm dừng bộ đếm 5 phút</td>
+            </tr>
+            <tr>
+              <td><kbd>Cmd</kbd> + <kbd>P</kbd></td>
+              <td>In/xuất toàn bộ slide thành PDF</td>
+            </tr>
+            <tr>
+              <td><kbd>Esc</kbd></td>
+              <td>Đóng hộp thoại hoặc ghi chú đang mở</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript Controller -->
+  <script src="js/presentation.js"></script>
+</body>
+</html>
